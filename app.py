@@ -503,4 +503,4 @@ if __name__ == "__main__":
         exit(1)
 
     init_db()
-    app.run(debug=True, port=3000)
+    app.run(debug=True, port=1283)

@@ -25,7 +25,7 @@ load_dotenv()
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 DISCORD_GUILD_ID = int(os.getenv("DISCORD_GUILD_ID", "0"))
 DATABASE = "users.db"
-BASE_URL = "http://127.0.0.1:3000"  # Change this to your actual domain in production
+BASE_URL = "http://127.0.0.1:1283"  # Change this to your actual domain in production
 
 # Bot setup
 intents = discord.Intents.default()
