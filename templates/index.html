@@ -1,0 +1,26 @@
+{% extends "base.html" %} {% block title %}Home - Hack ID{% endblock %} {% block
+header %}Welcome to Hack ID{% endblock %} {% block content %}
+<div style="text-align: center">
+  {% if logged_in %}
+  <h2>You are logged in!</h2>
+  <p>Welcome to the Hack ID system.</p>
+  {% if session['user_email'] == 'contact@adamxu.net' %}
+  <a href="{{ url_for('admin') }}" class="btn">Go to Admin Panel</a>
+  {% endif %} {% else %}
+  <h2>Please log in to continue</h2>
+  <p>Choose one of the login methods below:</p>
+  <div
+    style="
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-width: 300px;
+      margin: 0 auto;
+    "
+  >
+    <a href="{{ url_for('auth_google') }}" class="btn">Login with Google</a>
+    <a href="{{ url_for('auth_email') }}" class="btn">Login with Email</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

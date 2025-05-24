@@ -1,0 +1,22 @@
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Verify Success!</title>
+  </head>
+  <body>
+    <h1>Verify Success!</h1>
+    <p>
+      You have successfully verified Discord user {{ discord_username }} as
+      email {{ email }}.
+    </p>
+    <p>
+        Events registered:
+        <ul>
+          {% for event in events %}
+          <li>{{ event }}</li>
+          {% endfor %}
+        </ul>
+    </p>
+  </body>
+</html>

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Panel - Hack ID{% endblock %}
+
+{% block header %}Admin Panel{% endblock %}
+
+{% block content %}
+<div>
+    <h2>User Database</h2>
+    <p>Total users: {{ users|length }}</p>
+    
+    {% if users %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Email</th>
+                    <th>Legal Name</th>
+                    <th>Preferred Name</th>
+                    <th>Discord ID</th>
+                    <th>Events</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td>{{ user.email }}</td>
+                    <td>{{ user.legal_name or 'N/A' }}</td>
+                    <td>{{ user.preferred_name or 'N/A' }}</td>
+                    <td>{{ user.discord_id or 'N/A' }}</td>
+                    <td>
+                        <div class="events-list">
+                            {% for event in user.events %}
+                                <span class="event-tag">{{ event }}</span>
+                            {% endfor %}
+                            {% if not user.events %}
+                                <span style="color: #666;">No events</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>No users found in the database.</p>
+        <p><em>Run the import script to populate the database with user data.</em></p>
+    {% endif %}
+</div>
+
+<div style="text-align: center; margin-top: 30px;">
+    <a href="{{ url_for('index') }}" class="btn">Back to Home</a>
+</div>
+{% endblock %}

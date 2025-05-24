@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block title %}Discord Verification{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>🔐 Discord Verification</h1>
+    
+    <div class="verification-info">
+        <p>Hello <strong>{{ discord_username }}</strong>!</p>
+        <p>To complete your Discord verification and get access to event channels, please sign in with one of the options below:</p>
+    </div>
+
+    <div class="auth-options">
+        <div class="auth-option">
+            <h3>🔗 Sign in with Google</h3>
+            <p>Use your Google account to verify your identity</p>
+            <a href="{{ url_for('auth_google') }}" class="btn btn-primary">
+                <span class="btn-icon">🔗</span>
+                Sign in with Google
+            </a>
+        </div>
+
+        <div class="auth-divider">
+            <span>OR</span>
+        </div>
+
+        <div class="auth-option">
+            <h3>📧 Sign in with Email</h3>
+            <p>Use your registered email address to verify your identity</p>
+            <a href="{{ url_for('auth_email') }}" class="btn btn-secondary">
+                <span class="btn-icon">📧</span>
+                Sign in with Email
+            </a>
+        </div>
+    </div>
+
+    <div class="verification-note">
+        <p><strong>Note:</strong> You must have registered for one of our events (Counterspell or Scrapyard) to complete verification.</p>
+        <p>This verification link expires in 10 minutes.</p>
+    </div>
+</div>
+
+<style>
+.container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.verification-info {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+.verification-info p {
+    margin: 0.5rem 0;
+    font-size: 1.1rem;
+}
+
+.auth-options {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.auth-option {
+    background: white;
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    padding: 2rem;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.auth-option:hover {
+    border-color: #007bff;
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.15);
+}
+
+.auth-option h3 {
+    margin: 0 0 0.5rem 0;
+    color: #333;
+    font-size: 1.3rem;
+}
+
+.auth-option p {
+    margin: 0 0 1.5rem 0;
+    color: #666;
+    font-size: 1rem;
+}
+
+.btn {
+    display: inline-block;
+    padding: 12px 24px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1.1rem;
+    transition: all 0.3s ease;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-primary {
+    background: #007bff;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #0056b3;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #545b62;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+}
+
+.btn-icon {
+    margin-right: 8px;
+    font-size: 1.2rem;
+}
+
+.auth-divider {
+    text-align: center;
+    position: relative;
+    margin: 1rem 0;
+}
+
+.auth-divider::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: #dee2e6;
+    z-index: 1;
+}
+
+.auth-divider span {
+    background: white;
+    padding: 0 1rem;
+    color: #6c757d;
+    font-weight: 600;
+    position: relative;
+    z-index: 2;
+}
+
+.verification-note {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 8px;
+    padding: 1rem;
+    color: #856404;
+    font-size: 0.9rem;
+}
+
+.verification-note p {
+    margin: 0.5rem 0;
+}
+
+.verification-note strong {
+    color: #533f03;
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: 1rem;
+    }
+    
+    .auth-option {
+        padding: 1.5rem;
+    }
+    
+    .btn {
+        padding: 10px 20px;
+        font-size: 1rem;
+    }
+}
+</style>
+{% endblock %}
