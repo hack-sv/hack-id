@@ -1,5 +1,3 @@
-DEBUG_MODE = False
-
 import os
 import sqlite3
 import json
@@ -32,13 +30,24 @@ else:
     print("DEBUG: .env file NOT found")
     load_dotenv()  # Try default loading
 
+# Environment configuration
+PROD = os.getenv("PROD", "").upper() == "TRUE"
+DEBUG_MODE = not PROD
+
+# Base URL configuration
+if PROD:
+    BASE_URL = "http://id.hack.sv"
+else:
+    BASE_URL = "http://127.0.0.1:3000"
+
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "your-secret-key-change-this")
 
 # Google OAuth configuration
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-REDIRECT_URI = os.getenv("REDIRECT_URI", "http://127.0.0.1:3000/auth/google/callback")
+# Use environment REDIRECT_URI if set, otherwise use dynamic URL based on environment
+REDIRECT_URI = os.getenv("REDIRECT_URI") or f"{BASE_URL}/auth/google/callback"
 
 # SendGrid configuration
 SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
@@ -225,10 +234,12 @@ def send_verification_email(email, code):
 
         sg = SendGridAPIClient(SENDGRID_API_KEY)
         response = sg.send(message)
-        print(f"SendGrid Response: {response.status_code}")
+        if DEBUG_MODE:
+            print(f"SendGrid Response: {response.status_code}")
         return response.status_code == 202
     except Exception as e:
-        print(f"Error sending email: {str(e)}")
+        if DEBUG_MODE:
+            print(f"Error sending email: {str(e)}")
         # For development, still return True to allow testing
         if DEBUG_MODE:
             return True
@@ -247,8 +258,9 @@ def index():
 @app.route("/auth/google")
 def auth_google():
     """Redirect to Google OAuth."""
-    print(f"DEBUG: GOOGLE_CLIENT_ID = {GOOGLE_CLIENT_ID}")
-    print(f"DEBUG: REDIRECT_URI = {REDIRECT_URI}")
+    if DEBUG_MODE:
+        print(f"DEBUG: GOOGLE_CLIENT_ID = {GOOGLE_CLIENT_ID}")
+        print(f"DEBUG: REDIRECT_URI = {REDIRECT_URI}")
 
     google_auth_url = "https://accounts.google.com/o/oauth2/auth?" + urlencode(
         {
@@ -258,7 +270,8 @@ def auth_google():
             "scope": "email profile",
         }
     )
-    print(f"DEBUG: Auth URL = {google_auth_url}")
+    if DEBUG_MODE:
+        print(f"DEBUG: Auth URL = {google_auth_url}")
     return redirect(google_auth_url)
 
 
@@ -272,10 +285,11 @@ def auth_google_callback():
                 "auth.html", state="error", error="No authentication code received."
             )
 
-        print(f"DEBUG: Received code: {code[:20]}...")
-        print(f"DEBUG: Using CLIENT_ID: {GOOGLE_CLIENT_ID}")
-        print(f"DEBUG: Using CLIENT_SECRET: {GOOGLE_CLIENT_SECRET[:10]}...")
-        print(f"DEBUG: Using REDIRECT_URI: {REDIRECT_URI}")
+        if DEBUG_MODE:
+            print(f"DEBUG: Received code: {code[:20]}...")
+            print(f"DEBUG: Using CLIENT_ID: {GOOGLE_CLIENT_ID}")
+            print(f"DEBUG: Using CLIENT_SECRET: {GOOGLE_CLIENT_SECRET[:10]}...")
+            print(f"DEBUG: Using REDIRECT_URI: {REDIRECT_URI}")
 
         token_data = {
             "client_id": GOOGLE_CLIENT_ID,
@@ -285,14 +299,16 @@ def auth_google_callback():
             "redirect_uri": REDIRECT_URI,
         }
 
-        print(f"DEBUG: Token request data: {token_data}")
+        if DEBUG_MODE:
+            print(f"DEBUG: Token request data: {token_data}")
 
         token_response = requests.post(
             "https://oauth2.googleapis.com/token",
             data=token_data,
         ).json()
 
-        print(f"DEBUG: Token response: {token_response}")
+        if DEBUG_MODE:
+            print(f"DEBUG: Token response: {token_response}")
 
         if "error" in token_response or "access_token" not in token_response:
             error_msg = f"Failed to authenticate with Google. Error: {token_response.get('error', 'Unknown error')} - {token_response.get('error_description', 'No description')}"
@@ -619,13 +635,17 @@ def verify_complete():
 
 if __name__ == "__main__":
     # Debug: Check if environment variables are loaded
-    print("=== ENVIRONMENT VARIABLES DEBUG ===")
-    print(f"GOOGLE_CLIENT_ID: {GOOGLE_CLIENT_ID}")
-    print(
-        f"GOOGLE_CLIENT_SECRET: {GOOGLE_CLIENT_SECRET[:10] if GOOGLE_CLIENT_SECRET else 'None'}..."
-    )
-    print(f"REDIRECT_URI: {REDIRECT_URI}")
-    print("===================================")
+    if DEBUG_MODE:
+        print("=== ENVIRONMENT VARIABLES DEBUG ===")
+        print(f"PROD: {PROD}")
+        print(f"DEBUG_MODE: {DEBUG_MODE}")
+        print(f"BASE_URL: {BASE_URL}")
+        print(f"GOOGLE_CLIENT_ID: {GOOGLE_CLIENT_ID}")
+        print(
+            f"GOOGLE_CLIENT_SECRET: {GOOGLE_CLIENT_SECRET[:10] if GOOGLE_CLIENT_SECRET else 'None'}..."
+        )
+        print(f"REDIRECT_URI: {REDIRECT_URI}")
+        print("===================================")
 
     if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
         print("ERROR: Google OAuth credentials not found in environment variables!")
@@ -633,4 +653,7 @@ if __name__ == "__main__":
         exit(1)
 
     init_db()
-    app.run(debug=True, port=3000)
+
+    # Determine port based on environment
+    port = int(os.getenv("PORT", 3000))
+    app.run(debug=DEBUG_MODE, port=port, host="0.0.0.0" if PROD else "127.0.0.1")

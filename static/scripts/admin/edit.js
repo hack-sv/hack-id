@@ -430,7 +430,7 @@ function updateTextFieldDisplay(cell, newValue, field) {
     const userEmail = cell.closest("[data-user-id]").dataset.userId;
 
     // For now, use simple formatting for all fields to ensure it works
-    cell.innerHTML = `${displayValue} <img src="/static/images/edit.svg" alt="Edit" class="edit-icon" style="cursor: pointer;" onclick="editUser('${userEmail}')">`;
+    cell.innerHTML = `${displayValue} <img src="/static/icons/pencil.svg" alt="Edit" class="edit-icon" style="cursor: pointer;" onclick="editUser('${userEmail}')">`;
 }
 
 // Helper function to update events display with new values
@@ -444,7 +444,7 @@ function updateEventsDisplay(cell, selectedEvents) {
         eventsContent = selectedEvents.join(" ");
     }
 
-    cell.innerHTML = `${eventsContent} <img src="/static/images/edit.svg" alt="Edit" class="edit-icon" style="cursor: pointer;" onclick="editUser('${userEmail}')">`;
+    cell.innerHTML = `${eventsContent} <img src="/static/icons/pencil.svg" alt="Edit" class="edit-icon" style="cursor: pointer;" onclick="editUser('${userEmail}')">`;
 }
 
 // Helper function to update display with new values after successful save
