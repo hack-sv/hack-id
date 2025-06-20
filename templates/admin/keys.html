@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>API Key Management - Hack ID</title>
+
+        <!-- Admin Styles -->
+        <link rel="stylesheet" href="/static/styles/admin/base.css" />
+        <link rel="stylesheet" href="/static/styles/admin/table.css" />
+        <link rel="stylesheet" href="/static/styles/admin/edit.css" />
+
+        <!-- SweetAlert2 for modals -->
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+        <style>
+            .create-key-btn {
+                position: fixed;
+                top: 8px;
+                right: 20px;
+                background: #007bff;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 14px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                z-index: 101;
+            }
+
+            .create-key-btn:hover {
+                background: #0056b3;
+            }
+
+            .create-key-btn img {
+                width: 16px;
+                height: 16px;
+            }
+
+            .key-display {
+                font-family: monospace;
+                background: #f8f9fa;
+                padding: 8px;
+                border-radius: 4px;
+                border: 1px solid #ddd;
+                word-break: break-all;
+                font-size: 12px;
+            }
+
+            .permissions-list {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 4px;
+            }
+
+            .permission-tag {
+                background: #e9ecef;
+                padding: 2px 6px;
+                border-radius: 3px;
+                font-size: 11px;
+                color: #495057;
+            }
+
+            .action-buttons {
+                display: flex;
+                gap: 8px;
+                align-items: center;
+            }
+
+            .action-btn {
+                background: none;
+                border: none;
+                cursor: pointer;
+                padding: 4px;
+                border-radius: 3px;
+                opacity: 0.7;
+                transition: opacity 0.2s;
+            }
+
+            .action-btn:hover {
+                opacity: 1;
+                background: #f8f9fa;
+            }
+
+            .action-btn img {
+                width: 16px;
+                height: 16px;
+            }
+
+            .home-btn {
+                position: fixed;
+                bottom: 20px;
+                left: 20px;
+                background: #6c757d;
+                color: white;
+                border: none;
+                padding: 8px;
+                border-radius: 50%;
+                cursor: pointer;
+                width: 40px;
+                height: 40px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 101;
+            }
+
+            .home-btn:hover {
+                background: #545b62;
+            }
+
+            .home-btn img {
+                width: 20px;
+                height: 20px;
+            }
+        </style>
+    </head>
+    <body>
+        <!-- Search Bar -->
+        <div class="search-bar">
+            <input
+                type="text"
+                id="globalSearch"
+                class="search-input"
+                placeholder="Search API keys... (Cmd+K)"
+                autocomplete="off"
+            />
+            <button
+                class="clear-search"
+                onclick="clearSearch()"
+                title="Clear search"
+            >
+                ×
+            </button>
+            <div class="search-count" id="searchCount">0 entries</div>
+        </div>
+
+        <!-- Create Key Button -->
+        <button class="create-key-btn" onclick="createKey()">
+            <img src="/static/icons/plus.square.on.square.svg" alt="Create" />
+            Create Key
+        </button>
+
+        <!-- Home Button -->
+        <button
+            class="home-btn"
+            onclick="window.location.href='/admin'"
+            title="Back to Dashboard"
+        >
+            <img src="/static/icons/house.svg" alt="Home" />
+        </button>
+
+        <!-- API Keys Table -->
+        <div class="table-container">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th data-sort="id">ID</th>
+                        <th data-sort="name">Name</th>
+                        <th data-sort="created_by">Created By</th>
+                        <th data-sort="created_at">Created</th>
+                        <th data-sort="last_used_at">Last Used</th>
+                        <th>Permissions</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="keysTableBody">
+                    <!-- Keys will be loaded here -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Loading indicator -->
+        <div
+            id="loading"
+            style="text-align: center; padding: 50px; display: none"
+        >
+            Loading API keys...
+        </div>
+
+        <!-- Empty state -->
+        <div
+            id="emptyState"
+            style="
+                text-align: center;
+                padding: 100px 20px;
+                color: #666;
+                display: none;
+            "
+        >
+            <p>No API keys found.</p>
+            <p><em>Click "Create Key" to add your first API key.</em></p>
+        </div>
+
+        <!-- Scripts -->
+        <script src="/static/scripts/admin/core.js"></script>
+        <script>
+            let allKeys = [];
+
+            // Load API keys on page load
+            document.addEventListener("DOMContentLoaded", function () {
+                loadKeys();
+                setupKeyboardShortcuts();
+            });
+
+            async function loadKeys() {
+                const loading = document.getElementById("loading");
+                const emptyState = document.getElementById("emptyState");
+                const tableContainer =
+                    document.querySelector(".table-container");
+
+                loading.style.display = "block";
+                emptyState.style.display = "none";
+                tableContainer.style.display = "none";
+
+                try {
+                    const response = await fetch("/admin/api_keys");
+                    const data = await response.json();
+
+                    if (data.success) {
+                        allKeys = data.keys;
+                        renderKeys(allKeys);
+                        updateCount(allKeys.length);
+
+                        if (allKeys.length === 0) {
+                            emptyState.style.display = "block";
+                        } else {
+                            tableContainer.style.display = "block";
+                        }
+                    } else {
+                        throw new Error(data.error || "Failed to load keys");
+                    }
+                } catch (error) {
+                    console.error("Error loading keys:", error);
+                    Swal.fire(
+                        "Error",
+                        "Failed to load API keys: " + error.message,
+                        "error"
+                    );
+                } finally {
+                    loading.style.display = "none";
+                }
+            }
+
+            function renderKeys(keys) {
+                const tbody = document.getElementById("keysTableBody");
+                tbody.innerHTML = "";
+
+                keys.forEach((key) => {
+                    const row = document.createElement("tr");
+                    row.className = "key-row";
+                    row.innerHTML = `
+                        <td>${key.id}</td>
+                        <td>${escapeHtml(key.name)}</td>
+                        <td>${escapeHtml(key.created_by)}</td>
+                        <td>${formatDate(key.created_at)}</td>
+                        <td>${
+                            key.last_used_at
+                                ? formatDate(key.last_used_at)
+                                : "Never"
+                        }</td>
+                        <td>
+                            <div class="permissions-list">
+                                ${
+                                    key.permissions &&
+                                    key.permissions.length > 0
+                                        ? key.permissions
+                                              .map(
+                                                  (perm) =>
+                                                      `<span class="permission-tag">${escapeHtml(
+                                                          perm
+                                                      )}</span>`
+                                              )
+                                              .join(" ")
+                                        : '<em style="color: #999; font-size: 11px;">No permissions</em>'
+                                }
+                            </div>
+                        </td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="action-btn" onclick="viewKeyDetails(${
+                                    key.id
+                                })" title="View Details">
+                                    <img src="/static/icons/info.circle.svg" alt="Info">
+                                </button>
+                                <button class="action-btn" onclick="editKey(${
+                                    key.id
+                                })" title="Edit">
+                                    <img src="/static/icons/pencil.svg" alt="Edit">
+                                </button>
+                                <button class="action-btn" onclick="deleteKey(${
+                                    key.id
+                                })" title="Delete">
+                                    <img src="/static/icons/trash.svg" alt="Delete">
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
+
+            function formatDate(dateString) {
+                if (!dateString) return "N/A";
+                const date = new Date(dateString);
+                return (
+                    date.toLocaleDateString() +
+                    " " +
+                    date.toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                    })
+                );
+            }
+
+            function escapeHtml(text) {
+                const div = document.createElement("div");
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            function updateCount(count) {
+                document.getElementById(
+                    "searchCount"
+                ).textContent = `${count} entries`;
+            }
+
+            // Search functionality
+            document
+                .getElementById("globalSearch")
+                .addEventListener("input", function (e) {
+                    const searchTerm = e.target.value.toLowerCase();
+                    const filteredKeys = allKeys.filter(
+                        (key) =>
+                            key.name.toLowerCase().includes(searchTerm) ||
+                            key.created_by.toLowerCase().includes(searchTerm) ||
+                            key.id.toString().includes(searchTerm)
+                    );
+                    renderKeys(filteredKeys);
+                    updateCount(filteredKeys.length);
+                });
+
+            function clearSearch() {
+                document.getElementById("globalSearch").value = "";
+                renderKeys(allKeys);
+                updateCount(allKeys.length);
+            }
+
+            function setupKeyboardShortcuts() {
+                document.addEventListener("keydown", function (e) {
+                    if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+                        e.preventDefault();
+                        document.getElementById("globalSearch").focus();
+                    }
+                });
+            }
+
+            // CRUD Operations
+            async function createKey() {
+                const { value: formValues } = await Swal.fire({
+                    title: "Create API Key",
+                    html: `
+                        <div style="text-align: left;">
+                            <label for="keyName" style="display: block; margin-bottom: 5px; font-weight: 500;">Name:</label>
+                            <input id="keyName" class="swal2-input" placeholder="Enter key name" style="margin-bottom: 15px;">
+
+                            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Permissions:</label>
+                            <div id="permissionsList" style="margin-bottom: 10px; min-height: 40px; border: 1px solid #ddd; border-radius: 4px; padding: 8px; background: #f8f9fa;">
+                                <em style="color: #666;">No permissions added</em>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <input id="newPermission" placeholder="Add permission" style="flex: 1; padding: 6px; border: 1px solid #ddd; border-radius: 3px;">
+                                <button type="button" onclick="addPermission()" style="padding: 6px 12px; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">
+                                    <img src="/static/icons/plus.svg" style="width: 12px; height: 12px;" alt="Add">
+                                </button>
+                            </div>
+                        </div>
+                    `,
+                    focusConfirm: false,
+                    showCancelButton: true,
+                    confirmButtonText: "Create Key",
+                    preConfirm: () => {
+                        const name = document.getElementById("keyName").value;
+                        if (!name) {
+                            Swal.showValidationMessage(
+                                "Please enter a key name"
+                            );
+                            return false;
+                        }
+                        return {
+                            name: name,
+                            permissions: window.currentPermissions || [],
+                        };
+                    },
+                });
+
+                if (formValues) {
+                    try {
+                        const response = await fetch("/admin/api_keys", {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                            },
+                            body: JSON.stringify(formValues),
+                        });
+
+                        const data = await response.json();
+
+                        if (data.success) {
+                            // Show the API key to the user (only time it's shown)
+                            await Swal.fire({
+                                title: "API Key Created!",
+                                html: `
+                                    <p><strong>Name:</strong> ${escapeHtml(
+                                        data.name
+                                    )}</p>
+                                    <p><strong>API Key:</strong></p>
+                                    <div class="key-display">${data.key}</div>
+                                    <p style="color: #dc3545; font-size: 14px; margin-top: 10px;">
+                                        <strong>Important:</strong> This is the only time you'll see this key. Please copy it now.
+                                    </p>
+                                `,
+                                icon: "success",
+                                confirmButtonText: "I've copied the key",
+                            });
+
+                            loadKeys(); // Refresh the table
+                        } else {
+                            throw new Error(
+                                data.error || "Failed to create key"
+                            );
+                        }
+                    } catch (error) {
+                        console.error("Error creating key:", error);
+                        Swal.fire(
+                            "Error",
+                            "Failed to create API key: " + error.message,
+                            "error"
+                        );
+                    }
+                }
+
+                // Clean up
+                window.currentPermissions = [];
+            }
+
+            // Permission management for create/edit modals
+            window.currentPermissions = [];
+
+            function addPermission() {
+                const input = document.getElementById("newPermission");
+                const permission = input.value.trim();
+
+                if (
+                    permission &&
+                    !window.currentPermissions.includes(permission)
+                ) {
+                    window.currentPermissions.push(permission);
+                    input.value = "";
+                    updatePermissionsDisplay();
+                }
+            }
+
+            function removePermission(permission) {
+                window.currentPermissions = window.currentPermissions.filter(
+                    (p) => p !== permission
+                );
+                updatePermissionsDisplay();
+            }
+
+            function updatePermissionsDisplay() {
+                const container = document.getElementById("permissionsList");
+                if (window.currentPermissions.length === 0) {
+                    container.innerHTML =
+                        '<em style="color: #666;">No permissions added</em>';
+                } else {
+                    container.innerHTML = window.currentPermissions
+                        .map(
+                            (perm) =>
+                                `<span class="permission-tag" style="margin: 2px; display: inline-flex; align-items: center; gap: 4px;">
+                            ${escapeHtml(perm)}
+                            <button type="button" onclick="removePermission('${escapeHtml(
+                                perm
+                            )}')" style="background: none; border: none; color: #dc3545; cursor: pointer; padding: 0; font-size: 12px;">
+                                <img src="/static/icons/minus.svg" style="width: 10px; height: 10px;" alt="Remove">
+                            </button>
+                        </span>`
+                        )
+                        .join("");
+                }
+            }
+
+            async function editKey(keyId) {
+                // First get the current key details
+                try {
+                    const key = allKeys.find((k) => k.id === keyId);
+                    if (!key) {
+                        throw new Error("Key not found");
+                    }
+
+                    // For now, we'll just allow editing the name
+                    // In a full implementation, we'd fetch the full key details including permissions
+                    const { value: newName } = await Swal.fire({
+                        title: "Edit API Key",
+                        input: "text",
+                        inputValue: key.name,
+                        inputLabel: "Key Name:",
+                        showCancelButton: true,
+                        confirmButtonText: "Update",
+                        inputValidator: (value) => {
+                            if (!value) {
+                                return "Please enter a key name";
+                            }
+                        },
+                    });
+
+                    if (newName) {
+                        const response = await fetch(
+                            `/admin/api_keys/${keyId}`,
+                            {
+                                method: "PATCH",
+                                headers: {
+                                    "Content-Type": "application/json",
+                                },
+                                body: JSON.stringify({ name: newName }),
+                            }
+                        );
+
+                        const data = await response.json();
+
+                        if (data.success) {
+                            Swal.fire(
+                                "Success",
+                                "API key updated successfully",
+                                "success"
+                            );
+                            loadKeys(); // Refresh the table
+                        } else {
+                            throw new Error(
+                                data.error || "Failed to update key"
+                            );
+                        }
+                    }
+                } catch (error) {
+                    console.error("Error editing key:", error);
+                    Swal.fire(
+                        "Error",
+                        "Failed to edit API key: " + error.message,
+                        "error"
+                    );
+                }
+            }
+
+            async function deleteKey(keyId) {
+                const key = allKeys.find((k) => k.id === keyId);
+                if (!key) return;
+
+                const result = await Swal.fire({
+                    title: "Delete API Key",
+                    html: `Are you sure you want to delete the API key "<strong>${escapeHtml(
+                        key.name
+                    )}</strong>"?<br><br><span style="color: #dc3545;">This action cannot be undone.</span>`,
+                    icon: "warning",
+                    showCancelButton: true,
+                    confirmButtonColor: "#dc3545",
+                    confirmButtonText: "Yes, delete it",
+                });
+
+                if (result.isConfirmed) {
+                    try {
+                        const response = await fetch(
+                            `/admin/api_keys/${keyId}`,
+                            {
+                                method: "DELETE",
+                            }
+                        );
+
+                        const data = await response.json();
+
+                        if (data.success) {
+                            Swal.fire(
+                                "Deleted!",
+                                "API key has been deleted.",
+                                "success"
+                            );
+                            loadKeys(); // Refresh the table
+                        } else {
+                            throw new Error(
+                                data.error || "Failed to delete key"
+                            );
+                        }
+                    } catch (error) {
+                        console.error("Error deleting key:", error);
+                        Swal.fire(
+                            "Error",
+                            "Failed to delete API key: " + error.message,
+                            "error"
+                        );
+                    }
+                }
+            }
+
+            async function viewKeyDetails(keyId) {
+                const key = allKeys.find((k) => k.id === keyId);
+                if (!key) return;
+
+                try {
+                    // Get usage logs
+                    const response = await fetch(
+                        `/admin/api_keys/${keyId}/logs?limit=5`
+                    );
+                    const data = await response.json();
+
+                    let logsHtml = "<p><em>No usage logs found</em></p>";
+                    if (data.success && data.logs.length > 0) {
+                        logsHtml =
+                            '<div style="max-height: 200px; overflow-y: auto;">' +
+                            data.logs
+                                .map(
+                                    (log) =>
+                                        `<div style="padding: 8px; border-bottom: 1px solid #eee; font-size: 12px;">
+                                    <strong>${
+                                        log.action
+                                    }</strong> - ${formatDate(log.timestamp)}
+                                    ${
+                                        log.metadata.endpoint
+                                            ? `<br><span style="color: #666;">${log.metadata.method} ${log.metadata.endpoint}</span>`
+                                            : ""
+                                    }
+                                </div>`
+                                )
+                                .join("") +
+                            "</div>";
+                    }
+
+                    await Swal.fire({
+                        title: "API Key Details",
+                        html: `
+                            <div style="text-align: left;">
+                                <p><strong>ID:</strong> ${key.id}</p>
+                                <p><strong>Name:</strong> ${escapeHtml(
+                                    key.name
+                                )}</p>
+                                <p><strong>Created By:</strong> ${escapeHtml(
+                                    key.created_by
+                                )}</p>
+                                <p><strong>Created:</strong> ${formatDate(
+                                    key.created_at
+                                )}</p>
+                                <p><strong>Last Used:</strong> ${
+                                    key.last_used_at
+                                        ? formatDate(key.last_used_at)
+                                        : "Never"
+                                }</p>
+                                <hr style="margin: 15px 0;">
+                                <h4>Recent Usage (Last 5):</h4>
+                                ${logsHtml}
+                            </div>
+                        `,
+                        width: "600px",
+                        confirmButtonText: "Close",
+                    });
+                } catch (error) {
+                    console.error("Error loading key details:", error);
+                    Swal.fire(
+                        "Error",
+                        "Failed to load key details: " + error.message,
+                        "error"
+                    );
+                }
+            }
+        </script>
+    </body>
+</html>

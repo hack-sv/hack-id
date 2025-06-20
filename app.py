@@ -108,6 +108,36 @@ def init_db():
     """
     )
 
+    # Create table for API keys
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS api_keys (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            key TEXT UNIQUE NOT NULL,
+            created_by TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_used_at TIMESTAMP,
+            permissions TEXT DEFAULT '[]',
+            metadata TEXT DEFAULT '{}'
+        )
+    """
+    )
+
+    # Create table for API key usage logs
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS api_key_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            key_id INTEGER NOT NULL,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            action TEXT NOT NULL,
+            metadata TEXT DEFAULT '{}',
+            FOREIGN KEY (key_id) REFERENCES api_keys (id) ON DELETE CASCADE
+        )
+    """
+    )
+
     conn.commit()
     conn.close()
 
@@ -246,6 +276,114 @@ def send_verification_email(email, code):
         return False
 
 
+# API Key utility functions
+def generate_api_key(length=32):
+    """Generate a secure random API key."""
+    import secrets
+
+    return "hack.sv." + secrets.token_urlsafe(length)
+
+
+def get_key_permissions(api_key):
+    """Get permissions for an API key."""
+    conn = get_db_connection()
+    result = conn.execute(
+        "SELECT permissions FROM api_keys WHERE key = ?", (api_key,)
+    ).fetchone()
+    conn.close()
+
+    if result:
+        return json.loads(result["permissions"] or "[]")
+    return []
+
+
+def log_api_key_usage(api_key, action, metadata=None):
+    """Log API key usage."""
+    conn = get_db_connection()
+
+    # Get the key ID
+    key_result = conn.execute(
+        "SELECT id FROM api_keys WHERE key = ?", (api_key,)
+    ).fetchone()
+
+    if key_result:
+        key_id = key_result["id"]
+
+        # Update last_used_at
+        conn.execute(
+            "UPDATE api_keys SET last_used_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (key_id,),
+        )
+
+        # Insert log entry
+        conn.execute(
+            "INSERT INTO api_key_logs (key_id, action, metadata) VALUES (?, ?, ?)",
+            (key_id, action, json.dumps(metadata or {})),
+        )
+
+        conn.commit()
+
+    conn.close()
+
+
+def require_admin(f):
+    """Decorator to require admin authentication."""
+
+    def wrapper(*args, **kwargs):
+        if "user_email" not in session or session["user_email"] != "contact@adamxu.net":
+            return jsonify({"success": False, "error": "Unauthorized"}), 403
+        return f(*args, **kwargs)
+
+    wrapper.__name__ = f.__name__
+    return wrapper
+
+
+def require_api_key(required_permissions=None):
+    """Decorator to require API key authentication with specific permissions."""
+
+    def decorator(f):
+        def wrapper(*args, **kwargs):
+            auth_header = request.headers.get("Authorization")
+            if not auth_header or not auth_header.startswith("Bearer "):
+                return (
+                    jsonify({"error": "Missing or invalid Authorization header"}),
+                    401,
+                )
+
+            api_key = auth_header[7:]  # Remove "Bearer " prefix
+            permissions = get_key_permissions(api_key)
+
+            if not permissions:  # Key doesn't exist or has no permissions
+                return jsonify({"error": "Invalid API key"}), 403
+
+            # Check required permissions (use the outer scope variable)
+            if required_permissions is not None:
+                required_perms = required_permissions
+                if isinstance(required_perms, str):
+                    required_perms = [required_perms]
+
+                if not any(perm in permissions for perm in required_perms):
+                    return jsonify({"error": "Insufficient permissions"}), 403
+
+            # Log the API usage
+            log_api_key_usage(
+                api_key,
+                f.__name__,
+                {
+                    "endpoint": request.endpoint,
+                    "method": request.method,
+                    "ip": request.remote_addr,
+                },
+            )
+
+            return f(*args, **kwargs)
+
+        wrapper.__name__ = f.__name__
+        return wrapper
+
+    return decorator
+
+
 @app.route("/")
 def index():
     """Home page - redirect to auth or dashboard based on login status."""
@@ -350,8 +488,48 @@ def logout():
 
 
 @app.route("/admin")
-def admin():
-    """Admin page - only accessible to contact@adamxu.net."""
+def admin_dashboard():
+    """Admin dashboard - only accessible to contact@adamxu.net."""
+    if "user_email" not in session:
+        return redirect(url_for("auth_google"))
+
+    if session["user_email"] != "contact@adamxu.net":
+        return redirect("/")
+
+    # Get basic statistics
+    conn = get_db_connection()
+
+    # User stats
+    user_count = conn.execute("SELECT COUNT(*) as count FROM users").fetchone()["count"]
+
+    # API key stats
+    api_key_count = conn.execute("SELECT COUNT(*) as count FROM api_keys").fetchone()[
+        "count"
+    ]
+
+    # Recent API key usage
+    recent_logs = conn.execute(
+        """
+        SELECT COUNT(*) as count
+        FROM api_key_logs
+        WHERE timestamp > datetime('now', '-24 hours')
+        """
+    ).fetchone()["count"]
+
+    conn.close()
+
+    stats = {
+        "total_users": user_count,
+        "total_api_keys": api_key_count,
+        "api_calls_24h": recent_logs,
+    }
+
+    return render_template("admin/index.html", stats=stats)
+
+
+@app.route("/admin/users")
+def admin_users():
+    """Admin users page - only accessible to contact@adamxu.net."""
     if "user_email" not in session:
         return redirect(url_for("auth_google"))
 
@@ -394,7 +572,19 @@ def admin():
         ),
     }
 
-    return render_template("admin.html", users=users_data, stats=stats)
+    return render_template("admin/users.html", users=users_data, stats=stats)
+
+
+@app.route("/admin/keys")
+def admin_keys():
+    """Admin API keys page - only accessible to contact@adamxu.net."""
+    if "user_email" not in session:
+        return redirect(url_for("auth_google"))
+
+    if session["user_email"] != "contact@adamxu.net":
+        return redirect("/")
+
+    return render_template("admin/keys.html")
 
 
 @app.route("/admin/update-user", methods=["POST"])
@@ -480,6 +670,201 @@ def update_user():
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
+
+
+# Admin API Key Routes
+@app.route("/admin/api_keys", methods=["GET"])
+@require_admin
+def admin_api_keys():
+    """Get all API keys for admin interface."""
+    conn = get_db_connection()
+    keys = conn.execute(
+        """
+        SELECT id, name, created_by, created_at, last_used_at, permissions
+        FROM api_keys
+        ORDER BY created_at DESC
+        """
+    ).fetchall()
+    conn.close()
+
+    keys_data = []
+    for key in keys:
+        key_dict = dict(key)
+        # Parse permissions JSON and include in response
+        key_dict["permissions"] = json.loads(key_dict["permissions"] or "[]")
+        # Don't include the actual key in the response for security
+        keys_data.append(key_dict)
+
+    return jsonify({"success": True, "keys": keys_data})
+
+
+@app.route("/admin/api_keys", methods=["POST"])
+@require_admin
+def create_api_key():
+    """Create a new API key."""
+    try:
+        data = request.get_json()
+        name = data.get("name")
+        permissions = data.get("permissions", [])
+
+        if not name:
+            return jsonify({"success": False, "error": "Name is required"})
+
+        # Generate new API key
+        api_key = generate_api_key()
+        created_by = session["user_email"]
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO api_keys (name, key, created_by, permissions)
+            VALUES (?, ?, ?, ?)
+            """,
+            (name, api_key, created_by, json.dumps(permissions)),
+        )
+        key_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+
+        return jsonify(
+            {
+                "success": True,
+                "key": api_key,  # Only return the key on creation
+                "id": key_id,
+                "name": name,
+                "permissions": permissions,
+            }
+        )
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route("/admin/api_keys/<int:key_id>", methods=["PATCH"])
+@require_admin
+def update_api_key(key_id):
+    """Update an API key's name and permissions."""
+    try:
+        data = request.get_json()
+        name = data.get("name")
+        permissions = data.get("permissions")
+
+        conn = get_db_connection()
+
+        # Build update query dynamically
+        update_fields = []
+        update_values = []
+
+        if name is not None:
+            update_fields.append("name = ?")
+            update_values.append(name)
+
+        if permissions is not None:
+            update_fields.append("permissions = ?")
+            update_values.append(json.dumps(permissions))
+
+        if not update_fields:
+            return jsonify({"success": False, "error": "No fields to update"})
+
+        update_values.append(key_id)
+        query = f"UPDATE api_keys SET {', '.join(update_fields)} WHERE id = ?"
+
+        result = conn.execute(query, update_values)
+        conn.commit()
+
+        if result.rowcount == 0:
+            conn.close()
+            return jsonify({"success": False, "error": "API key not found"})
+
+        conn.close()
+        return jsonify({"success": True})
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route("/admin/api_keys/<int:key_id>", methods=["DELETE"])
+@require_admin
+def delete_api_key(key_id):
+    """Delete an API key."""
+    try:
+        conn = get_db_connection()
+        result = conn.execute("DELETE FROM api_keys WHERE id = ?", (key_id,))
+        conn.commit()
+
+        if result.rowcount == 0:
+            conn.close()
+            return jsonify({"success": False, "error": "API key not found"})
+
+        conn.close()
+        return jsonify({"success": True})
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route("/admin/api_keys/<int:key_id>/logs", methods=["GET"])
+@require_admin
+def get_api_key_logs(key_id):
+    """Get usage logs for an API key."""
+    try:
+        limit = request.args.get("limit", "10")
+        if limit == "0":
+            limit_clause = ""
+            limit_value = ()
+        else:
+            limit_clause = "LIMIT ?"
+            limit_value = (int(limit),)
+
+        conn = get_db_connection()
+
+        # First check if the key exists
+        key_check = conn.execute(
+            "SELECT name FROM api_keys WHERE id = ?", (key_id,)
+        ).fetchone()
+        if not key_check:
+            conn.close()
+            return jsonify({"success": False, "error": "API key not found"})
+
+        # Get logs
+        query = f"""
+            SELECT timestamp, action, metadata
+            FROM api_key_logs
+            WHERE key_id = ?
+            ORDER BY timestamp DESC
+            {limit_clause}
+        """
+
+        logs = conn.execute(query, (key_id,) + limit_value).fetchall()
+        conn.close()
+
+        logs_data = []
+        for log in logs:
+            log_dict = dict(log)
+            log_dict["metadata"] = json.loads(log_dict["metadata"] or "{}")
+            logs_data.append(log_dict)
+
+        return jsonify(
+            {"success": True, "logs": logs_data, "key_name": key_check["name"]}
+        )
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+# Test API endpoint for API key authentication
+@app.route("/api/test", methods=["GET"])
+@require_api_key(["users.read"])
+def api_test():
+    """Test endpoint that requires API key with users.read permission."""
+    return jsonify(
+        {
+            "success": True,
+            "message": "API key authentication successful!",
+            "timestamp": datetime.now().isoformat(),
+        }
+    )
 
 
 @app.route("/auth/email", methods=["GET", "POST"])
