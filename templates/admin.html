@@ -1,53 +1,654 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Admin Panel - Hack ID</title>
 
-{% block title %}Admin Panel - Hack ID{% endblock %}
+        <!-- Admin Styles -->
+        <link rel="stylesheet" href="/static/styles/admin/base.css" />
+        <link rel="stylesheet" href="/static/styles/admin/table.css" />
+        <link rel="stylesheet" href="/static/styles/admin/edit.css" />
+    </head>
+    <body>
+        <!-- Search Bar -->
+        <div class="search-bar">
+            <input
+                type="text"
+                id="globalSearch"
+                class="search-input"
+                placeholder="Search users... (Cmd+K)"
+                autocomplete="off"
+            />
+            <button
+                class="clear-search"
+                onclick="clearSearch()"
+                title="Clear search"
+            >
+                ×
+            </button>
+            <div class="search-count" id="searchCount">
+                {{ users|length if users else 0 }} entries
+            </div>
+        </div>
 
-{% block header %}Admin Panel{% endblock %}
+        <!-- Home Icon -->
+        <div class="home-icon" onclick="window.location.href='/'" title="Home">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
+            </svg>
+        </div>
 
-{% block content %}
-<div>
-    <h2>User Database</h2>
-    <p>Total users: {{ users|length }}</p>
-    
-    {% if users %}
-        <table>
-            <thead>
-                <tr>
-                    <th>Email</th>
-                    <th>Legal Name</th>
-                    <th>Preferred Name</th>
-                    <th>Discord ID</th>
-                    <th>Events</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for user in users %}
-                <tr>
-                    <td>{{ user.email }}</td>
-                    <td>{{ user.legal_name or 'N/A' }}</td>
-                    <td>{{ user.preferred_name or 'N/A' }}</td>
-                    <td>{{ user.discord_id or 'N/A' }}</td>
-                    <td>
-                        <div class="events-list">
-                            {% for event in user.events %}
-                                <span class="event-tag">{{ event }}</span>
-                            {% endfor %}
-                            {% if not user.events %}
-                                <span style="color: #666;">No events</span>
+        {% if users %}
+
+        <!-- Users Table -->
+        <div class="table-container">
+            <table id="usersTable">
+                <thead>
+                    <tr>
+                        <th data-column="id" onclick="toggleFilter('id')">
+                            <div class="header-content">
+                                <img
+                                    src="/static/icons/person.badge.shield.checkmark.svg"
+                                    class="header-icon"
+                                    alt="ID"
+                                />
+                                ID
+                            </div>
+                        </th>
+                        <th data-column="email" onclick="toggleFilter('email')">
+                            <div class="header-content">
+                                <img
+                                    src="/static/icons/envelope.svg"
+                                    class="header-icon"
+                                    alt="Email"
+                                />
+                                Email
+                            </div>
+                        </th>
+                        <th
+                            data-column="legal_name"
+                            onclick="toggleFilter('legal_name')"
+                        >
+                            <div class="header-content">
+                                <img
+                                    src="/static/icons/person.bubble.svg"
+                                    class="header-icon"
+                                    alt="Legal Name"
+                                />
+                                Legal Name
+                            </div>
+                        </th>
+                        <th
+                            data-column="preferred_name"
+                            onclick="toggleFilter('preferred_name')"
+                        >
+                            <div class="header-content">
+                                <img
+                                    src="/static/icons/person.wave.2.svg"
+                                    class="header-icon"
+                                    alt="Preferred Name"
+                                />
+                                Preferred Name
+                            </div>
+                        </th>
+                        <th
+                            data-column="pronouns"
+                            onclick="toggleFilter('pronouns')"
+                        >
+                            <div class="header-content">
+                                <img
+                                    src="/static/icons/figure.stand.dress.line.vertical.figure.svg"
+                                    class="header-icon"
+                                    alt="Pronouns"
+                                />
+                                Pronouns
+                            </div>
+                        </th>
+                        <th data-column="phone" onclick="toggleFilter('phone')">
+                            <div class="header-content">
+                                <img
+                                    src="/static/icons/phone.svg"
+                                    class="header-icon"
+                                    alt="Phone"
+                                />
+                                Phone
+                            </div>
+                        </th>
+                        <th data-column="dob" onclick="toggleFilter('dob')">
+                            <div class="header-content">
+                                <img
+                                    src="/static/icons/calendar.svg"
+                                    class="header-icon"
+                                    alt="DOB"
+                                />
+                                DOB
+                            </div>
+                        </th>
+                        <th
+                            data-column="address"
+                            onclick="toggleFilter('address')"
+                        >
+                            <div class="header-content">
+                                <img
+                                    src="/static/icons/house.svg"
+                                    class="header-icon"
+                                    alt="Address"
+                                />
+                                Address
+                            </div>
+                        </th>
+                        <th
+                            data-column="emergency_contact"
+                            onclick="toggleFilter('emergency_contact')"
+                        >
+                            <div class="header-content">
+                                <img
+                                    src="/static/icons/person.badge.shield.checkmark.svg"
+                                    class="header-icon"
+                                    alt="Emergency Contact"
+                                />
+                                Emergency Contact
+                            </div>
+                        </th>
+                        <th
+                            data-column="dietary"
+                            onclick="toggleFilter('dietary')"
+                        >
+                            <div class="header-content">
+                                <img
+                                    src="/static/icons/fork.knife.svg"
+                                    class="header-icon"
+                                    alt="Dietary Restrictions"
+                                />
+                                Dietary Restrictions
+                            </div>
+                        </th>
+                        <th
+                            data-column="discord"
+                            onclick="toggleFilter('discord')"
+                        >
+                            <div class="header-content">
+                                <img
+                                    src="/static/icons/plus.bubble.svg"
+                                    class="header-icon"
+                                    alt="Discord ID"
+                                />
+                                Discord ID
+                            </div>
+                        </th>
+                        <th
+                            data-column="events"
+                            onclick="toggleFilter('events')"
+                        >
+                            <div class="header-content">
+                                <img
+                                    src="/static/icons/play.laptopcomputer.svg"
+                                    class="header-icon"
+                                    alt="Events"
+                                />
+                                Events
+                            </div>
+                        </th>
+                    </tr>
+                    <!-- Filter Row -->
+                    <tr class="filter-row" id="filterRow">
+                        <td class="filter-cell">
+                            <input
+                                type="text"
+                                class="filter-input"
+                                placeholder="Filter ID..."
+                                onkeyup="applyColumnFilter('id', this.value)"
+                            />
+                            <div class="sort-buttons">
+                                <button
+                                    class="sort-btn"
+                                    onclick="sortTable('id', 'asc')"
+                                >
+                                    ↑
+                                </button>
+                                <button
+                                    class="sort-btn"
+                                    onclick="sortTable('id', 'desc')"
+                                >
+                                    ↓
+                                </button>
+                            </div>
+                        </td>
+                        <td class="filter-cell">
+                            <input
+                                type="text"
+                                class="filter-input"
+                                placeholder="Filter email..."
+                                onkeyup="applyColumnFilter('email', this.value)"
+                            />
+                            <div class="sort-buttons">
+                                <button
+                                    class="sort-btn"
+                                    onclick="sortTable('email', 'asc')"
+                                >
+                                    A-Z
+                                </button>
+                                <button
+                                    class="sort-btn"
+                                    onclick="sortTable('email', 'desc')"
+                                >
+                                    Z-A
+                                </button>
+                            </div>
+                        </td>
+                        <td class="filter-cell">
+                            <input
+                                type="text"
+                                class="filter-input"
+                                placeholder="Filter name..."
+                                onkeyup="applyColumnFilter('legal_name', this.value)"
+                            />
+                            <div class="sort-buttons">
+                                <button
+                                    class="sort-btn"
+                                    onclick="sortTable('legal_name', 'asc')"
+                                >
+                                    A-Z
+                                </button>
+                                <button
+                                    class="sort-btn"
+                                    onclick="sortTable('legal_name', 'desc')"
+                                >
+                                    Z-A
+                                </button>
+                            </div>
+                        </td>
+                        <td class="filter-cell">
+                            <input
+                                type="text"
+                                class="filter-input"
+                                placeholder="Filter name..."
+                                onkeyup="applyColumnFilter('preferred_name', this.value)"
+                            />
+                            <div class="sort-buttons">
+                                <button
+                                    class="sort-btn"
+                                    onclick="sortTable('preferred_name', 'asc')"
+                                >
+                                    A-Z
+                                </button>
+                                <button
+                                    class="sort-btn"
+                                    onclick="sortTable('preferred_name', 'desc')"
+                                >
+                                    Z-A
+                                </button>
+                            </div>
+                        </td>
+                        <td class="filter-cell">
+                            <div
+                                class="filter-checkboxes"
+                                id="pronouns-checkboxes"
+                            ></div>
+                            <div class="sort-buttons">
+                                <button
+                                    class="sort-btn"
+                                    onclick="sortTable('pronouns', 'asc')"
+                                >
+                                    A-Z
+                                </button>
+                                <button
+                                    class="sort-btn"
+                                    onclick="sortTable('pronouns', 'desc')"
+                                >
+                                    Z-A
+                                </button>
+                            </div>
+                        </td>
+                        <td class="filter-cell">
+                            <input
+                                type="text"
+                                class="filter-input"
+                                placeholder="Filter phone..."
+                                onkeyup="applyColumnFilter('phone', this.value)"
+                            />
+                            <div class="sort-buttons">
+                                <button
+                                    class="sort-btn"
+                                    onclick="sortTable('phone', 'asc')"
+                                >
+                                    A-Z
+                                </button>
+                                <button
+                                    class="sort-btn"
+                                    onclick="sortTable('phone', 'desc')"
+                                >
+                                    Z-A
+                                </button>
+                            </div>
+                        </td>
+                        <td class="filter-cell">
+                            <input
+                                type="date"
+                                id="dob-from"
+                                class="filter-input"
+                                onchange="applyDateRangeFilter()"
+                                placeholder="From"
+                            />
+                            <input
+                                type="date"
+                                id="dob-to"
+                                class="filter-input"
+                                onchange="applyDateRangeFilter()"
+                                placeholder="To"
+                            />
+                            <div class="sort-buttons">
+                                <button
+                                    class="sort-btn"
+                                    onclick="sortTable('dob', 'asc')"
+                                >
+                                    Old
+                                </button>
+                                <button
+                                    class="sort-btn"
+                                    onclick="sortTable('dob', 'desc')"
+                                >
+                                    New
+                                </button>
+                            </div>
+                        </td>
+                        <td class="filter-cell">
+                            <input
+                                type="text"
+                                class="filter-input"
+                                placeholder="Filter address..."
+                                onkeyup="applyColumnFilter('address', this.value)"
+                            />
+                            <div class="sort-buttons">
+                                <button
+                                    class="sort-btn"
+                                    onclick="sortTable('address', 'asc')"
+                                >
+                                    A-Z
+                                </button>
+                                <button
+                                    class="sort-btn"
+                                    onclick="sortTable('address', 'desc')"
+                                >
+                                    Z-A
+                                </button>
+                            </div>
+                        </td>
+                        <td class="filter-cell">
+                            <input
+                                type="text"
+                                class="filter-input"
+                                placeholder="Filter contact..."
+                                onkeyup="applyColumnFilter('emergency_contact', this.value)"
+                            />
+                            <div class="sort-buttons">
+                                <button
+                                    class="sort-btn"
+                                    onclick="sortTable('emergency_contact', 'asc')"
+                                >
+                                    A-Z
+                                </button>
+                                <button
+                                    class="sort-btn"
+                                    onclick="sortTable('emergency_contact', 'desc')"
+                                >
+                                    Z-A
+                                </button>
+                            </div>
+                        </td>
+                        <td class="filter-cell">
+                            <input
+                                type="text"
+                                class="filter-input"
+                                placeholder="Filter dietary..."
+                                onkeyup="applyColumnFilter('dietary', this.value)"
+                            />
+                            <div class="sort-buttons">
+                                <button
+                                    class="sort-btn"
+                                    onclick="sortTable('dietary', 'asc')"
+                                >
+                                    A-Z
+                                </button>
+                                <button
+                                    class="sort-btn"
+                                    onclick="sortTable('dietary', 'desc')"
+                                >
+                                    Z-A
+                                </button>
+                            </div>
+                        </td>
+                        <td class="filter-cell">
+                            <input
+                                type="text"
+                                class="filter-input"
+                                placeholder="Filter Discord..."
+                                onkeyup="applyColumnFilter('discord', this.value)"
+                            />
+                            <div class="sort-buttons">
+                                <button
+                                    class="sort-btn"
+                                    onclick="sortTable('discord', 'asc')"
+                                >
+                                    A-Z
+                                </button>
+                                <button
+                                    class="sort-btn"
+                                    onclick="sortTable('discord', 'desc')"
+                                >
+                                    Z-A
+                                </button>
+                            </div>
+                        </td>
+                        <td class="filter-cell">
+                            <div
+                                class="filter-checkboxes"
+                                id="events-checkboxes"
+                            ></div>
+                            <div class="sort-buttons">
+                                <button
+                                    class="sort-btn"
+                                    onclick="sortTable('events', 'asc')"
+                                >
+                                    A-Z
+                                </button>
+                                <button
+                                    class="sort-btn"
+                                    onclick="sortTable('events', 'desc')"
+                                >
+                                    Z-A
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr
+                        class="user-row"
+                        data-user-id="{{ user.email }}"
+                        data-events="{{ user.events|join(',') }}"
+                        data-has-dietary="{{ 'yes' if user.dietary_restrictions else 'no' }}"
+                        data-id="{{ user.id or '' }}"
+                        data-email="{{ user.email or '' }}"
+                        data-legal-name="{{ user.legal_name or '' }}"
+                        data-preferred-name="{{ user.preferred_name or '' }}"
+                        data-pronouns="{{ user.pronouns or '' }}"
+                        data-phone="{{ user.phone_number or '' }}"
+                        data-dob="{{ user.date_of_birth or '' }}"
+                        data-address="{{ user.address or '' }}"
+                        data-emergency-contact="{{ user.emergency_contact_name or '' }}"
+                        data-dietary="{{ user.dietary_restrictions|join(',') if user.dietary_restrictions else '' }}"
+                        data-discord="{{ user.discord_id or '' }}"
+                    >
+                        <td data-field="id">
+                            {{ user.id }}
+                            <img
+                                src="/static/icons/pencil.svg"
+                                class="edit-icon"
+                                onclick="editUser('{{ user.email }}', event)"
+                                alt="Edit"
+                            />
+                        </td>
+                        <td data-field="email">
+                            {{ user.email }}
+                            <img
+                                src="/static/icons/pencil.svg"
+                                class="edit-icon"
+                                onclick="editUser('{{ user.email }}', event)"
+                                alt="Edit"
+                            />
+                        </td>
+                        <td data-field="legal_name">
+                            {{ user.legal_name or 'N/A' }}
+                            <img
+                                src="/static/icons/pencil.svg"
+                                class="edit-icon"
+                                onclick="editUser('{{ user.email }}', event)"
+                                alt="Edit"
+                            />
+                        </td>
+                        <td data-field="preferred_name">
+                            {{ user.preferred_name or 'N/A' }}
+                            <img
+                                src="/static/icons/pencil.svg"
+                                class="edit-icon"
+                                onclick="editUser('{{ user.email }}', event)"
+                                alt="Edit"
+                            />
+                        </td>
+                        <td data-field="pronouns">
+                            {{ user.pronouns or 'N/A' }}
+                            <img
+                                src="/static/icons/pencil.svg"
+                                class="edit-icon"
+                                onclick="editUser('{{ user.email }}', event)"
+                                alt="Edit"
+                            />
+                        </td>
+                        <td data-field="phone">
+                            {{ user.phone_number or 'N/A' }}
+                            <img
+                                src="/static/icons/pencil.svg"
+                                class="edit-icon"
+                                onclick="editUser('{{ user.email }}', event)"
+                                alt="Edit"
+                            />
+                        </td>
+                        <td data-field="dob">
+                            {{ user.date_of_birth or 'N/A' }}
+                            <img
+                                src="/static/icons/pencil.svg"
+                                class="edit-icon"
+                                onclick="editUser('{{ user.email }}', event)"
+                                alt="Edit"
+                            />
+                        </td>
+                        <td data-field="address">
+                            {% if user.address %}
+                            <div title="{{ user.address }}">
+                                {{ user.address[:30] }}{% if user.address|length
+                                > 30 %}...{% endif %}
+                            </div>
+                            {% else %} N/A {% endif %}
+                            <img
+                                src="/static/icons/pencil.svg"
+                                class="edit-icon"
+                                onclick="editUser('{{ user.email }}', event)"
+                                alt="Edit"
+                            />
+                        </td>
+                        <td data-field="emergency_contact">
+                            {% if user.emergency_contact_name %}
+                            <div>
+                                <strong
+                                    >{{ user.emergency_contact_name }}</strong
+                                ><br />
+                                {% if user.emergency_contact_email %}
+                                <small>{{ user.emergency_contact_email }}</small
+                                ><br />
+                                {% endif %} {% if user.emergency_contact_phone
+                                %}
+                                <small
+                                    >{{ user.emergency_contact_phone }}</small
+                                >
+                                {% endif %}
+                            </div>
+                            {% else %} N/A {% endif %}
+                            <img
+                                src="/static/icons/pencil.svg"
+                                class="edit-icon"
+                                onclick="editUser('{{ user.email }}', event)"
+                                alt="Edit"
+                            />
+                        </td>
+                        <td data-field="dietary">
+                            {% if user.dietary_restrictions %}
+                            <div>
+                                {% for restriction in user.dietary_restrictions
+                                %}
+                                <span class="dietary-tag"
+                                    >{{ restriction }}</span
+                                >
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <span style="color: #666">None</span>
                             {% endif %}
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    {% else %}
-        <p>No users found in the database.</p>
-        <p><em>Run the import script to populate the database with user data.</em></p>
-    {% endif %}
-</div>
+                            <img
+                                src="/static/icons/pencil.svg"
+                                class="edit-icon"
+                                onclick="editUser('{{ user.email }}', event)"
+                                alt="Edit"
+                            />
+                        </td>
+                        <td data-field="discord">
+                            {{ user.discord_id or 'N/A' }}
+                            <img
+                                src="/static/icons/pencil.svg"
+                                class="edit-icon"
+                                onclick="editUser('{{ user.email }}', event)"
+                                alt="Edit"
+                            />
+                        </td>
+                        <td data-field="events">
+                            <div>
+                                {% for event in user.events %}
+                                <span class="event-tag event-{{ event }}"
+                                    >{{ event }}</span
+                                >
+                                {% endfor %} {% if not user.events %}
+                                <span style="color: #666">No events</span>
+                                {% endif %}
+                            </div>
+                            <img
+                                src="/static/icons/pencil.svg"
+                                class="edit-icon"
+                                onclick="editUser('{{ user.email }}', event)"
+                                alt="Edit"
+                            />
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div style="padding: 100px 20px; text-align: center; color: #666">
+            <p>No users found in the database.</p>
+            <p>
+                <em
+                    >Run the import script to populate the database with user
+                    data.</em
+                >
+            </p>
+        </div>
+        {% endif %}
 
-<div style="text-align: center; margin-top: 30px;">
-    <a href="{{ url_for('index') }}" class="btn">Back to Home</a>
-</div>
-{% endblock %}
+        <!-- Admin Scripts -->
+        <script src="/static/scripts/admin/core.js"></script>
+        <script src="/static/scripts/admin/filters.js"></script>
+        <script src="/static/scripts/admin/edit.js"></script>
+    </body>
+</html>

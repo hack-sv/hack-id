@@ -1,22 +1,185 @@
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Verify Success!</title>
-  </head>
-  <body>
-    <h1>Verify Success!</h1>
-    <p>
-      You have successfully verified Discord user {{ discord_username }} as
-      email {{ email }}.
-    </p>
-    <p>
-        Events registered:
-        <ul>
-          {% for event in events %}
-          <li>{{ event }}</li>
-          {% endfor %}
-        </ul>
-    </p>
-  </body>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Verification Successful - Hack ID</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                max-width: 600px;
+                margin: 0 auto;
+                padding: 2rem;
+                background-color: #f5f5f5;
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .success-card {
+                background: white;
+                border-radius: 16px;
+                padding: 3rem;
+                text-align: center;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+                border: 1px solid #e9ecef;
+                width: 100%;
+            }
+            .success-icon {
+                font-size: 4rem;
+                margin-bottom: 1rem;
+            }
+            h1 {
+                color: #28a745;
+                margin: 0 0 2rem 0;
+                font-size: 2.5rem;
+                font-weight: 700;
+            }
+            .success-info {
+                background: #d4edda;
+                border: 1px solid #c3e6cb;
+                border-radius: 8px;
+                padding: 1.5rem;
+                margin-bottom: 2rem;
+            }
+            .success-info p {
+                margin: 0.5rem 0;
+                font-size: 1.1rem;
+                color: #155724;
+            }
+            .events-info {
+                margin-bottom: 2rem;
+            }
+            .events-info h3 {
+                color: #333;
+                margin-bottom: 1rem;
+                font-size: 1.3rem;
+            }
+            .events-list {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+                justify-content: center;
+            }
+            .event-badge {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 0.5rem 1rem;
+                border-radius: 20px;
+                font-weight: 600;
+                font-size: 0.9rem;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            .next-steps {
+                background: #f8f9fa;
+                border-radius: 8px;
+                padding: 1.5rem;
+                margin-bottom: 2rem;
+                text-align: left;
+            }
+            .next-steps h3 {
+                color: #333;
+                margin: 0 0 1rem 0;
+                text-align: center;
+                font-size: 1.3rem;
+            }
+            .next-steps ul {
+                margin: 0;
+                padding-left: 1.5rem;
+            }
+            .next-steps li {
+                margin: 0.5rem 0;
+                color: #555;
+                font-size: 1rem;
+            }
+            .actions {
+                display: flex;
+                gap: 1rem;
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+            .btn {
+                display: inline-block;
+                padding: 12px 24px;
+                border-radius: 8px;
+                text-decoration: none;
+                font-weight: 600;
+                font-size: 1rem;
+                transition: all 0.3s ease;
+                border: none;
+                cursor: pointer;
+                min-width: 140px;
+            }
+            .btn-primary {
+                background: #007bff;
+                color: white;
+            }
+            .btn-primary:hover {
+                background: #0056b3;
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+            }
+            @media (max-width: 768px) {
+                body {
+                    padding: 1rem;
+                }
+                .success-card {
+                    padding: 2rem;
+                }
+                h1 {
+                    font-size: 2rem;
+                }
+                .success-icon {
+                    font-size: 3rem;
+                }
+                .actions {
+                    flex-direction: column;
+                    align-items: center;
+                }
+                .btn {
+                    width: 100%;
+                    max-width: 200px;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="success-card">
+            <div class="success-icon">✅</div>
+
+            <h1>Verification Successful!</h1>
+
+            <div class="success-info">
+                <p>Welcome <strong>{{ preferred_name }}</strong>!</p>
+                <p>
+                    Your Discord account has been successfully linked to
+                    <strong>{{ email }}</strong>
+                </p>
+            </div>
+
+            <div class="events-info">
+                <h3>Events you have attended:</h3>
+                <div class="events-list">
+                    {% for event in events %}
+                    <span class="event-badge">{{ event.title() }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="next-steps">
+                <h3>🚀 What's Next?</h3>
+                <ul>
+                    <li>You should have recieved roles for the above events</li>
+                    <li>You will now be able to chat in the Discord server</li>
+                    <li>If something looks off, email adam@hack.sv</li>
+                </ul>
+            </div>
+
+            <p>
+                If you have any questions, email
+                <a href="mailto:adam@hack.sv">adam@hack.sv</a>
+            </p>
+        </div>
+    </body>
 </html>

@@ -1,0 +1,14 @@
+{
+    "counterspell": {
+        "name": "Counterspell",
+        "discord-role-id": 1308115271050858608,
+        "discord-name": "<:counterspell:1308115271050858608> Counterspell Silicon Valley",
+        "description": "2-day game jam"
+    },
+    "scrapyard": {
+        "name": "Scrapyard",
+        "discord-role-id": 1320732117272891392,
+        "discord-name": "<:scrapyard:1320732117272891392> Scrapyard Silicon Valley",
+        "description": "12-hour hardware hackathon"
+    }
+}

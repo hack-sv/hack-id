@@ -7,16 +7,10 @@ import os
 import json
 import sqlite3
 import asyncio
-import random
 from datetime import datetime, timedelta
 import discord
 from discord.ext import tasks
 from dotenv import load_dotenv
-
-# Add this to track active giveaways
-active_giveaways = (
-    {}
-)  # {message_id: {"title": str, "description": str, "winners": int, "entries": [user_ids]}}
 
 # Load environment variables
 load_dotenv()
@@ -25,13 +19,18 @@ load_dotenv()
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 DISCORD_GUILD_ID = int(os.getenv("DISCORD_GUILD_ID", "0"))
 DATABASE = "users.db"
-BASE_URL = "http://127.0.0.1:1283"  # Change this to your actual domain in production
+BASE_URL = "http://127.0.0.1:5000"  # Change this to your actual domain in production
 
 # Bot setup
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 bot = discord.Bot(intents=intents)
+
+event_name_mapping = {
+    "counterspell": "<:counterspell:1308115271050858608> Counterspell Silicon Valley",
+    "scrapyard": "<:scrapyard:1320732117272891392> Scrapyard Silicon Valley",
+}
 
 
 def get_db_connection():
@@ -107,50 +106,11 @@ async def on_ready():
     print(f"Bot logged in as {bot.user}")
     print(f"Guild ID: {DISCORD_GUILD_ID}")
 
-    # Initialize database
-    init_db()
-
-    # Load active giveaways from database
-    load_active_giveaways()
-
     # Start the cleanup task
     cleanup_expired_tokens.start()
 
     # Start the verification check task
     check_for_new_verifications.start()
-
-
-def load_active_giveaways():
-    """Load active giveaways from database into memory."""
-    global active_giveaways
-    active_giveaways = {}
-
-    conn = get_db_connection()
-    giveaways = conn.execute("SELECT * FROM giveaways WHERE active = TRUE").fetchall()
-
-    for giveaway in giveaways:
-        message_id = giveaway["message_id"]
-
-        # Get entries for this giveaway
-        entries = conn.execute(
-            "SELECT user_id FROM giveaway_entries WHERE message_id = ?", (message_id,)
-        ).fetchall()
-
-        entry_ids = [entry["user_id"] for entry in entries]
-
-        # Store in memory
-        active_giveaways[message_id] = {
-            "title": giveaway["title"],
-            "description": giveaway["description"],
-            "winners": giveaway["winners"],
-            "entries": entry_ids,
-            "host": giveaway["host_id"],
-            "channel_id": giveaway["channel_id"],
-            "active": giveaway["active"],
-        }
-
-    conn.close()
-    print(f"Loaded {len(active_giveaways)} active giveaways from database")
 
 
 @bot.slash_command(
@@ -165,9 +125,18 @@ async def verify(ctx):
     user = get_user_by_discord_id(discord_id)
     if user:
         preferred_name = user["preferred_name"] or user["legal_name"] or "User"
+
+        # Parse events and create bullet list
+        events = json.loads(user["events"])
+        events_list = ""
+        if events:
+            events_list = "\n\n**Your events:**\n" + "\n".join(
+                [f"* {event_name_mapping.get(event, event)}" for event in events]
+            )
+
         embed = discord.Embed(
             title="✅ Already Verified",
-            description=f"You're already verified as **{preferred_name}** ({user['email']}).\n\nDM an organizer if you need to switch your registered email address.",
+            description=f"You're already verified as **{preferred_name}** ({user['email']}).{events_list}\n\nDM an organizer if you need to switch your registered email address.",
             color=discord.Color.green(),
         )
         await ctx.respond(embed=embed, ephemeral=True)
@@ -198,14 +167,15 @@ class VerificationView(discord.ui.View):
         super().__init__(timeout=600)  # 10 minutes timeout
         self.verification_url = verification_url
 
-        # Add URL button that opens directly
-        self.add_item(
-            discord.ui.Button(
-                label="Verify Identity",
-                style=discord.ButtonStyle.primary,
-                emoji="🔗",
-                url=verification_url,
-            )
+    @discord.ui.button(
+        label="Verify Identity", style=discord.ButtonStyle.primary, emoji="🔗"
+    )
+    async def verify_button(
+        self, button: discord.ui.Button, interaction: discord.Interaction
+    ):
+        """Handle verification button click."""
+        await interaction.response.send_message(
+            f"Click here to verify: {self.verification_url}", ephemeral=True
         )
 
 
@@ -310,310 +280,6 @@ async def assign_roles_after_verification(discord_id):
     except Exception as e:
         print(f"Error assigning roles: {e}")
         return False
-
-
-@bot.slash_command(guild_ids=[DISCORD_GUILD_ID], description="Create a new giveaway")
-async def create_giveaway(
-    ctx,
-    title: discord.Option(str, "Giveaway title"),
-    description: discord.Option(str, "Giveaway description"),
-    winners: discord.Option(int, "Number of winners", min_value=1, max_value=10),
-    image: discord.Option(discord.Attachment, "Giveaway image", required=False) = None,
-):
-    """Create a new giveaway with entry button."""
-    # Check if user has the required role
-    required_role_id = 1293732270183546930
-    has_role = any(role.id == required_role_id for role in ctx.author.roles)
-
-    if not has_role:
-        await ctx.respond(
-            "You don't have permission to create giveaways.", ephemeral=True
-        )
-        return
-
-    # Create embed
-    embed = discord.Embed(
-        title=f"🎉 GIVEAWAY: {title}",
-        description=description,
-        color=discord.Color.blue(),
-    )
-
-    embed.add_field(
-        name="Winners", value=f"{winners} winner(s) will be selected", inline=False
-    )
-    embed.add_field(name="Host", value=ctx.author.mention, inline=False)
-    embed.set_footer(text="Enter below to participate! You must be verified.")
-
-    # Add image if provided
-    if image:
-        embed.set_thumbnail(url=image.url)
-
-    # Create view with entry button
-    view = GiveawayView()
-
-    # Send the giveaway message
-    await ctx.respond("Giveaway created!", ephemeral=True)
-    message = await ctx.channel.send(embed=embed, view=view)
-
-    # Store giveaway info in database
-    conn = get_db_connection()
-    conn.execute(
-        "INSERT INTO giveaways (message_id, channel_id, host_id, title, description, winners) VALUES (?, ?, ?, ?, ?, ?)",
-        (str(message.id), ctx.channel.id, ctx.author.id, title, description, winners),
-    )
-    conn.commit()
-    conn.close()
-
-    # Also store in memory for quick access
-    active_giveaways[str(message.id)] = {
-        "title": title,
-        "description": description,
-        "winners": winners,
-        "entries": [],
-        "host": ctx.author.id,
-        "channel_id": ctx.channel.id,
-    }
-
-
-@bot.slash_command(
-    guild_ids=[DISCORD_GUILD_ID], description="Close a giveaway (disable entries)"
-)
-async def close_giveaway(
-    ctx,
-    message_id: discord.Option(str, "ID of the giveaway message"),
-):
-    """Close a giveaway and disable further entries."""
-    # Get giveaway info from database
-    conn = get_db_connection()
-    giveaway = conn.execute(
-        "SELECT * FROM giveaways WHERE message_id = ? AND active = TRUE", (message_id,)
-    ).fetchone()
-
-    if not giveaway:
-        await ctx.respond("Giveaway not found or already closed.", ephemeral=True)
-        conn.close()
-        return
-
-    # Check if user is the host
-    if ctx.author.id != giveaway["host_id"]:
-        await ctx.respond(
-            "Only the giveaway host can close this giveaway.", ephemeral=True
-        )
-        conn.close()
-        return
-
-    # Mark giveaway as inactive in database
-    conn.execute(
-        "UPDATE giveaways SET active = FALSE WHERE message_id = ?", (message_id,)
-    )
-    conn.commit()
-    conn.close()
-
-    # Get the original message
-    channel = bot.get_channel(giveaway["channel_id"])
-    try:
-        message = await channel.fetch_message(int(message_id))
-    except:
-        await ctx.respond(
-            "Couldn't find the giveaway message. It may have been deleted.",
-            ephemeral=True,
-        )
-        return
-
-    # Disable the entry button by removing the view
-    await message.edit(view=None)
-
-    # Update the embed to show it's closed
-    embed = message.embeds[0]
-    embed.color = discord.Color.red()
-    embed.set_footer(text="This giveaway is now closed for entries")
-    await message.edit(embed=embed)
-
-    # Update memory cache
-    if message_id in active_giveaways:
-        active_giveaways[message_id]["active"] = False
-
-    await ctx.respond(
-        f"Giveaway '{giveaway['title']}' has been closed for entries.", ephemeral=True
-    )
-
-
-@bot.slash_command(
-    guild_ids=[DISCORD_GUILD_ID], description="Get a list of all giveaway entries"
-)
-async def get_entries(
-    ctx,
-    message_id: discord.Option(str, "ID of the giveaway message"),
-):
-    """Get a list of all users who entered the giveaway."""
-    # Get giveaway info from database
-    conn = get_db_connection()
-    giveaway = conn.execute(
-        "SELECT * FROM giveaways WHERE message_id = ?", (message_id,)
-    ).fetchone()
-
-    if not giveaway:
-        await ctx.respond("Giveaway not found.", ephemeral=True)
-        conn.close()
-        return
-
-    # Check if user is the host
-    if ctx.author.id != giveaway["host_id"]:
-        await ctx.respond("Only the giveaway host can view entries.", ephemeral=True)
-        conn.close()
-        return
-
-    # Get entries from database
-    entries = conn.execute(
-        "SELECT user_id FROM giveaway_entries WHERE message_id = ?", (message_id,)
-    ).fetchall()
-
-    # Check if there are any entries
-    if not entries:
-        await ctx.respond("No one entered this giveaway.", ephemeral=True)
-        conn.close()
-        return
-
-    # Get preferred names for all entrants
-    entrants_names = []
-
-    for entry in entries:
-        user_id = entry["user_id"]
-        user = conn.execute(
-            "SELECT preferred_name, legal_name FROM users WHERE discord_id = ?",
-            (str(user_id),),
-        ).fetchone()
-
-        if user:
-            # Use preferred name if available, otherwise use legal name
-            name = (
-                user["preferred_name"] if user["preferred_name"] else user["legal_name"]
-            )
-            if name:
-                entrants_names.append(name)
-
-    conn.close()
-
-    # Create embed with the list of entrants
-    embed = discord.Embed(
-        title=f"Winners of {giveaway['title']}",
-        description="\n".join(entrants_names),
-        color=discord.Color.gold(),
-    )
-
-    # Add total entries count
-    embed.add_field(name="Total Entries", value=str(len(entrants_names)), inline=False)
-
-    await ctx.respond(embed=embed, ephemeral=True)
-
-
-class GiveawayView(discord.ui.View):
-    """View containing the giveaway entry button."""
-
-    def __init__(self):
-        super().__init__(timeout=None)  # No timeout
-
-    @discord.ui.button(
-        label="Enter Giveaway",
-        style=discord.ButtonStyle.primary,
-        emoji="🎉",
-        custom_id="enter_giveaway",
-    )
-    async def enter_button(self, button, interaction):
-        """Handle giveaway entry button click."""
-        message_id = str(interaction.message.id)
-
-        # Check if user is verified
-        user = get_user_by_discord_id(str(interaction.user.id))
-        if not user:
-            await interaction.response.send_message(
-                "You need to be verified to enter this giveaway. Use `/verify` to verify your account first.",
-                ephemeral=True,
-            )
-            return
-
-        # Check if giveaway is active in database
-        conn = get_db_connection()
-        giveaway = conn.execute(
-            "SELECT * FROM giveaways WHERE message_id = ? AND active = TRUE",
-            (message_id,),
-        ).fetchone()
-
-        if not giveaway:
-            await interaction.response.send_message(
-                "This giveaway is no longer active.", ephemeral=True
-            )
-            conn.close()
-            return
-
-        # Check if user already entered
-        existing_entry = conn.execute(
-            "SELECT 1 FROM giveaway_entries WHERE message_id = ? AND user_id = ?",
-            (message_id, interaction.user.id),
-        ).fetchone()
-
-        if existing_entry:
-            await interaction.response.send_message(
-                "You've already entered this giveaway!", ephemeral=True
-            )
-            conn.close()
-            return
-
-        # Add user to entries in database
-        conn.execute(
-            "INSERT INTO giveaway_entries (message_id, user_id) VALUES (?, ?)",
-            (message_id, interaction.user.id),
-        )
-        conn.commit()
-        conn.close()
-
-        # Also update memory cache
-        if message_id in active_giveaways:
-            if interaction.user.id not in active_giveaways[message_id]["entries"]:
-                active_giveaways[message_id]["entries"].append(interaction.user.id)
-
-        # Confirm entry
-        await interaction.response.send_message(
-            f"You've entered the giveaway for **{giveaway['title']}**! Good luck!",
-            ephemeral=True,
-        )
-
-
-def init_db():
-    """Initialize the database with required tables."""
-    conn = get_db_connection()
-
-    # Create giveaways table
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS giveaways (
-            message_id TEXT PRIMARY KEY,
-            channel_id INTEGER NOT NULL,
-            host_id INTEGER NOT NULL,
-            title TEXT NOT NULL,
-            description TEXT NOT NULL,
-            winners INTEGER NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            active BOOLEAN DEFAULT TRUE
-        )
-    """
-    )
-
-    # Create giveaway entries table
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS giveaway_entries (
-            message_id TEXT,
-            user_id INTEGER,
-            entered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (message_id, user_id),
-            FOREIGN KEY (message_id) REFERENCES giveaways(message_id) ON DELETE CASCADE
-        )
-    """
-    )
-
-    conn.commit()
-    conn.close()
 
 
 if __name__ == "__main__":

@@ -7,7 +7,16 @@ import random
 import string
 from datetime import datetime, timedelta
 from urllib.parse import urlencode
-from flask import Flask, render_template, redirect, request, session, url_for, flash
+from flask import (
+    Flask,
+    render_template,
+    redirect,
+    request,
+    session,
+    url_for,
+    flash,
+    jsonify,
+)
 import requests
 from dotenv import load_dotenv
 import os.path
@@ -203,13 +212,14 @@ def send_verification_email(email, code):
                 "Adam Xu",
             ),  # Using the sender format from your example
             to_emails=email,
-            subject="Your Hack ID Verification Code",
+            subject="Here's the code you needed!",
             html_content=f"""
-            <h2>Your Hack ID Verification Code</h2>
-            <p>Use the following code to log in to Hack ID:</p>
+            <h2>Your hack.sv Verification Code</h2>
+            <p>Use the code below to login to hack.sv.</p>
             <h1 style="font-size: 32px; letter-spacing: 5px; text-align: center; padding: 10px; background-color: #f0f0f0; border-radius: 5px;">{code}</h1>
             <p>This code will expire in 10 minutes.</p>
             <p>If you didn't request this code, you can safely ignore this email.</p>
+            <p>If you encounter any problems, shoot a DM to Adam on Discord.</p>
             """,
         )
 
@@ -227,8 +237,11 @@ def send_verification_email(email, code):
 
 @app.route("/")
 def index():
-    """Home page with login button."""
-    return render_template("index.html", logged_in="user_email" in session)
+    """Home page - redirect to auth or dashboard based on login status."""
+    if "user_email" in session:
+        return render_template("dashboard.html")
+    else:
+        return render_template("auth.html", state="email_login")
 
 
 @app.route("/auth/google")
@@ -256,7 +269,7 @@ def auth_google_callback():
         code = request.args.get("code")
         if not code:
             return render_template(
-                "fail.html", error="No authentication code received."
+                "auth.html", state="error", error="No authentication code received."
             )
 
         print(f"DEBUG: Received code: {code[:20]}...")
@@ -283,7 +296,7 @@ def auth_google_callback():
 
         if "error" in token_response or "access_token" not in token_response:
             error_msg = f"Failed to authenticate with Google. Error: {token_response.get('error', 'Unknown error')} - {token_response.get('error_description', 'No description')}"
-            return render_template("fail.html", error=error_msg)
+            return render_template("auth.html", state="error", error=error_msg)
 
         user_response = requests.get(
             "https://www.googleapis.com/oauth2/v2/userinfo",
@@ -292,7 +305,8 @@ def auth_google_callback():
 
         if "error" in user_response or "email" not in user_response:
             return render_template(
-                "fail.html",
+                "auth.html",
+                state="error",
                 error="Failed to get user information from Google.",
             )
 
@@ -304,17 +318,19 @@ def auth_google_callback():
         if "verification_token" in session:
             return redirect(url_for("verify_complete"))
 
-        return redirect(url_for("index"))
+        return redirect("/")
 
     except Exception as e:
-        return render_template("fail.html", error=f"Authentication error: {str(e)}")
+        return render_template(
+            "auth.html", state="error", error=f"Authentication error: {str(e)}"
+        )
 
 
 @app.route("/logout")
 def logout():
     """Log out the user."""
     session.clear()
-    return redirect(url_for("index"))
+    return redirect("/")
 
 
 @app.route("/admin")
@@ -324,23 +340,130 @@ def admin():
         return redirect(url_for("auth_google"))
 
     if session["user_email"] != "contact@adamxu.net":
-        return render_template(
-            "fail.html", error="Access denied. Admin access required."
-        )
+        return redirect("/")
 
     # Get all users from database
     conn = get_db_connection()
     users = conn.execute("SELECT * FROM users ORDER BY email").fetchall()
     conn.close()
 
-    # Convert events JSON string back to list for display
+    # Convert JSON strings back to lists for display and prepare data
     users_data = []
     for user in users:
         user_dict = dict(user)
-        user_dict["events"] = json.loads(user_dict["events"])
+        user_dict["events"] = json.loads(user_dict["events"] or "[]")
+        user_dict["dietary_restrictions"] = json.loads(
+            user_dict["dietary_restrictions"] or "[]"
+        )
         users_data.append(user_dict)
 
-    return render_template("admin.html", users=users_data)
+    # Calculate statistics
+    stats = {
+        "total_users": len(users_data),
+        "counterspell_attendees": len(
+            [u for u in users_data if "counterspell" in u["events"]]
+        ),
+        "scrapyard_attendees": len(
+            [u for u in users_data if "scrapyard" in u["events"]]
+        ),
+        "both_events": len(
+            [
+                u
+                for u in users_data
+                if "counterspell" in u["events"] and "scrapyard" in u["events"]
+            ]
+        ),
+        "users_with_dietary_restrictions": len(
+            [u for u in users_data if u["dietary_restrictions"]]
+        ),
+    }
+
+    return render_template("admin.html", users=users_data, stats=stats)
+
+
+@app.route("/admin/update-user", methods=["POST"])
+def update_user():
+    """Update user data - only accessible to admin."""
+    if "user_email" not in session or session["user_email"] != "contact@adamxu.net":
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+
+    try:
+        email = request.form.get("email")
+        if not email:
+            return jsonify({"success": False, "error": "Email is required"})
+
+        conn = get_db_connection()
+
+        # Build update query dynamically based on provided fields
+        update_fields = []
+        update_values = []
+
+        # Handle text fields
+        text_fields = [
+            "legal_name",
+            "preferred_name",
+            "pronouns",
+            "phone_number",
+            "date_of_birth",
+            "address",
+            "emergency_contact_name",
+            "emergency_contact_email",
+            "emergency_contact_phone",
+            "discord_id",
+        ]
+
+        for field in text_fields:
+            # Map form field names to database field names
+            form_field_map = {
+                "phone_number": "phone",
+                "date_of_birth": "dob",
+                "emergency_contact_name": "emergency_contact",
+                "emergency_contact_email": "emergency_contact",
+                "emergency_contact_phone": "emergency_contact",
+            }
+
+            form_field = form_field_map.get(field, field)
+            value = request.form.get(form_field)
+
+            if value is not None:  # Allow empty strings
+                update_fields.append(f"{field} = ?")
+                update_values.append(value if value.strip() else None)
+
+        # Handle dietary restrictions
+        dietary = request.form.get("dietary")
+        if dietary is not None:
+            # Convert comma-separated string to JSON array
+            dietary_list = (
+                [d.strip() for d in dietary.split(",") if d.strip()] if dietary else []
+            )
+            update_fields.append("dietary_restrictions = ?")
+            update_values.append(json.dumps(dietary_list))
+
+        # Handle events
+        events = request.form.get("events")
+        if events is not None:
+            try:
+                events_list = json.loads(events) if events else []
+                update_fields.append("events = ?")
+                update_values.append(json.dumps(events_list))
+            except json.JSONDecodeError:
+                return jsonify({"success": False, "error": "Invalid events format"})
+
+        if not update_fields:
+            return jsonify({"success": False, "error": "No fields to update"})
+
+        # Execute update
+        update_values.append(email)  # Add email for WHERE clause
+        query = f"UPDATE users SET {', '.join(update_fields)} WHERE email = ?"
+
+        conn.execute(query, update_values)
+        conn.commit()
+        conn.close()
+
+        return jsonify({"success": True})
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
 
 
 @app.route("/auth/email", methods=["GET", "POST"])
@@ -349,7 +472,9 @@ def auth_email():
     if request.method == "POST":
         email = request.form.get("email")
         if not email:
-            return render_template("email_auth.html", error="Email is required")
+            return render_template(
+                "auth.html", state="email_login", error="Email is required"
+            )
 
         # Generate and save verification code
         code = generate_verification_code()
@@ -357,13 +482,15 @@ def auth_email():
 
         # Send verification email
         if send_verification_email(email, code):
-            return render_template("email_verify.html", email=email)
+            return render_template("auth.html", state="email_verify", email=email)
         else:
             return render_template(
-                "email_auth.html", error="Failed to send verification email"
+                "auth.html",
+                state="email_login",
+                error="Failed to send verification email",
             )
 
-    return render_template("email_auth.html")
+    return render_template("auth.html", state="email_login")
 
 
 @app.route("/auth/email/verify", methods=["POST"])
@@ -374,7 +501,10 @@ def verify_email():
 
     if not email or not code:
         return render_template(
-            "email_verify.html", email=email, error="Email and code are required"
+            "auth.html",
+            state="email_verify",
+            email=email,
+            error="Email and code are required",
         )
 
     if verify_code(email, code):
@@ -386,10 +516,13 @@ def verify_email():
         if "verification_token" in session:
             return redirect(url_for("verify_complete"))
 
-        return redirect(url_for("index"))
+        return redirect("/")
     else:
         return render_template(
-            "email_verify.html", email=email, error="Invalid or expired code"
+            "auth.html",
+            state="email_verify",
+            email=email,
+            error="Invalid or expired code",
         )
 
 
@@ -398,13 +531,15 @@ def verify_discord():
     """Discord verification page."""
     token = request.args.get("token")
     if not token:
-        return render_template("fail.html", error="No verification token provided.")
+        return render_template(
+            "auth.html", state="error", error="No verification token provided."
+        )
 
     # Check if token is valid
     token_info = get_verification_token(token)
     if not token_info:
         return render_template(
-            "fail.html", error="Invalid or expired verification token."
+            "auth.html", state="error", error="Invalid or expired verification token."
         )
 
     # Store token in session for use after authentication
@@ -413,7 +548,7 @@ def verify_discord():
     session["discord_username"] = token_info["discord_username"]
 
     return render_template(
-        "verify.html", discord_username=token_info["discord_username"]
+        "auth.html", state="discord", discord_username=token_info["discord_username"]
     )
 
 
@@ -421,7 +556,9 @@ def verify_discord():
 def verify_complete():
     """Complete Discord verification after authentication."""
     if "user_email" not in session or "verification_token" not in session:
-        return render_template("fail.html", error="Authentication required.")
+        return render_template(
+            "auth.html", state="error", error="Authentication required."
+        )
 
     token = session["verification_token"]
     discord_id = session["discord_id"]
@@ -430,11 +567,9 @@ def verify_complete():
     # Verify token is still valid
     token_info = get_verification_token(token)
     if not token_info:
-        # Clear verification session data even if token expired
-        session.pop("verification_token", None)
-        session.pop("discord_id", None)
-        session.pop("discord_username", None)
-        return render_template("fail.html", error="Verification token expired.")
+        return render_template(
+            "auth.html", state="error", error="Verification token expired."
+        )
 
     # Check if user exists in database
     conn = get_db_connection()
@@ -442,24 +577,18 @@ def verify_complete():
 
     if not user:
         conn.close()
-        # Clear verification session data
-        session.pop("verification_token", None)
-        session.pop("discord_id", None)
-        session.pop("discord_username", None)
         return render_template(
-            "fail.html",
+            "auth.html",
+            state="error",
             error="Sorry, you need to have registered for one of our events to verify. Perhaps next time!",
         )
 
     # Check if user already has a discord account registered
     if user["discord_id"] and user["discord_id"] != discord_id:
         conn.close()
-        # Clear verification session data
-        session.pop("verification_token", None)
-        session.pop("discord_id", None)
-        session.pop("discord_username", None)
         return render_template(
-            "fail.html",
+            "auth.html",
+            state="error",
             error="This email is already linked to a different Discord account. Please contact an organizer for assistance.",
         )
 
@@ -473,6 +602,8 @@ def verify_complete():
     # Mark token as used
     mark_token_used(token)
 
+    # Role assignment will be handled automatically by the Discord bot
+
     # Clear verification session data
     session.pop("verification_token", None)
     session.pop("discord_id", None)
@@ -483,7 +614,6 @@ def verify_complete():
         preferred_name=user["preferred_name"] or user["legal_name"] or "User",
         email=user_email,
         events=json.loads(user["events"]),
-        discord_username=session["discord_username"],
     )
 
 
@@ -503,4 +633,4 @@ if __name__ == "__main__":
         exit(1)
 
     init_db()
-    app.run(debug=True, port=1283)
+    app.run(debug=True, port=3000)

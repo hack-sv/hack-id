@@ -1,0 +1,168 @@
+/* Table Styles */
+
+.table-container {
+    width: 100%;
+    margin: 0;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+/* Sticky Header */
+thead {
+    position: sticky;
+    top: 34px; /* Just below search bar */
+    z-index: 50;
+}
+
+th {
+    background: #f8f9fa;
+    border: 1px solid #ddd;
+    padding: 8px 6px;
+    text-align: left;
+    font-weight: 600;
+    position: relative;
+    white-space: nowrap;
+    font-size: 12px;
+}
+
+.header-content {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+}
+
+.header-icon {
+    width: 14px;
+    height: 14px;
+    opacity: 0.7;
+}
+
+.filter-expanded {
+    background: #e9ecef !important;
+}
+
+/* Filter Row */
+.filter-row {
+    display: none;
+    background: #f8f9fa;
+    border-bottom: 2px solid #ddd;
+}
+
+.filter-row.show {
+    display: table-row;
+}
+
+.filter-cell {
+    padding: 10px 6px;
+    border-left: 1px solid #ddd;
+    border-right: 1px solid #ddd;
+    vertical-align: top;
+}
+
+.filter-input {
+    width: 100%;
+    padding: 4px;
+    border: 1px solid #ccc;
+    font-size: 11px;
+    margin-bottom: 5px;
+}
+
+.filter-checkboxes {
+    max-height: 120px;
+    overflow-y: auto;
+}
+
+.filter-checkbox {
+    display: flex;
+    align-items: center;
+    margin: 2px 0;
+    font-size: 11px;
+}
+
+.filter-checkbox input {
+    margin-right: 4px;
+}
+
+.sort-buttons {
+    display: flex;
+    gap: 2px;
+    margin-top: 5px;
+}
+
+.sort-btn {
+    padding: 2px 6px;
+    font-size: 10px;
+    border: 1px solid #ccc;
+    background: white;
+    cursor: pointer;
+}
+
+.sort-btn:hover {
+    background: #f0f0f0;
+}
+
+.sort-btn.active {
+    background: #007bff;
+    color: white;
+}
+
+/* Table Body */
+td {
+    border: 1px solid #ddd;
+    padding: 6px;
+    vertical-align: top;
+    position: relative;
+    font-size: 12px;
+}
+
+tr:nth-child(even) {
+    background: #f9f9f9;
+}
+
+tr:hover {
+    background: #f0f8ff;
+}
+
+/* Events and dietary tags */
+.event-tag,
+.dietary-tag {
+    display: inline-block;
+    padding: 1px 4px;
+    margin: 1px;
+    font-size: 10px;
+    border-radius: 2px;
+}
+
+.event-counterspell {
+    background: #dc3545;
+    color: white;
+}
+
+.event-scrapyard {
+    background: #28a745;
+    color: white;
+}
+
+.dietary-tag {
+    background: #ffc107;
+    color: #212529;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    th,
+    td {
+        padding: 4px;
+        font-size: 11px;
+    }
+
+    .header-icon {
+        width: 12px;
+        height: 12px;
+    }
+}

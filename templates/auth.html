@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>
+            {% if state == 'discord' %}Discord Verification{% elif state ==
+            'email_verify' %}Verify Email{% elif state == 'error' %}Error{% else
+            %}Login{% endif %} - Hack ID
+        </title>
+        <style>
+            .auth-section {
+                display: none;
+            }
+            .auth-section.active {
+                display: block;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>
+                    {% if state == 'discord' %}Discord Verification{% elif state
+                    == 'email_verify' %}Verify Email{% elif state == 'error'
+                    %}Error{% else %}Login{% endif %}
+                </h1>
+            </div>
+
+            <!-- Error Section -->
+            <div
+                id="error-section"
+                class="auth-section {% if state == 'error' %}active{% endif %}"
+            >
+                {% if error %}
+                <div class="error">
+                    <p>{{ error }}</p>
+                </div>
+                {% endif %}
+                <a href="/" class="btn">Go Home</a>
+            </div>
+
+            <!-- Email Login Section -->
+            <div
+                id="email-login-section"
+                class="auth-section {% if not state or state == 'email_login' %}active{% endif %}"
+            >
+                <p>Enter your email address to receive a verification code.</p>
+
+                {% if error and state == 'email_login' %}
+                <div class="error">
+                    <p>{{ error }}</p>
+                </div>
+                {% endif %}
+
+                <a href="{{ url_for('auth_google') }}" class="btn btn-secondary"
+                    >Login with Google</a
+                >
+                <div class="divider">Or</div>
+                <form method="post" action="{{ url_for('auth_email') }}">
+                    <input
+                        type="email"
+                        name="email"
+                        placeholder="Your email address"
+                        required
+                    />
+                    <button type="submit" class="btn">
+                        Send Verification Code
+                    </button>
+                </form>
+            </div>
+
+            <!-- Email Verification Section -->
+            <div
+                id="email-verify-section"
+                class="auth-section {% if state == 'email_verify' %}active{% endif %}"
+            >
+                <p>
+                    We've sent a verification code to
+                    <strong>{{ email }}</strong>.
+                </p>
+                <p>Please check your inbox and enter the code below.</p>
+
+                {% if error and state == 'email_verify' %}
+                <div class="error">
+                    <p>{{ error }}</p>
+                </div>
+                {% endif %}
+
+                <form method="post" action="{{ url_for('verify_email') }}">
+                    <input type="hidden" name="email" value="{{ email }}" />
+                    <input
+                        type="text"
+                        name="code"
+                        placeholder="6-digit code"
+                        required
+                        class="code-input"
+                    />
+                    <button type="submit" class="btn">Verify</button>
+                </form>
+
+                <div style="margin-top: 20px">
+                    <a href="{{ url_for('auth_email') }}" class="link"
+                        >Use a different email</a
+                    >
+                </div>
+            </div>
+
+            <!-- Discord Verification Section -->
+            <div
+                id="discord-verify-section"
+                class="auth-section {% if state == 'discord' %}active{% endif %}"
+            >
+                <p>Hello <strong>{{ discord_username }}</strong>!</p>
+                <p>
+                    To complete your Discord verification and get access to
+                    event channels, please sign in:
+                </p>
+
+                <a href="{{ url_for('auth_google') }}" class="btn"
+                    >Sign in with Google</a
+                >
+
+                <div class="divider">Or</div>
+
+                <a href="{{ url_for('auth_email') }}" class="btn btn-secondary"
+                    >Sign in with Email</a
+                >
+
+                <div style="margin-top: 20px; font-size: 14px; color: #666">
+                    <p>
+                        <strong>Note:</strong> You must have registered for one
+                        of our events to complete verification.
+                    </p>
+                    <p>This verification link expires in 10 minutes.</p>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>
