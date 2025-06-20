@@ -15,11 +15,20 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+# Environment configuration
+PROD = os.getenv("PROD", "").upper() == "TRUE"
+DEBUG_MODE = not PROD
+
+# Base URL configuration
+if PROD:
+    BASE_URL = "http://id.hack.sv"
+else:
+    BASE_URL = "http://127.0.0.1:3000"
+
 # Configuration
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 DISCORD_GUILD_ID = int(os.getenv("DISCORD_GUILD_ID", "0"))
 DATABASE = "users.db"
-BASE_URL = "http://127.0.0.1:5000"  # Change this to your actual domain in production
 
 # Bot setup
 intents = discord.Intents.default()
@@ -105,6 +114,13 @@ async def on_ready():
     """Called when the bot is ready."""
     print(f"Bot logged in as {bot.user}")
     print(f"Guild ID: {DISCORD_GUILD_ID}")
+
+    if DEBUG_MODE:
+        print("=== DISCORD BOT CONFIGURATION ===")
+        print(f"PROD: {PROD}")
+        print(f"DEBUG_MODE: {DEBUG_MODE}")
+        print(f"BASE_URL: {BASE_URL}")
+        print("=================================")
 
     # Start the cleanup task
     cleanup_expired_tokens.start()
@@ -283,6 +299,14 @@ async def assign_roles_after_verification(discord_id):
 
 
 if __name__ == "__main__":
+    if DEBUG_MODE:
+        print("=== DISCORD BOT STARTUP DEBUG ===")
+        print(f"PROD: {PROD}")
+        print(f"DEBUG_MODE: {DEBUG_MODE}")
+        print(f"BASE_URL: {BASE_URL}")
+        print(f"DISCORD_GUILD_ID: {DISCORD_GUILD_ID}")
+        print("=================================")
+
     if not DISCORD_BOT_TOKEN:
         print("ERROR: DISCORD_BOT_TOKEN not found in environment variables!")
         exit(1)
