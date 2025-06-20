@@ -169,7 +169,7 @@ async def verify(ctx):
         color=discord.Color.blue(),
     )
 
-    # Create view with button
+    # Create view with link button
     view = VerificationView(verification_url)
 
     # Send ephemeral response
@@ -177,21 +177,19 @@ async def verify(ctx):
 
 
 class VerificationView(discord.ui.View):
-    """View containing the verification button."""
+    """View containing the verification link button."""
 
     def __init__(self, verification_url):
         super().__init__(timeout=600)  # 10 minutes timeout
-        self.verification_url = verification_url
 
-    @discord.ui.button(
-        label="Verify Identity", style=discord.ButtonStyle.primary, emoji="🔗"
-    )
-    async def verify_button(
-        self, button: discord.ui.Button, interaction: discord.Interaction
-    ):
-        """Handle verification button click."""
-        await interaction.response.send_message(
-            f"Click here to verify: {self.verification_url}", ephemeral=True
+        # Add link button that directly opens the verification URL
+        self.add_item(
+            discord.ui.Button(
+                label="Verify Identity",
+                style=discord.ButtonStyle.link,
+                emoji="🔗",
+                url=verification_url,
+            )
         )
 
 
