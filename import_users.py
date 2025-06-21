@@ -29,13 +29,7 @@ def init_db():
             legal_name TEXT,
             preferred_name TEXT,
             pronouns TEXT,
-            address TEXT,
-            phone_number TEXT,
             date_of_birth TEXT,
-            emergency_contact_name TEXT,
-            emergency_contact_email TEXT,
-            emergency_contact_phone TEXT,
-            dietary_restrictions TEXT DEFAULT '[]',
             discord_id TEXT,
             events TEXT DEFAULT '[]'
         )
@@ -44,146 +38,6 @@ def init_db():
 
     conn.commit()
     conn.close()
-
-
-# Global set to track all dietary restriction tags we've seen
-KNOWN_DIETARY_TAGS = {
-    "vegetarian",  # includes vegan, no meat, no red meat, no pork, no beef, no mutton
-    "gluten-free",
-    "nut allergy",
-    "egg allergy",
-    "dairy allergy",
-    "shellfish allergy",
-    "fish allergy",
-    "soy allergy",
-    "lactose intolerant",
-    "halal",
-    "kosher",
-    "seasonal allergies",
-    "pollen allergy",
-}
-
-
-def clean_dietary_restrictions_with_ollama(restrictions_list: List[str]) -> List[str]:
-    """
-    Clean and normalize dietary restrictions using rule-based approach with Ollama fallback.
-    Groups similar restrictions and normalizes allergy descriptions.
-    """
-    global KNOWN_DIETARY_TAGS
-
-    if not restrictions_list:
-        return []
-
-    # Filter out null-like values
-    filtered_restrictions = []
-    for restriction in restrictions_list:
-        if restriction and str(restriction).strip().lower() not in [
-            "n/a",
-            "none",
-            "no",
-            "",
-            "null",
-            "na",
-        ]:
-            filtered_restrictions.append(str(restriction).strip())
-
-    if not filtered_restrictions:
-        return []
-
-    restrictions_text = ", ".join(filtered_restrictions)
-    print(f"Cleaning dietary restrictions: '{restrictions_text}'...", end=" ")
-
-    # Rule-based cleaning first
-    cleaned_tags = set()
-    text_lower = restrictions_text.lower()
-
-    # Check for null-like responses
-    null_patterns = ["nope", "no.", "no sir", "nothing", "none", "n/a", "na"]
-    if (
-        any(pattern in text_lower for pattern in null_patterns)
-        and len(text_lower.strip()) < 20
-    ):
-        print("Done! []")
-        return []
-
-    # Vegetarian/Vegan patterns
-    veg_patterns = [
-        "vegetarian",
-        "vegan",
-        "no meat",
-        "no red meat",
-        "no pork",
-        "no beef",
-        "no mutton",
-        "im vegetarian",
-        "i'm vegetarian",
-        "i'm vegan",
-    ]
-    if any(pattern in text_lower for pattern in veg_patterns):
-        cleaned_tags.add("vegetarian")
-
-    # Gluten patterns
-    gluten_patterns = ["gluten", "gluten-free", "celiac"]
-    if any(pattern in text_lower for pattern in gluten_patterns):
-        cleaned_tags.add("gluten-free")
-
-    # Nut allergy patterns
-    nut_patterns = [
-        "nuts",
-        "nut",
-        "peanut",
-        "tree nuts",
-        "almond",
-        "walnut",
-        "pecan",
-        "hazelnut",
-        "chestnut",
-        "cashew",
-    ]
-    if any(pattern in text_lower for pattern in nut_patterns):
-        cleaned_tags.add("nut allergy")
-
-    # Egg allergy patterns
-    egg_patterns = ["egg", "eggs"]
-    if any(pattern in text_lower for pattern in egg_patterns):
-        cleaned_tags.add("egg allergy")
-
-    # Dairy patterns
-    dairy_patterns = ["dairy", "milk", "lactose"]
-    if any(pattern in text_lower for pattern in dairy_patterns):
-        if "lactose intolerant" in text_lower:
-            cleaned_tags.add("lactose intolerant")
-        else:
-            cleaned_tags.add("dairy allergy")
-
-    # Shellfish patterns
-    shellfish_patterns = ["shellfish", "shrimp", "crab", "lobster"]
-    if any(pattern in text_lower for pattern in shellfish_patterns):
-        cleaned_tags.add("shellfish allergy")
-
-    # Fish patterns
-    fish_patterns = ["fish", "salmon", "tuna"]
-    if (
-        any(pattern in text_lower for pattern in fish_patterns)
-        and "shellfish" not in text_lower
-    ):
-        cleaned_tags.add("fish allergy")
-
-    # Halal patterns
-    if "halal" in text_lower:
-        cleaned_tags.add("halal")
-
-    # Seasonal/pollen allergies
-    if "pollen" in text_lower or "seasonal" in text_lower:
-        cleaned_tags.add("seasonal allergies")
-
-    # Convert to list and add to known tags
-    result = list(cleaned_tags)
-    for tag in result:
-        KNOWN_DIETARY_TAGS.add(tag)
-
-    print(f"Done! {result}")
-    return result
 
 
 def parse_counterspell_csv(filename: str) -> List[Dict]:
@@ -202,24 +56,12 @@ def parse_counterspell_csv(filename: str) -> List[Dict]:
             if email and email not in seen_emails:  # Deduplication within dataset
                 seen_emails.add(email)
 
-                # Extract dietary restrictions
-                dietary_raw = row.get("Dietary Restrictions", "").strip()
-                dietary_list = [dietary_raw] if dietary_raw else []
-
                 user = {
                     "email": email,
                     "legal_name": row.get("Legal Name", "").strip(),
                     "preferred_name": row.get("Preferred Name", "").strip(),
                     "pronouns": row.get("Pronouns", "").strip(),
-                    "address": row.get("Full Address", "").strip(),
-                    "phone_number": row.get("Phone Number", "").strip(),
                     "date_of_birth": row.get("DOB", "").strip(),
-                    "emergency_contact_name": row.get("Parent Name", "").strip(),
-                    "emergency_contact_email": row.get("Parent Email", "").strip(),
-                    "emergency_contact_phone": row.get(
-                        "Parent Phone Number", ""
-                    ).strip(),
-                    "dietary_restrictions_raw": dietary_list,
                     "discord_id": row.get("Discord", "").strip(),
                     "events": ["counterspell"],
                 }
@@ -252,22 +94,12 @@ def parse_scrapyard_json(filename: str) -> List[Dict]:
                 if isinstance(organizer_notes, dict):
                     discord_id = str(organizer_notes.get("discord", "")).strip()
 
-                # Extract dietary restrictions
-                dietary_raw = item.get("allergiesAndMedicalConcerns", "").strip()
-                dietary_list = [dietary_raw] if dietary_raw else []
-
                 user = {
                     "email": email,
                     "legal_name": item.get("fullName", "").strip(),
                     "preferred_name": item.get("preferredName", "").strip(),
                     "pronouns": item.get("pronouns", "").strip(),
-                    "address": item.get("address", "").strip(),
-                    "phone_number": item.get("phoneNumber", "").strip(),
                     "date_of_birth": item.get("dateOfBirth", "").strip(),
-                    "emergency_contact_name": item.get("parentName", "").strip(),
-                    "emergency_contact_email": item.get("parentEmail", "").strip(),
-                    "emergency_contact_phone": item.get("emergencyPhone", "").strip(),
-                    "dietary_restrictions_raw": dietary_list,
                     "discord_id": discord_id,
                     "events": ["scrapyard"],
                 }
@@ -385,40 +217,25 @@ def insert_users_to_db(users: Dict[str, Dict]):
     inserted = 0
     updated = 0
 
-    for user_email, user in users.items():
+    for user in users.values():
         events_json = json.dumps(user["events"])
-
-        # Clean dietary restrictions using Ollama
-        dietary_restrictions_raw = user.get("dietary_restrictions_raw", [])
-        cleaned_dietary = clean_dietary_restrictions_with_ollama(
-            dietary_restrictions_raw
-        )
-        dietary_json = json.dumps(cleaned_dietary)
 
         try:
             # Try to insert new user
             cursor.execute(
                 """
                 INSERT INTO users (
-                    email, legal_name, preferred_name, pronouns, address,
-                    phone_number, date_of_birth, emergency_contact_name,
-                    emergency_contact_email, emergency_contact_phone,
-                    dietary_restrictions, discord_id, events
+                    email, legal_name, preferred_name, pronouns,
+                    date_of_birth, discord_id, events
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     user["email"],
                     user.get("legal_name") or None,
                     user.get("preferred_name") or None,
                     user.get("pronouns") or None,
-                    user.get("address") or None,
-                    user.get("phone_number") or None,
                     user.get("date_of_birth") or None,
-                    user.get("emergency_contact_name") or None,
-                    user.get("emergency_contact_email") or None,
-                    user.get("emergency_contact_phone") or None,
-                    dietary_json,
                     user.get("discord_id") or None,
                     events_json,
                 ),
@@ -432,13 +249,7 @@ def insert_users_to_db(users: Dict[str, Dict]):
                 SET legal_name = COALESCE(?, legal_name),
                     preferred_name = COALESCE(?, preferred_name),
                     pronouns = COALESCE(?, pronouns),
-                    address = COALESCE(?, address),
-                    phone_number = COALESCE(?, phone_number),
                     date_of_birth = COALESCE(?, date_of_birth),
-                    emergency_contact_name = COALESCE(?, emergency_contact_name),
-                    emergency_contact_email = COALESCE(?, emergency_contact_email),
-                    emergency_contact_phone = COALESCE(?, emergency_contact_phone),
-                    dietary_restrictions = ?,
                     discord_id = COALESCE(?, discord_id),
                     events = ?
                 WHERE email = ?
@@ -447,13 +258,7 @@ def insert_users_to_db(users: Dict[str, Dict]):
                     user.get("legal_name") or None,
                     user.get("preferred_name") or None,
                     user.get("pronouns") or None,
-                    user.get("address") or None,
-                    user.get("phone_number") or None,
                     user.get("date_of_birth") or None,
-                    user.get("emergency_contact_name") or None,
-                    user.get("emergency_contact_email") or None,
-                    user.get("emergency_contact_phone") or None,
-                    dietary_json,
                     user.get("discord_id") or None,
                     events_json,
                     user["email"],

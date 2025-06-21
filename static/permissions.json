@@ -1,0 +1,114 @@
+{
+  "permissions": {
+    "events.register": {
+      "name": "Register Users for Events",
+      "description": "Allow registering users for events via API",
+      "category": "Events",
+      "endpoints": ["/api/register-event"],
+      "risk_level": "medium"
+    },
+    "events.submit_info": {
+      "name": "Submit Temporary Info",
+      "description": "Allow submitting temporary event information (address, emergency contacts, etc.)",
+      "category": "Events", 
+      "endpoints": ["/api/submit-temporary-info"],
+      "risk_level": "high"
+    },
+    "events.read": {
+      "name": "Read Event Information",
+      "description": "Allow reading event details and configurations",
+      "category": "Events",
+      "endpoints": ["/api/events", "/api/current-event"],
+      "risk_level": "low"
+    },
+    "users.read": {
+      "name": "Read User Data",
+      "description": "Allow reading user information and status",
+      "category": "Users",
+      "endpoints": ["/api/user-status", "/api/test"],
+      "risk_level": "medium"
+    },
+    "users.write": {
+      "name": "Modify User Data",
+      "description": "Allow creating and updating user information",
+      "category": "Users",
+      "endpoints": [],
+      "risk_level": "high"
+    },
+    "users.delete": {
+      "name": "Delete User Data",
+      "description": "Allow deleting user accounts and data",
+      "category": "Users",
+      "endpoints": [],
+      "risk_level": "critical"
+    },
+    "admin.read": {
+      "name": "Admin Read Access",
+      "description": "Allow reading admin-level information and statistics",
+      "category": "Admin",
+      "endpoints": [],
+      "risk_level": "high"
+    },
+    "admin.write": {
+      "name": "Admin Write Access", 
+      "description": "Allow performing admin-level operations",
+      "category": "Admin",
+      "endpoints": [],
+      "risk_level": "critical"
+    },
+    "discord.manage": {
+      "name": "Discord Integration",
+      "description": "Allow managing Discord roles and user verification",
+      "category": "Discord",
+      "endpoints": [],
+      "risk_level": "medium"
+    },
+    "analytics.read": {
+      "name": "Analytics Access",
+      "description": "Allow reading analytics and usage statistics",
+      "category": "Analytics",
+      "endpoints": [],
+      "risk_level": "low"
+    }
+  },
+  "categories": {
+    "Events": {
+      "description": "Permissions related to event management and registration",
+      "color": "#28a745"
+    },
+    "Users": {
+      "description": "Permissions related to user data and accounts",
+      "color": "#007bff"
+    },
+    "Admin": {
+      "description": "Administrative permissions for system management",
+      "color": "#dc3545"
+    },
+    "Discord": {
+      "description": "Permissions for Discord bot integration",
+      "color": "#5865f2"
+    },
+    "Analytics": {
+      "description": "Permissions for analytics and reporting",
+      "color": "#6f42c1"
+    }
+  },
+  "risk_levels": {
+    "low": {
+      "color": "#28a745",
+      "description": "Low risk - read-only access to non-sensitive data"
+    },
+    "medium": {
+      "color": "#ffc107", 
+      "description": "Medium risk - can modify data or access sensitive information"
+    },
+    "high": {
+      "color": "#fd7e14",
+      "description": "High risk - can access or modify sensitive user data"
+    },
+    "critical": {
+      "color": "#dc3545",
+      "description": "Critical risk - can delete data or perform destructive operations"
+    }
+  }
+}

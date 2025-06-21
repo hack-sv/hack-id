@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Purge Temporary Data - Hack ID</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='admin.css') }}">
+</head>
+<body>
+    <div class="admin-container">
+        <div class="admin-header">
+            <h1>⚠️ Purge Temporary Data</h1>
+            <p>Permanently delete temporary information for events. This action cannot be undone.</p>
+        </div>
+
+        <div class="admin-nav">
+            <a href="/admin/events" class="nav-link">
+                <img src="{{ url_for('static', filename='icons/arrow-left.svg') }}" alt="Back">
+                Back to Events
+            </a>
+        </div>
+
+        <div class="admin-content">
+            <div class="warning-banner">
+                <h3>🚨 DANGER ZONE</h3>
+                <p>This action will permanently delete all temporary information (phone numbers, addresses, emergency contacts, dietary restrictions) for the selected event. This data cannot be recovered once deleted.</p>
+                <ul>
+                    <li>User accounts and event registrations will NOT be affected</li>
+                    <li>Only temporary sensitive data will be removed</li>
+                    <li>This action is logged for audit purposes</li>
+                </ul>
+            </div>
+
+            {% if events %}
+            <div class="events-to-purge">
+                <h2>Events with Temporary Data</h2>
+                <div class="events-grid">
+                    {% for event in events %}
+                    <div class="event-card">
+                        <div class="event-header">
+                            <h3>{{ event.name }}</h3>
+                            <span class="event-id">{{ event.id }}</span>
+                        </div>
+                        <p class="event-description">{{ event.description }}</p>
+                        <div class="temp-info-count">
+                            <strong>{{ event.temp_info_count }}</strong> temporary info records
+                        </div>
+                        <button class="btn btn-danger" onclick="startPurge('{{ event.id }}', '{{ event.name }}', {{ event.temp_info_count }})">
+                            <img src="{{ url_for('static', filename='icons/trash.svg') }}" alt="Purge">
+                            Purge Data
+                        </button>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <img src="{{ url_for('static', filename='icons/check-circle.svg') }}" alt="No Data">
+                <h3>No Temporary Data to Purge</h3>
+                <p>All events are clean - no temporary information needs to be purged.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Purge Confirmation Modal -->
+    <div id="purgeModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>⚠️ Confirm Data Purge</h2>
+                <button class="modal-close" onclick="closePurgeModal()">&times;</button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="purge-info">
+                    <p>You are about to permanently delete temporary data for:</p>
+                    <div class="event-info">
+                        <strong id="purgeEventName"></strong>
+                        <span id="purgeEventId"></span>
+                    </div>
+                    <p class="record-count">This will delete <strong id="purgeRecordCount"></strong> temporary info records.</p>
+                </div>
+
+                <div class="confirmation-steps">
+                    <div class="confirmation-step">
+                        <label>1. Type "yes" to confirm you understand this action is permanent:</label>
+                        <input type="text" id="confirmation1" placeholder="Type 'yes'" autocomplete="off">
+                        <div class="validation-message" id="validation1"></div>
+                    </div>
+
+                    <div class="confirmation-step">
+                        <label>2. Type the exact event name to confirm the target:</label>
+                        <input type="text" id="confirmation2" placeholder="Type the event name exactly" autocomplete="off">
+                        <div class="validation-message" id="validation2"></div>
+                    </div>
+
+                    <div class="confirmation-step">
+                        <label>3. Type "DELETE PERMANENTLY" to confirm final deletion:</label>
+                        <input type="text" id="confirmation3" placeholder="Type 'DELETE PERMANENTLY'" autocomplete="off">
+                        <div class="validation-message" id="validation3"></div>
+                    </div>
+                </div>
+
+                <div class="final-warning">
+                    <p><strong>⚠️ FINAL WARNING:</strong> This action cannot be undone. All temporary data for this event will be permanently deleted.</p>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closePurgeModal()">Cancel</button>
+                <button class="btn btn-danger" id="confirmPurgeBtn" onclick="executePurge()" disabled>
+                    <img src="{{ url_for('static', filename='icons/trash.svg') }}" alt="Delete">
+                    DELETE PERMANENTLY
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Modal -->
+    <div id="loadingModal" class="modal" style="display: none;">
+        <div class="modal-content loading-content">
+            <div class="loading-spinner"></div>
+            <h3>Purging Data...</h3>
+            <p>Please wait while we permanently delete the temporary data.</p>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div id="successModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>✅ Purge Complete</h2>
+            </div>
+            <div class="modal-body">
+                <p id="successMessage"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="location.reload()">Refresh Page</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentEventId = '';
+        let currentEventName = '';
+        let currentRecordCount = 0;
+
+        function startPurge(eventId, eventName, recordCount) {
+            currentEventId = eventId;
+            currentEventName = eventName;
+            currentRecordCount = recordCount;
+
+            document.getElementById('purgeEventName').textContent = eventName;
+            document.getElementById('purgeEventId').textContent = `(${eventId})`;
+            document.getElementById('purgeRecordCount').textContent = recordCount;
+
+            // Reset form
+            document.getElementById('confirmation1').value = '';
+            document.getElementById('confirmation2').value = '';
+            document.getElementById('confirmation3').value = '';
+            document.getElementById('confirmPurgeBtn').disabled = true;
+            
+            // Clear validation messages
+            document.getElementById('validation1').textContent = '';
+            document.getElementById('validation2').textContent = '';
+            document.getElementById('validation3').textContent = '';
+
+            document.getElementById('purgeModal').style.display = 'flex';
+        }
+
+        function closePurgeModal() {
+            document.getElementById('purgeModal').style.display = 'none';
+        }
+
+        function validateConfirmations() {
+            const conf1 = document.getElementById('confirmation1').value;
+            const conf2 = document.getElementById('confirmation2').value;
+            const conf3 = document.getElementById('confirmation3').value;
+
+            let valid1 = conf1 === 'yes';
+            let valid2 = conf2 === currentEventName;
+            let valid3 = conf3 === 'DELETE PERMANENTLY';
+
+            // Update validation messages
+            document.getElementById('validation1').textContent = valid1 ? '✅ Correct' : (conf1 ? '❌ Must be exactly "yes"' : '');
+            document.getElementById('validation2').textContent = valid2 ? '✅ Correct' : (conf2 ? `❌ Must be exactly "${currentEventName}"` : '');
+            document.getElementById('validation3').textContent = valid3 ? '✅ Correct' : (conf3 ? '❌ Must be exactly "DELETE PERMANENTLY"' : '');
+
+            // Enable button only if all validations pass
+            document.getElementById('confirmPurgeBtn').disabled = !(valid1 && valid2 && valid3);
+        }
+
+        // Add event listeners for real-time validation
+        document.getElementById('confirmation1').addEventListener('input', validateConfirmations);
+        document.getElementById('confirmation2').addEventListener('input', validateConfirmations);
+        document.getElementById('confirmation3').addEventListener('input', validateConfirmations);
+
+        async function executePurge() {
+            const conf1 = document.getElementById('confirmation1').value;
+            const conf2 = document.getElementById('confirmation2').value;
+            const conf3 = document.getElementById('confirmation3').value;
+
+            // Show loading modal
+            document.getElementById('purgeModal').style.display = 'none';
+            document.getElementById('loadingModal').style.display = 'flex';
+
+            try {
+                const response = await fetch('/admin/purge-temporary-data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        event_id: currentEventId,
+                        confirmation_1: conf1,
+                        confirmation_2: conf2,
+                        confirmation_3: conf3
+                    })
+                });
+
+                const result = await response.json();
+
+                // Hide loading modal
+                document.getElementById('loadingModal').style.display = 'none';
+
+                if (result.success) {
+                    document.getElementById('successMessage').textContent = result.message;
+                    document.getElementById('successModal').style.display = 'flex';
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                document.getElementById('loadingModal').style.display = 'none';
+                alert('Network error: ' + error.message);
+            }
+        }
+    </script>
+
+    <style>
+        .warning-banner {
+            background: #fff5f5;
+            border: 2px solid #fed7d7;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        .warning-banner h3 {
+            color: #e53e3e;
+            margin-top: 0;
+        }
+
+        .warning-banner p {
+            color: #742a2a;
+            margin-bottom: 15px;
+        }
+
+        .warning-banner ul {
+            color: #742a2a;
+            margin-left: 20px;
+        }
+
+        .events-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .event-card {
+            background: white;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .event-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .event-header h3 {
+            margin: 0;
+            color: #2c3e50;
+        }
+
+        .event-id {
+            background: #f8f9fa;
+            color: #6c757d;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: monospace;
+        }
+
+        .event-description {
+            color: #6c757d;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .temp-info-count {
+            background: #fff3cd;
+            color: #856404;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid #e1e5e9;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            color: #e53e3e;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #6c757d;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .event-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+            text-align: center;
+        }
+
+        .event-info strong {
+            display: block;
+            font-size: 18px;
+            color: #2c3e50;
+        }
+
+        .event-info span {
+            color: #6c757d;
+            font-family: monospace;
+        }
+
+        .record-count {
+            background: #fff3cd;
+            color: #856404;
+            padding: 10px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .confirmation-steps {
+            margin: 20px 0;
+        }
+
+        .confirmation-step {
+            margin-bottom: 20px;
+        }
+
+        .confirmation-step label {
+            display: block;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+
+        .confirmation-step input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #e1e5e9;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .validation-message {
+            margin-top: 5px;
+            font-size: 12px;
+            min-height: 16px;
+        }
+
+        .final-warning {
+            background: #fff5f5;
+            border: 1px solid #fed7d7;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+
+        .final-warning p {
+            margin: 0;
+            color: #742a2a;
+            font-weight: 600;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            padding: 20px;
+            border-top: 1px solid #e1e5e9;
+        }
+
+        .loading-content {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }
+
+        .empty-state img {
+            width: 64px;
+            height: 64px;
+            opacity: 0.5;
+            margin-bottom: 20px;
+        }
+    </style>
+</body>
+</html>

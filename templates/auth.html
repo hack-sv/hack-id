@@ -53,11 +53,13 @@
                 </div>
                 {% endif %}
 
-                <a href="{{ url_for('auth_google') }}" class="btn btn-secondary"
+                <a
+                    href="{{ url_for('auth.auth_google') }}"
+                    class="btn btn-secondary"
                     >Login with Google</a
                 >
                 <div class="divider">Or</div>
-                <form method="post" action="{{ url_for('auth_email') }}">
+                <form method="post" action="{{ url_for('auth.send_code') }}">
                     <input
                         type="email"
                         name="email"
@@ -87,7 +89,10 @@
                 </div>
                 {% endif %}
 
-                <form method="post" action="{{ url_for('verify_email') }}">
+                <form
+                    method="post"
+                    action="{{ url_for('auth.verify_code_route') }}"
+                >
                     <input type="hidden" name="email" value="{{ email }}" />
                     <input
                         type="text"
@@ -100,7 +105,7 @@
                 </form>
 
                 <div style="margin-top: 20px">
-                    <a href="{{ url_for('auth_email') }}" class="link"
+                    <a href="{{ url_for('auth.index') }}" class="link"
                         >Use a different email</a
                     >
                 </div>
@@ -117,13 +122,13 @@
                     event channels, please sign in:
                 </p>
 
-                <a href="{{ url_for('auth_google') }}" class="btn"
+                <a href="{{ url_for('auth.auth_google') }}" class="btn"
                     >Sign in with Google</a
                 >
 
                 <div class="divider">Or</div>
 
-                <a href="{{ url_for('auth_email') }}" class="btn btn-secondary"
+                <a href="{{ url_for('auth.index') }}" class="btn btn-secondary"
                     >Sign in with Email</a
                 >
 

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error - Hack ID Admin</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='admin.css') }}">
+</head>
+<body>
+    <div class="admin-container">
+        <div class="admin-header">
+            <h1>⚠️ Error</h1>
+            <p>Something went wrong while processing your request.</p>
+        </div>
+
+        <div class="admin-nav">
+            <a href="/admin" class="nav-link">
+                <img src="{{ url_for('static', filename='icons/home.svg') }}" alt="Dashboard">
+                Dashboard
+            </a>
+            <a href="/admin/events" class="nav-link">
+                <img src="{{ url_for('static', filename='icons/calendar.svg') }}" alt="Events">
+                Events
+            </a>
+        </div>
+
+        <div class="admin-content">
+            <div class="error-container">
+                <div class="error-icon">
+                    <img src="{{ url_for('static', filename='icons/alert-circle.svg') }}" alt="Error">
+                </div>
+                <h2>Oops! Something went wrong</h2>
+                <div class="error-message">
+                    <p>{{ error }}</p>
+                </div>
+                <div class="error-actions">
+                    <a href="/admin" class="btn btn-primary">
+                        <img src="{{ url_for('static', filename='icons/home.svg') }}" alt="Home">
+                        Go to Dashboard
+                    </a>
+                    <a href="/admin/events" class="btn btn-secondary">
+                        <img src="{{ url_for('static', filename='icons/calendar.svg') }}" alt="Events">
+                        View Events
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .error-container {
+            text-align: center;
+            padding: 60px 20px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .error-icon {
+            margin-bottom: 30px;
+        }
+
+        .error-icon img {
+            width: 80px;
+            height: 80px;
+            opacity: 0.6;
+        }
+
+        .error-container h2 {
+            color: #e53e3e;
+            margin-bottom: 20px;
+            font-size: 28px;
+        }
+
+        .error-message {
+            background: #fff5f5;
+            border: 1px solid #fed7d7;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        .error-message p {
+            color: #742a2a;
+            margin: 0;
+            font-size: 16px;
+        }
+
+        .error-actions {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .error-actions .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 20px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+
+        .btn img {
+            width: 16px;
+            height: 16px;
+        }
+    </style>
+</body>
+</html>

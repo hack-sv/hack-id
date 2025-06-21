@@ -1,5 +1,9 @@
 /* Admin Panel Base Styles */
 
+:root {
+    overscroll-behavior: none;
+}
+
 * {
     margin: 0;
     padding: 0;

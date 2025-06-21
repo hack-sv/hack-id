@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ event_info.name }} - Event Details - Hack ID</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='admin.css') }}">
+</head>
+<body>
+    <div class="admin-container">
+        <div class="admin-header">
+            <div class="header-content">
+                <div>
+                    <h1>{{ event_info.name }}</h1>
+                    <p>{{ event_info.description }}</p>
+                    <span class="event-id-badge">{{ event_id }}</span>
+                </div>
+                <div class="header-actions">
+                    <a href="/admin/events" class="btn btn-secondary">
+                        <img src="{{ url_for('static', filename='icons/arrow-left.svg') }}" alt="Back">
+                        Back to Events
+                    </a>
+                    <a href="/admin/event/{{ event_id }}/export" class="btn btn-primary">
+                        <img src="{{ url_for('static', filename='icons/download.svg') }}" alt="Export">
+                        Export Data
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number">{{ stats.registered_users }}</div>
+                <div class="stat-label">Total Registered</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ stats.temp_info_submitted }}</div>
+                <div class="stat-label">Temporary Info Submitted</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ stats.completion_rate }}%</div>
+                <div class="stat-label">Completion Rate</div>
+            </div>
+        </div>
+
+        <div class="admin-content">
+            <div class="registrations-section">
+                <h2>Event Registrations</h2>
+                
+                {% if registrations %}
+                <div class="table-container">
+                    <table class="registrations-table">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Email</th>
+                                <th>Registration Date</th>
+                                <th>Temp Info Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for registration in registrations %}
+                            <tr class="registration-row" data-user-id="{{ registration.user.id }}">
+                                <td>
+                                    <div class="user-info">
+                                        <strong>{{ registration.user.preferred_name or registration.user.legal_name }}</strong>
+                                        {% if registration.user.discord_id %}
+                                        <span class="discord-badge">Discord</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>{{ registration.user.email }}</td>
+                                <td>{{ registration.registration_date }}</td>
+                                <td>
+                                    {% if registration.temporary_info %}
+                                    <span class="status-badge status-complete">✓ Complete</span>
+                                    {% else %}
+                                    <span class="status-badge status-pending">⏳ Pending</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <button class="btn-icon" onclick="toggleDetails({{ registration.user.id }})">
+                                        <img src="{{ url_for('static', filename='icons/eye.svg') }}" alt="View Details">
+                                    </button>
+                                </td>
+                            </tr>
+                            {% if registration.temporary_info %}
+                            <tr class="details-row" id="details-{{ registration.user.id }}" style="display: none;">
+                                <td colspan="5">
+                                    <div class="temp-info-details">
+                                        <h4>Temporary Information</h4>
+                                        <div class="temp-info-grid">
+                                            <div class="temp-info-item">
+                                                <label>Phone Number:</label>
+                                                <span>{{ registration.temporary_info.phone_number }}</span>
+                                            </div>
+                                            <div class="temp-info-item">
+                                                <label>T-Shirt Size:</label>
+                                                <span>{{ registration.temporary_info.tshirt_size or 'Not specified' }}</span>
+                                            </div>
+                                            <div class="temp-info-item full-width">
+                                                <label>Address:</label>
+                                                <span>{{ registration.temporary_info.address }}</span>
+                                            </div>
+                                            <div class="temp-info-item">
+                                                <label>Emergency Contact:</label>
+                                                <span>{{ registration.temporary_info.emergency_contact_name }}</span>
+                                            </div>
+                                            <div class="temp-info-item">
+                                                <label>Emergency Email:</label>
+                                                <span>{{ registration.temporary_info.emergency_contact_email }}</span>
+                                            </div>
+                                            <div class="temp-info-item">
+                                                <label>Emergency Phone:</label>
+                                                <span>{{ registration.temporary_info.emergency_contact_phone }}</span>
+                                            </div>
+                                            {% if registration.temporary_info.dietary_restrictions %}
+                                            <div class="temp-info-item full-width">
+                                                <label>Dietary Restrictions:</label>
+                                                <div class="dietary-tags">
+                                                    {% for restriction in registration.temporary_info.dietary_restrictions %}
+                                                    <span class="dietary-tag">{{ restriction }}</span>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+                                            {% endif %}
+                                            <div class="temp-info-item">
+                                                <label>Submitted:</label>
+                                                <span>{{ registration.temporary_info.created_at }}</span>
+                                            </div>
+                                            <div class="temp-info-item">
+                                                <label>Expires:</label>
+                                                <span>{{ registration.temporary_info.expires_at }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <img src="{{ url_for('static', filename='icons/users.svg') }}" alt="No Registrations">
+                    <h3>No Registrations Yet</h3>
+                    <p>No users have registered for this event yet.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleDetails(userId) {
+            const detailsRow = document.getElementById(`details-${userId}`);
+            if (detailsRow.style.display === 'none') {
+                detailsRow.style.display = 'table-row';
+            } else {
+                detailsRow.style.display = 'none';
+            }
+        }
+    </script>
+
+    <style>
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .event-id-badge {
+            background: #f8f9fa;
+            color: #6c757d;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: monospace;
+            margin-top: 10px;
+            display: inline-block;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .stat-card {
+            background: white;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 32px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #6c757d;
+            font-size: 14px;
+        }
+
+        .registrations-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .registrations-table th,
+        .registrations-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e1e5e9;
+        }
+
+        .registrations-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .discord-badge {
+            background: #5865f2;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            text-transform: uppercase;
+        }
+
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-complete {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .btn-icon {
+            background: none;
+            border: none;
+            padding: 4px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .btn-icon:hover {
+            background: #f8f9fa;
+        }
+
+        .btn-icon img {
+            width: 16px;
+            height: 16px;
+        }
+
+        .details-row {
+            background: #f8f9fa;
+        }
+
+        .temp-info-details {
+            padding: 20px;
+        }
+
+        .temp-info-details h4 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+
+        .temp-info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .temp-info-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .temp-info-item.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .temp-info-item label {
+            font-weight: 600;
+            color: #6c757d;
+            font-size: 12px;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .temp-info-item span {
+            color: #2c3e50;
+        }
+
+        .dietary-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .dietary-tag {
+            background: #e3f2fd;
+            color: #1565c0;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }
+
+        .empty-state img {
+            width: 64px;
+            height: 64px;
+            opacity: 0.5;
+            margin-bottom: 20px;
+        }
+    </style>
+</body>
+</html>

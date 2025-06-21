@@ -5,6 +5,34 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Admin Panel - Hack ID</title>
 
+        <!-- Bootstrap CSS -->
+        <link
+            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+            rel="stylesheet"
+        />
+
+        <!-- Select2 CSS -->
+        <link
+            href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
+            rel="stylesheet"
+        />
+        <link
+            href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css"
+            rel="stylesheet"
+        />
+
+        <!-- Font Awesome for icons -->
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        />
+
+        <!-- SweetAlert2 for better modals -->
+        <link
+            href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css"
+            rel="stylesheet"
+        />
+
         <!-- Admin Styles -->
         <link rel="stylesheet" href="/static/styles/admin/base.css" />
         <link rel="stylesheet" href="/static/styles/admin/table.css" />
@@ -30,6 +58,18 @@
             <div class="search-count" id="searchCount">
                 {{ users|length if users else 0 }} entries
             </div>
+            <img
+                src="/static/icons/person.badge.plus.svg"
+                alt="Add User"
+                title="Add New User"
+                onclick="showAddUserModal()"
+                style="
+                    width: 20px;
+                    height: 20px;
+                    margin-left: 10px;
+                    cursor: pointer;
+                "
+            />
         </div>
 
         <!-- Home Icon -->
@@ -49,7 +89,7 @@
                         <th data-column="id" onclick="toggleFilter('id')">
                             <div class="header-content">
                                 <img
-                                    src="/static/icons/person.badge.shield.checkmark.svg"
+                                    src="/static/icons/number.svg"
                                     class="header-icon"
                                     alt="ID"
                                 />
@@ -105,16 +145,7 @@
                                 Pronouns
                             </div>
                         </th>
-                        <th data-column="phone" onclick="toggleFilter('phone')">
-                            <div class="header-content">
-                                <img
-                                    src="/static/icons/phone.svg"
-                                    class="header-icon"
-                                    alt="Phone"
-                                />
-                                Phone
-                            </div>
-                        </th>
+
                         <th data-column="dob" onclick="toggleFilter('dob')">
                             <div class="header-content">
                                 <img
@@ -125,45 +156,7 @@
                                 DOB
                             </div>
                         </th>
-                        <th
-                            data-column="address"
-                            onclick="toggleFilter('address')"
-                        >
-                            <div class="header-content">
-                                <img
-                                    src="/static/icons/house.svg"
-                                    class="header-icon"
-                                    alt="Address"
-                                />
-                                Address
-                            </div>
-                        </th>
-                        <th
-                            data-column="emergency_contact"
-                            onclick="toggleFilter('emergency_contact')"
-                        >
-                            <div class="header-content">
-                                <img
-                                    src="/static/icons/person.badge.shield.checkmark.svg"
-                                    class="header-icon"
-                                    alt="Emergency Contact"
-                                />
-                                Emergency Contact
-                            </div>
-                        </th>
-                        <th
-                            data-column="dietary"
-                            onclick="toggleFilter('dietary')"
-                        >
-                            <div class="header-content">
-                                <img
-                                    src="/static/icons/fork.knife.svg"
-                                    class="header-icon"
-                                    alt="Dietary Restrictions"
-                                />
-                                Dietary Restrictions
-                            </div>
-                        </th>
+
                         <th
                             data-column="discord"
                             onclick="toggleFilter('discord')"
@@ -301,28 +294,7 @@
                                 </button>
                             </div>
                         </td>
-                        <td class="filter-cell">
-                            <input
-                                type="text"
-                                class="filter-input"
-                                placeholder="Filter phone..."
-                                onkeyup="applyColumnFilter('phone', this.value)"
-                            />
-                            <div class="sort-buttons">
-                                <button
-                                    class="sort-btn"
-                                    onclick="sortTable('phone', 'asc')"
-                                >
-                                    A-Z
-                                </button>
-                                <button
-                                    class="sort-btn"
-                                    onclick="sortTable('phone', 'desc')"
-                                >
-                                    Z-A
-                                </button>
-                            </div>
-                        </td>
+
                         <td class="filter-cell">
                             <input
                                 type="date"
@@ -353,72 +325,7 @@
                                 </button>
                             </div>
                         </td>
-                        <td class="filter-cell">
-                            <input
-                                type="text"
-                                class="filter-input"
-                                placeholder="Filter address..."
-                                onkeyup="applyColumnFilter('address', this.value)"
-                            />
-                            <div class="sort-buttons">
-                                <button
-                                    class="sort-btn"
-                                    onclick="sortTable('address', 'asc')"
-                                >
-                                    A-Z
-                                </button>
-                                <button
-                                    class="sort-btn"
-                                    onclick="sortTable('address', 'desc')"
-                                >
-                                    Z-A
-                                </button>
-                            </div>
-                        </td>
-                        <td class="filter-cell">
-                            <input
-                                type="text"
-                                class="filter-input"
-                                placeholder="Filter contact..."
-                                onkeyup="applyColumnFilter('emergency_contact', this.value)"
-                            />
-                            <div class="sort-buttons">
-                                <button
-                                    class="sort-btn"
-                                    onclick="sortTable('emergency_contact', 'asc')"
-                                >
-                                    A-Z
-                                </button>
-                                <button
-                                    class="sort-btn"
-                                    onclick="sortTable('emergency_contact', 'desc')"
-                                >
-                                    Z-A
-                                </button>
-                            </div>
-                        </td>
-                        <td class="filter-cell">
-                            <input
-                                type="text"
-                                class="filter-input"
-                                placeholder="Filter dietary..."
-                                onkeyup="applyColumnFilter('dietary', this.value)"
-                            />
-                            <div class="sort-buttons">
-                                <button
-                                    class="sort-btn"
-                                    onclick="sortTable('dietary', 'asc')"
-                                >
-                                    A-Z
-                                </button>
-                                <button
-                                    class="sort-btn"
-                                    onclick="sortTable('dietary', 'desc')"
-                                >
-                                    Z-A
-                                </button>
-                            </div>
-                        </td>
+
                         <td class="filter-cell">
                             <input
                                 type="text"
@@ -469,17 +376,12 @@
                         class="user-row"
                         data-user-id="{{ user.email }}"
                         data-events="{{ user.events|join(',') }}"
-                        data-has-dietary="{{ 'yes' if user.dietary_restrictions else 'no' }}"
                         data-id="{{ user.id or '' }}"
                         data-email="{{ user.email or '' }}"
                         data-legal-name="{{ user.legal_name or '' }}"
                         data-preferred-name="{{ user.preferred_name or '' }}"
                         data-pronouns="{{ user.pronouns or '' }}"
-                        data-phone="{{ user.phone_number or '' }}"
                         data-dob="{{ user.date_of_birth or '' }}"
-                        data-address="{{ user.address or '' }}"
-                        data-emergency-contact="{{ user.emergency_contact_name or '' }}"
-                        data-dietary="{{ user.dietary_restrictions|join(',') if user.dietary_restrictions else '' }}"
                         data-discord="{{ user.discord_id or '' }}"
                     >
                         <td data-field="id">
@@ -489,6 +391,20 @@
                                 class="edit-icon"
                                 onclick="editUser('{{ user.email }}', event)"
                                 alt="Edit"
+                            />
+                            <img
+                                src="/static/icons/trash.svg"
+                                class="delete-icon"
+                                onclick="deleteUser('{{ user.email }}', {{ user.id }})"
+                                alt="Delete"
+                                title="Delete User"
+                                style="
+                                    width: 16px;
+                                    height: 16px;
+                                    margin-left: 10px;
+                                    cursor: pointer;
+                                    display: none;
+                                "
                             />
                         </td>
                         <td data-field="email">
@@ -527,53 +443,25 @@
                                 alt="Edit"
                             />
                         </td>
-                        <td data-field="phone">
-                            {{ user.phone_number or 'N/A' }}
-                            <img
-                                src="/static/icons/pencil.svg"
-                                class="edit-icon"
-                                onclick="editUser('{{ user.email }}', event)"
-                                alt="Edit"
-                            />
-                        </td>
+
                         <td data-field="dob">
-                            {{ user.date_of_birth or 'N/A' }}
-                            <img
-                                src="/static/icons/pencil.svg"
-                                class="edit-icon"
-                                onclick="editUser('{{ user.email }}', event)"
-                                alt="Edit"
-                            />
-                        </td>
-                        <td data-field="address">
-                            {% if user.address %}
-                            <div title="{{ user.address }}">
-                                {{ user.address[:30] }}{% if user.address|length
-                                > 30 %}...{% endif %}
-                            </div>
-                            {% else %} N/A {% endif %}
-                            <img
-                                src="/static/icons/pencil.svg"
-                                class="edit-icon"
-                                onclick="editUser('{{ user.email }}', event)"
-                                alt="Edit"
-                            />
-                        </td>
-                        <td data-field="emergency_contact">
-                            {% if user.emergency_contact_name %}
+                            {% if user.date_of_birth %}
                             <div>
-                                <strong
-                                    >{{ user.emergency_contact_name }}</strong
-                                ><br />
-                                {% if user.emergency_contact_email %}
-                                <small>{{ user.emergency_contact_email }}</small
-                                ><br />
-                                {% endif %} {% if user.emergency_contact_phone
-                                %}
+                                <span
+                                    class="dob-formatted"
+                                    data-dob="{{ user.date_of_birth }}"
+                                >
+                                    {{ user.date_of_birth }}
+                                </span>
                                 <small
-                                    >{{ user.emergency_contact_phone }}</small
+                                    class="age-display"
+                                    style="color: #666; margin-left: 5px"
                                 >
-                                {% endif %}
+                                    <span
+                                        class="age-calc"
+                                        data-dob="{{ user.date_of_birth }}"
+                                    ></span>
+                                </small>
                             </div>
                             {% else %} N/A {% endif %}
                             <img
@@ -583,26 +471,7 @@
                                 alt="Edit"
                             />
                         </td>
-                        <td data-field="dietary">
-                            {% if user.dietary_restrictions %}
-                            <div>
-                                {% for restriction in user.dietary_restrictions
-                                %}
-                                <span class="dietary-tag"
-                                    >{{ restriction }}</span
-                                >
-                                {% endfor %}
-                            </div>
-                            {% else %}
-                            <span style="color: #666">None</span>
-                            {% endif %}
-                            <img
-                                src="/static/icons/pencil.svg"
-                                class="edit-icon"
-                                onclick="editUser('{{ user.email }}', event)"
-                                alt="Edit"
-                            />
-                        </td>
+
                         <td data-field="discord">
                             {{ user.discord_id or 'N/A' }}
                             <img
@@ -646,9 +515,91 @@
         </div>
         {% endif %}
 
+        <!-- jQuery (required for Select2) -->
+        <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+
+        <!-- Bootstrap JS -->
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+        <!-- Select2 JS -->
+        <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+        <!-- SweetAlert2 JS -->
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
         <!-- Admin Scripts -->
         <script src="/static/scripts/admin/core.js"></script>
+
+        <!-- Populate events data from server -->
+        <script>
+            // Populate eventsData from server-side data
+            eventsData = {{ events | tojson }};
+        </script>
+
         <script src="/static/scripts/admin/filters.js"></script>
         <script src="/static/scripts/admin/edit.js"></script>
+
+        <!-- Date formatting and age calculation -->
+        <script>
+            document.addEventListener("DOMContentLoaded", function () {
+                // Format dates and calculate ages
+                document
+                    .querySelectorAll(".dob-formatted")
+                    .forEach(function (element) {
+                        const dobString = element.getAttribute("data-dob");
+                        if (dobString && dobString !== "N/A") {
+                            try {
+                                const dob = new Date(dobString);
+                                if (!isNaN(dob.getTime())) {
+                                    // Format as MM/DD/YYYY
+                                    const formatted =
+                                        (dob.getMonth() + 1)
+                                            .toString()
+                                            .padStart(2, "0") +
+                                        "/" +
+                                        dob
+                                            .getDate()
+                                            .toString()
+                                            .padStart(2, "0") +
+                                        "/" +
+                                        dob.getFullYear();
+                                    element.textContent = formatted;
+                                }
+                            } catch (e) {
+                                console.error("Error formatting date:", e);
+                            }
+                        }
+                    });
+
+                // Calculate ages
+                document
+                    .querySelectorAll(".age-calc")
+                    .forEach(function (element) {
+                        const dobString = element.getAttribute("data-dob");
+                        if (dobString && dobString !== "N/A") {
+                            try {
+                                const dob = new Date(dobString);
+                                if (!isNaN(dob.getTime())) {
+                                    const today = new Date();
+                                    let age =
+                                        today.getFullYear() - dob.getFullYear();
+                                    const monthDiff =
+                                        today.getMonth() - dob.getMonth();
+                                    if (
+                                        monthDiff < 0 ||
+                                        (monthDiff === 0 &&
+                                            today.getDate() < dob.getDate())
+                                    ) {
+                                        age--;
+                                    }
+                                    element.textContent = "(" + age + ")";
+                                }
+                            } catch (e) {
+                                console.error("Error calculating age:", e);
+                            }
+                        }
+                    });
+            });
+        </script>
     </body>
 </html>

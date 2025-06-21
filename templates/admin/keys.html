@@ -245,9 +245,12 @@
                 }
             }
 
-            function renderKeys(keys) {
+            async function renderKeys(keys) {
                 const tbody = document.getElementById("keysTableBody");
                 tbody.innerHTML = "";
+
+                // Load permissions config for display names
+                await loadPermissionsConfig();
 
                 keys.forEach((key) => {
                     const row = document.createElement("tr");
@@ -264,19 +267,7 @@
                         }</td>
                         <td>
                             <div class="permissions-list">
-                                ${
-                                    key.permissions &&
-                                    key.permissions.length > 0
-                                        ? key.permissions
-                                              .map(
-                                                  (perm) =>
-                                                      `<span class="permission-tag">${escapeHtml(
-                                                          perm
-                                                      )}</span>`
-                                              )
-                                              .join(" ")
-                                        : '<em style="color: #999; font-size: 11px;">No permissions</em>'
-                                }
+                                ${formatPermissionsForDisplay(key.permissions)}
                             </div>
                         </td>
                         <td>
@@ -301,6 +292,33 @@
                     `;
                     tbody.appendChild(row);
                 });
+            }
+
+            function formatPermissionsForDisplay(permissions) {
+                if (!permissions || permissions.length === 0) {
+                    return '<em style="color: #999; font-size: 11px;">No permissions</em>';
+                }
+
+                return permissions
+                    .map((permId) => {
+                        const perm = permissionsConfig?.permissions?.[permId];
+                        if (!perm) {
+                            // Fallback for unknown permissions
+                            return `<span class="permission-tag" style="background: #f8d7da; color: #721c24;" title="Unknown permission: ${escapeHtml(
+                                permId
+                            )}">${escapeHtml(permId)}</span>`;
+                        }
+
+                        const riskColor =
+                            permissionsConfig.risk_levels[perm.risk_level]
+                                ?.color || "#666";
+                        return `<span class="permission-tag" style="border-left: 3px solid ${riskColor};" title="${escapeHtml(
+                            perm.description
+                        )} (Risk: ${perm.risk_level})">${escapeHtml(
+                            perm.name
+                        )}</span>`;
+                    })
+                    .join(" ");
             }
 
             function formatDate(dateString) {
@@ -358,30 +376,45 @@
                 });
             }
 
+            // Load permissions configuration
+            let permissionsConfig = null;
+
+            async function loadPermissionsConfig() {
+                if (!permissionsConfig) {
+                    try {
+                        const response = await fetch(
+                            "/static/permissions.json"
+                        );
+                        permissionsConfig = await response.json();
+                    } catch (error) {
+                        console.error(
+                            "Failed to load permissions config:",
+                            error
+                        );
+                        permissionsConfig = {
+                            permissions: {},
+                            categories: {},
+                            risk_levels: {},
+                        };
+                    }
+                }
+                return permissionsConfig;
+            }
+
             // CRUD Operations
             async function createKey() {
+                await loadPermissionsConfig();
+
                 const { value: formValues } = await Swal.fire({
                     title: "Create API Key",
-                    html: `
-                        <div style="text-align: left;">
-                            <label for="keyName" style="display: block; margin-bottom: 5px; font-weight: 500;">Name:</label>
-                            <input id="keyName" class="swal2-input" placeholder="Enter key name" style="margin-bottom: 15px;">
-
-                            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Permissions:</label>
-                            <div id="permissionsList" style="margin-bottom: 10px; min-height: 40px; border: 1px solid #ddd; border-radius: 4px; padding: 8px; background: #f8f9fa;">
-                                <em style="color: #666;">No permissions added</em>
-                            </div>
-                            <div style="display: flex; gap: 8px;">
-                                <input id="newPermission" placeholder="Add permission" style="flex: 1; padding: 6px; border: 1px solid #ddd; border-radius: 3px;">
-                                <button type="button" onclick="addPermission()" style="padding: 6px 12px; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">
-                                    <img src="/static/icons/plus.svg" style="width: 12px; height: 12px;" alt="Add">
-                                </button>
-                            </div>
-                        </div>
-                    `,
+                    html: await generatePermissionSelectionHTML(),
                     focusConfirm: false,
                     showCancelButton: true,
                     confirmButtonText: "Create Key",
+                    width: "800px",
+                    didOpen: () => {
+                        setupPermissionSelection();
+                    },
                     preConfirm: () => {
                         const name = document.getElementById("keyName").value;
                         if (!name) {
@@ -450,47 +483,147 @@
             // Permission management for create/edit modals
             window.currentPermissions = [];
 
-            function addPermission() {
-                const input = document.getElementById("newPermission");
-                const permission = input.value.trim();
+            async function generatePermissionSelectionHTML() {
+                const config = await loadPermissionsConfig();
 
-                if (
-                    permission &&
-                    !window.currentPermissions.includes(permission)
-                ) {
-                    window.currentPermissions.push(permission);
-                    input.value = "";
-                    updatePermissionsDisplay();
-                }
+                let html = `
+                    <div style="text-align: left;">
+                        <label for="keyName" style="display: block; margin-bottom: 5px; font-weight: 500;">Name:</label>
+                        <input id="keyName" class="swal2-input" placeholder="Enter key name" style="margin-bottom: 20px;">
+
+                        <label style="display: block; margin-bottom: 10px; font-weight: 500;">Permissions:</label>
+                        <div id="selectedPermissions" style="margin-bottom: 15px; min-height: 40px; border: 1px solid #ddd; border-radius: 4px; padding: 8px; background: #f8f9fa;">
+                            <em style="color: #666;">No permissions selected</em>
+                        </div>
+
+                        <div style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 10px;">
+                `;
+
+                // Group permissions by category
+                const categories = {};
+                Object.entries(config.permissions).forEach(([permId, perm]) => {
+                    if (!categories[perm.category]) {
+                        categories[perm.category] = [];
+                    }
+                    categories[perm.category].push({ id: permId, ...perm });
+                });
+
+                // Generate HTML for each category
+                Object.entries(categories).forEach(([categoryName, perms]) => {
+                    const categoryInfo = config.categories[categoryName] || {};
+                    html += `
+                        <div style="margin-bottom: 15px;">
+                            <h4 style="margin: 0 0 8px 0; color: ${
+                                categoryInfo.color || "#333"
+                            }; font-size: 14px;">
+                                ${categoryName}
+                            </h4>
+                            <div style="margin-left: 10px;">
+                    `;
+
+                    perms.forEach((perm) => {
+                        const riskColor =
+                            config.risk_levels[perm.risk_level]?.color ||
+                            "#666";
+                        html += `
+                            <div style="margin-bottom: 8px;">
+                                <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" value="${
+                                        perm.id
+                                    }" onchange="togglePermission('${
+                            perm.id
+                        }')" style="margin-top: 2px;">
+                                    <div>
+                                        <div style="font-weight: 500; font-size: 13px;">${
+                                            perm.name
+                                        }</div>
+                                        <div style="font-size: 11px; color: #666; margin-bottom: 2px;">${
+                                            perm.description
+                                        }</div>
+                                        <div style="font-size: 10px; color: ${riskColor}; font-weight: 500;">
+                                            Risk: ${perm.risk_level.toUpperCase()}
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+                        `;
+                    });
+
+                    html += `
+                            </div>
+                        </div>
+                    `;
+                });
+
+                html += `
+                        </div>
+                    </div>
+                `;
+
+                return html;
             }
 
-            function removePermission(permission) {
-                window.currentPermissions = window.currentPermissions.filter(
-                    (p) => p !== permission
+            function setupPermissionSelection() {
+                window.currentPermissions = [];
+                updateSelectedPermissionsDisplay();
+            }
+
+            function togglePermission(permissionId) {
+                const checkbox = document.querySelector(
+                    `input[value="${permissionId}"]`
                 );
-                updatePermissionsDisplay();
+                if (checkbox.checked) {
+                    if (!window.currentPermissions.includes(permissionId)) {
+                        window.currentPermissions.push(permissionId);
+                    }
+                } else {
+                    window.currentPermissions =
+                        window.currentPermissions.filter(
+                            (p) => p !== permissionId
+                        );
+                }
+                updateSelectedPermissionsDisplay();
             }
 
-            function updatePermissionsDisplay() {
-                const container = document.getElementById("permissionsList");
+            function updateSelectedPermissionsDisplay() {
+                const container = document.getElementById(
+                    "selectedPermissions"
+                );
                 if (window.currentPermissions.length === 0) {
                     container.innerHTML =
-                        '<em style="color: #666;">No permissions added</em>';
+                        '<em style="color: #666;">No permissions selected</em>';
                 } else {
+                    const config = permissionsConfig;
                     container.innerHTML = window.currentPermissions
-                        .map(
-                            (perm) =>
-                                `<span class="permission-tag" style="margin: 2px; display: inline-flex; align-items: center; gap: 4px;">
-                            ${escapeHtml(perm)}
-                            <button type="button" onclick="removePermission('${escapeHtml(
-                                perm
-                            )}')" style="background: none; border: none; color: #dc3545; cursor: pointer; padding: 0; font-size: 12px;">
-                                <img src="/static/icons/minus.svg" style="width: 10px; height: 10px;" alt="Remove">
-                            </button>
-                        </span>`
-                        )
+                        .map((permId) => {
+                            const perm = config.permissions[permId];
+                            if (!perm)
+                                return `<span style="color: #dc3545;">${permId} (unknown)</span>`;
+
+                            const riskColor =
+                                config.risk_levels[perm.risk_level]?.color ||
+                                "#666";
+                            return `
+                                <div style="display: inline-block; margin: 2px 4px 2px 0; padding: 4px 8px; background: #e9ecef; border-radius: 12px; font-size: 11px;">
+                                    <span style="font-weight: 500;">${perm.name}</span>
+                                    <span style="color: ${riskColor}; margin-left: 4px;">(${perm.risk_level})</span>
+                                    <button type="button" onclick="removeSelectedPermission('${permId}')" style="background: none; border: none; color: #dc3545; cursor: pointer; margin-left: 4px; font-size: 10px;">×</button>
+                                </div>
+                            `;
+                        })
                         .join("");
                 }
+            }
+
+            function removeSelectedPermission(permissionId) {
+                window.currentPermissions = window.currentPermissions.filter(
+                    (p) => p !== permissionId
+                );
+                const checkbox = document.querySelector(
+                    `input[value="${permissionId}"]`
+                );
+                if (checkbox) checkbox.checked = false;
+                updateSelectedPermissionsDisplay();
             }
 
             async function editKey(keyId) {

@@ -6,6 +6,31 @@ let savingUsers = new Set();
 let editStartTime = null;
 let justEnteredEditMode = false;
 
+// Consistent field lists
+const EDITABLE_FIELDS = [
+    "email",
+    "legal_name",
+    "preferred_name",
+    "pronouns",
+    "dob",
+    "discord",
+    "events",
+];
+
+const TEXT_FIELDS = [
+    "email",
+    "legal_name",
+    "preferred_name",
+    "pronouns",
+    "dob",
+    "discord",
+];
+
+const FIELD_MAPPING = {
+    legal_name: "legalName",
+    preferred_name: "preferredName",
+};
+
 // Toast notification system
 function showToast(message, type = "success") {
     const container = getOrCreateToastContainer();
@@ -75,21 +100,14 @@ function editUser(userEmail, event) {
         icon.style.display = "none";
     });
 
-    // Make all fields editable except ID and email
-    const editableFields = [
-        "legal_name",
-        "preferred_name",
-        "pronouns",
-        "phone",
-        "dob",
-        "address",
-        "emergency_contact",
-        "dietary",
-        "discord",
-        "events",
-    ];
+    // Show delete icon in ID field
+    const deleteIcon = row.querySelector(".delete-icon");
+    if (deleteIcon) {
+        deleteIcon.style.display = "inline";
+    }
 
-    editableFields.forEach((field) => {
+    // Make all fields editable except ID
+    EDITABLE_FIELDS.forEach((field) => {
         const cell = row.querySelector(`[data-field="${field}"]`);
         if (!cell) return;
 
@@ -111,13 +129,7 @@ function getCurrentFieldValue(row, field) {
     }
 
     // Fall back to original data
-    const mapping = {
-        legal_name: "legalName",
-        preferred_name: "preferredName",
-        emergency_contact: "emergencyContact",
-    };
-
-    const dataField = mapping[field] || field;
+    const dataField = FIELD_MAPPING[field] || field;
     return row.dataset[dataField] || "";
 }
 
@@ -185,20 +197,8 @@ function saveUser(userEmail) {
 
     // Store original data for potential revert
     const originalData = {};
-    const editableFields = [
-        "legal_name",
-        "preferred_name",
-        "pronouns",
-        "phone",
-        "dob",
-        "address",
-        "emergency_contact",
-        "dietary",
-        "discord",
-        "events",
-    ];
 
-    editableFields.forEach((field) => {
+    EDITABLE_FIELDS.forEach((field) => {
         const cell = row.querySelector(`[data-field="${field}"]`);
         if (cell) {
             const input = cell.querySelector(".edit-input");
@@ -216,18 +216,15 @@ function saveUser(userEmail) {
     const formData = new FormData();
     formData.append("email", userEmail);
 
+    // Get user ID from the row
+    const userIdCell = row.querySelector('[data-field="id"]');
+    const userId = userIdCell ? userIdCell.textContent.trim() : null;
+    if (userId) {
+        formData.append("user_id", userId);
+    }
+
     // Collect text field values
-    const textFields = [
-        "legal_name",
-        "preferred_name",
-        "pronouns",
-        "phone",
-        "dob",
-        "address",
-        "emergency_contact",
-        "dietary",
-        "discord",
-    ];
+    const textFields = TEXT_FIELDS;
 
     textFields.forEach((field) => {
         const cell = row.querySelector(`[data-field="${field}"]`);
@@ -290,18 +287,7 @@ function cancelEdit() {
     row.classList.remove("edit-mode");
 
     // Restore original content
-    const fields = [
-        "legal_name",
-        "preferred_name",
-        "pronouns",
-        "phone",
-        "dob",
-        "address",
-        "emergency_contact",
-        "dietary",
-        "discord",
-        "events",
-    ];
+    const fields = EDITABLE_FIELDS.filter((f) => f !== "email"); // All except email
 
     fields.forEach((field) => {
         const cell = row.querySelector(`[data-field="${field}"]`);
@@ -317,10 +303,14 @@ function cancelEdit() {
         }
     });
 
-    // Restore edit icons
+    // Restore edit icons and hide delete icon
     row.querySelectorAll(".edit-icon").forEach((icon) => {
         icon.style.display = "";
     });
+    const deleteIcon = row.querySelector(".delete-icon");
+    if (deleteIcon) {
+        deleteIcon.style.display = "none";
+    }
 
     editingUser = null;
 }
@@ -333,18 +323,7 @@ function exitEditMode(userEmail) {
     row.classList.remove("edit-mode");
 
     // Restore original content
-    const fields = [
-        "legal_name",
-        "preferred_name",
-        "pronouns",
-        "phone",
-        "dob",
-        "address",
-        "emergency_contact",
-        "dietary",
-        "discord",
-        "events",
-    ];
+    const fields = EDITABLE_FIELDS;
 
     fields.forEach((field) => {
         const cell = row.querySelector(`[data-field="${field}"]`);
@@ -360,10 +339,14 @@ function exitEditMode(userEmail) {
         }
     });
 
-    // Restore edit icons
+    // Restore edit icons and hide delete icon
     row.querySelectorAll(".edit-icon").forEach((icon) => {
         icon.style.display = "";
     });
+    const deleteIcon = row.querySelector(".delete-icon");
+    if (deleteIcon) {
+        deleteIcon.style.display = "none";
+    }
 
     editingUser = null;
 }
@@ -379,18 +362,7 @@ function exitEditModeWithNewValues(userEmail, formData) {
     storeUserChanges(row, formData);
 
     // Update display with new values instead of reverting to original
-    const fields = [
-        "legal_name",
-        "preferred_name",
-        "pronouns",
-        "phone",
-        "dob",
-        "address",
-        "emergency_contact",
-        "dietary",
-        "discord",
-        "events",
-    ];
+    const fields = EDITABLE_FIELDS;
 
     fields.forEach((field) => {
         const cell = row.querySelector(`[data-field="${field}"]`);
@@ -410,21 +382,25 @@ function exitEditModeWithNewValues(userEmail, formData) {
         } else {
             // Handle text fields
             if (newValue !== null) {
-                updateTextFieldDisplay(cell, newValue, field);
+                updateTextFieldDisplay(cell, newValue);
             }
         }
     });
 
-    // Restore edit icons
+    // Restore edit icons and hide delete icon
     row.querySelectorAll(".edit-icon").forEach((icon) => {
         icon.style.display = "";
     });
+    const deleteIcon = row.querySelector(".delete-icon");
+    if (deleteIcon) {
+        deleteIcon.style.display = "none";
+    }
 
     editingUser = null;
 }
 
 // Helper function to update text field display with new value
-function updateTextFieldDisplay(cell, newValue, field) {
+function updateTextFieldDisplay(cell, newValue) {
     // Create the display content with edit icon
     const displayValue = newValue === "" ? "N/A" : newValue;
     const userEmail = cell.closest("[data-user-id]").dataset.userId;
@@ -449,18 +425,7 @@ function updateEventsDisplay(cell, selectedEvents) {
 
 // Helper function to update display with new values after successful save
 function updateDisplayWithNewValues(row, formData) {
-    const fields = [
-        "legal_name",
-        "preferred_name",
-        "pronouns",
-        "phone",
-        "dob",
-        "address",
-        "emergency_contact",
-        "dietary",
-        "discord",
-        "events",
-    ];
+    const fields = EDITABLE_FIELDS;
 
     fields.forEach((field) => {
         const cell = row.querySelector(`[data-field="${field}"]`);
@@ -477,7 +442,7 @@ function updateDisplayWithNewValues(row, formData) {
             // Handle text fields
             const newValue = formData.get(field);
             if (newValue !== null) {
-                updateTextFieldDisplay(cell, newValue, field);
+                updateTextFieldDisplay(cell, newValue);
             }
         }
     });
@@ -485,18 +450,7 @@ function updateDisplayWithNewValues(row, formData) {
 
 // Helper function to store user changes in row data attributes
 function storeUserChanges(row, formData) {
-    const fields = [
-        "legal_name",
-        "preferred_name",
-        "pronouns",
-        "phone",
-        "dob",
-        "address",
-        "emergency_contact",
-        "dietary",
-        "discord",
-        "events",
-    ];
+    const fields = EDITABLE_FIELDS;
 
     fields.forEach((field) => {
         const newValue = formData.get(field);
@@ -536,10 +490,69 @@ function revertRowChanges(row, originalData) {
     });
 }
 
+// Delete user function
+function deleteUser(userEmail, userId) {
+    // Show confirmation dialog
+    if (
+        confirm(
+            `Are you sure you want to delete user ${userEmail}? This action cannot be undone.`
+        )
+    ) {
+        // Send delete request
+        fetch("/admin/delete-user", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                email: userEmail,
+                user_id: userId,
+            }),
+        })
+            .then((response) => response.json())
+            .then((data) => {
+                if (data.success) {
+                    // Remove the row from the table
+                    const row = document.querySelector(
+                        `[data-user-id="${userEmail}"]`
+                    );
+                    if (row) {
+                        row.remove();
+                    }
+
+                    // Show success message
+                    alert("User deleted successfully");
+
+                    // Update user count
+                    updateUserCount();
+                } else {
+                    alert(
+                        "Error deleting user: " +
+                            (data.error || "Unknown error")
+                    );
+                }
+            })
+            .catch((error) => {
+                console.error("Error:", error);
+                alert("Error deleting user: " + error.message);
+            });
+    }
+}
+
+// Helper function to update user count
+function updateUserCount() {
+    const userRows = document.querySelectorAll(".user-row");
+    const countElement = document.querySelector(".user-count");
+    if (countElement) {
+        countElement.textContent = userRows.length;
+    }
+}
+
 // Make functions and variables globally accessible
 window.editUser = editUser;
 window.saveUser = saveUser;
 window.cancelEdit = cancelEdit;
+window.deleteUser = deleteUser;
 
 // Make variables accessible via getters/setters
 Object.defineProperty(window, "editingUser", {

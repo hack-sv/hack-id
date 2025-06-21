@@ -10,5 +10,11 @@
         "discord-role-id": 1320732117272891392,
         "discord-name": "<:scrapyard:1320732117272891392> Scrapyard Silicon Valley",
         "description": "12-hour hardware hackathon"
+    },
+    "hacksv_2025": {
+        "name": "hack.sv",
+        "discord-role-id": 1355873274143182890,
+        "discord-name": "<:emoji4115:1384200369571365049> hack.sv",
+        "description": "Something cool"
     }
 }

@@ -5,11 +5,8 @@ let currentSort = { column: null, direction: null };
 let columnFilters = {};
 let allRows = [];
 
-// Events data
-const eventsData = {
-    counterspell: { name: "Counterspell" },
-    scrapyard: { name: "Scrapyard" },
-};
+// Events data - will be populated from server
+let eventsData = {};
 
 // Initialize
 document.addEventListener("DOMContentLoaded", function () {
