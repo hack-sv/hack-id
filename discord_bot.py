@@ -8,6 +8,7 @@ import json
 import sqlite3
 import asyncio
 from datetime import datetime, timedelta
+import pytz
 import discord
 from discord.ext import tasks
 from dotenv import load_dotenv
@@ -29,6 +30,10 @@ else:
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 DISCORD_GUILD_ID = int(os.getenv("DISCORD_GUILD_ID", "0"))
 DATABASE = "users.db"
+
+# Countdown configuration
+COUNTDOWN_CHANNEL_ID = 1363613340768665670
+TARGET_DATE = datetime(2025, 8, 23, 8, 0, 0)  # August 23, 2025 at 8:00 AM PST
 
 # Bot setup
 intents = discord.Intents.default()
@@ -127,6 +132,9 @@ async def on_ready():
 
     # Start the verification check task
     check_for_new_verifications.start()
+
+    # Start the daily countdown task
+    daily_countdown.start()
 
 
 @bot.slash_command(
@@ -248,6 +256,55 @@ async def check_for_new_verifications():
 
     except Exception as e:
         print(f"Error in check_for_new_verifications: {e}")
+
+
+@tasks.loop(hours=24)
+async def daily_countdown():
+    """Send daily countdown message at 8:00 AM PST."""
+    try:
+        # Get PST timezone
+        pst = pytz.timezone("US/Pacific")
+        now_pst = datetime.now(pst)
+
+        # Calculate days remaining until August 23, 2025 at 8:00 AM PST
+        target_pst = pst.localize(TARGET_DATE)
+        days_remaining = (target_pst.date() - now_pst.date()).days
+
+        # Get the channel
+        channel = bot.get_channel(COUNTDOWN_CHANNEL_ID)
+        if not channel:
+            print(f"Channel {COUNTDOWN_CHANNEL_ID} not found")
+            return
+
+        # Send the countdown message
+        message = f"# {days_remaining} days remain...\n-# @everyone"
+        await channel.send(message)
+        print(f"Sent countdown message: {days_remaining} days remaining")
+
+    except Exception as e:
+        print(f"Error in daily_countdown: {e}")
+
+
+@daily_countdown.before_loop
+async def before_daily_countdown():
+    """Wait until 8:00 AM PST to start the countdown loop."""
+    await bot.wait_until_ready()
+
+    # Get PST timezone
+    pst = pytz.timezone("US/Pacific")
+    now_pst = datetime.now(pst)
+
+    # Calculate next 8:00 AM PST
+    next_8am = now_pst.replace(hour=8, minute=0, second=0, microsecond=0)
+    if now_pst.hour >= 8:
+        # If it's already past 8 AM today, schedule for tomorrow
+        next_8am += timedelta(days=1)
+
+    # Calculate seconds to wait
+    wait_seconds = (next_8am - now_pst).total_seconds()
+    print(f"Waiting {wait_seconds} seconds until next 8:00 AM PST for countdown")
+
+    await asyncio.sleep(wait_seconds)
 
 
 @bot.event
