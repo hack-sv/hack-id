@@ -132,6 +132,18 @@
                     <h3>API Calls (24h)</h3>
                     <div class="number">{{ stats.api_calls_24h }}</div>
                 </div>
+                {% if current_event %}
+                <div class="stat-card">
+                    <h3>{{ current_event.name }} Attendees</h3>
+                    <div class="number">
+                        {{ stats.current_event_attendees }}
+                    </div>
+                </div>
+                {% endif %}
+                <div class="stat-card">
+                    <h3>Admin Users</h3>
+                    <div class="number">{{ stats.total_admins }}</div>
+                </div>
             </div>
 
             <div class="nav-grid">
@@ -165,6 +177,39 @@
                         and view usage logs for secure API access.
                     </p>
                 </a>
+
+                <a href="/admin/admins" class="nav-card">
+                    <h3>
+                        <img
+                            src="/static/icons/person.badge.shield.svg"
+                            class="icon"
+                            alt="Admin Management"
+                        />
+                        Admin Management
+                    </h3>
+                    <p>
+                        Manage administrator accounts. Add or remove admin
+                        privileges for users who need system access.
+                    </p>
+                </a>
+
+                {% if current_event %}
+                <a href="/admin/current-event" class="nav-card">
+                    <h3>
+                        <img
+                            src="/static/icons/calendar.badge.plus.svg"
+                            class="icon"
+                            alt="Current Event"
+                        />
+                        {{ current_event.name }} Data
+                    </h3>
+                    <p>
+                        View attendee information for the current event. Access
+                        contact details, dietary restrictions, and emergency
+                        contacts.
+                    </p>
+                </a>
+                {% endif %}
             </div>
         </div>
     </body>

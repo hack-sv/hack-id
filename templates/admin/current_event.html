@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>{{ event.name }} Data - Hack ID</title>
+        <link rel="stylesheet" href="/static/styles/admin/base.css" />
+        <link rel="stylesheet" href="/static/styles/admin/table.css" />
+        <link rel="stylesheet" href="/static/styles/admin/edit.css" />
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    </head>
+    <body>
+        <div class="admin-container">
+            <!-- Header -->
+            <div class="admin-header">
+                <div class="search-section">
+                    <input
+                        type="text"
+                        id="globalSearch"
+                        placeholder="Search attendees... (Cmd+K)"
+                        autocomplete="off"
+                    />
+                    <button class="clear-search" onclick="clearSearch()">×</button>
+                    <div class="search-count" id="searchCount">0 entries</div>
+                </div>
+
+                <div class="header-actions">
+                    <button class="action-btn secondary" onclick="exportData()">
+                        <img src="/static/icons/square.and.arrow.down.svg" alt="Export" />
+                        Export CSV
+                    </button>
+                    <button class="home-btn" onclick="window.location.href='/admin'">
+                        <img src="/static/icons/house.svg" alt="Home" />
+                    </button>
+                </div>
+            </div>
+
+            <!-- Event Info -->
+            <div class="event-info">
+                <h2>{{ event.name }} Attendee Data</h2>
+                <p>{{ event.description }}</p>
+            </div>
+
+            <!-- Loading State -->
+            <div id="loading" class="loading">Loading attendee data...</div>
+
+            <!-- Empty State -->
+            <div id="emptyState" class="empty-state" style="display: none">
+                <h3>No Attendees Found</h3>
+                <p>No attendees have submitted their information for this event yet.</p>
+            </div>
+
+            <!-- Table Container -->
+            <div class="table-container" style="display: none">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>T-Shirt</th>
+                            <th>Dietary</th>
+                            <th>Emergency Contact</th>
+                            <th>Submitted</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="attendeesTableBody">
+                        <!-- Dynamic content -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <script>
+            let allAttendees = [];
+            let eventData = null;
+
+            // Load attendees on page load
+            document.addEventListener("DOMContentLoaded", function () {
+                loadAttendees();
+                setupKeyboardShortcuts();
+            });
+
+            async function loadAttendees() {
+                const loading = document.getElementById("loading");
+                const emptyState = document.getElementById("emptyState");
+                const tableContainer = document.querySelector(".table-container");
+
+                loading.style.display = "block";
+                emptyState.style.display = "none";
+                tableContainer.style.display = "none";
+
+                try {
+                    const response = await fetch("/admin/current-event/data");
+                    const data = await response.json();
+
+                    if (data.success) {
+                        allAttendees = data.attendees;
+                        eventData = data.event;
+                        renderAttendees(allAttendees);
+                        updateCount(allAttendees.length);
+
+                        if (allAttendees.length === 0) {
+                            emptyState.style.display = "block";
+                        } else {
+                            tableContainer.style.display = "block";
+                        }
+                    } else {
+                        throw new Error(data.error || "Failed to load attendee data");
+                    }
+                } catch (error) {
+                    console.error("Error loading attendees:", error);
+                    Swal.fire(
+                        "Error",
+                        "Failed to load attendee data: " + error.message,
+                        "error"
+                    );
+                } finally {
+                    loading.style.display = "none";
+                }
+            }
+
+            function renderAttendees(attendees) {
+                const tbody = document.getElementById("attendeesTableBody");
+                tbody.innerHTML = "";
+
+                attendees.forEach((attendee) => {
+                    const row = document.createElement("tr");
+                    row.className = "attendee-row";
+                    
+                    const displayName = attendee.preferred_name || attendee.legal_name || "N/A";
+                    const dietaryRestrictions = attendee.dietary_restrictions.length > 0 
+                        ? attendee.dietary_restrictions.join(", ") 
+                        : "None";
+
+                    row.innerHTML = `
+                        <td>${attendee.id}</td>
+                        <td>
+                            <div class="name-cell">
+                                <strong>${escapeHtml(displayName)}</strong>
+                                ${attendee.pronouns ? `<br><small>(${escapeHtml(attendee.pronouns)})</small>` : ''}
+                            </div>
+                        </td>
+                        <td>${escapeHtml(attendee.email)}</td>
+                        <td>${escapeHtml(attendee.phone_number)}</td>
+                        <td>${escapeHtml(attendee.tshirt_size || 'N/A')}</td>
+                        <td>
+                            <div class="dietary-cell" title="${escapeHtml(dietaryRestrictions)}">
+                                ${dietaryRestrictions.length > 30 ? dietaryRestrictions.substring(0, 30) + '...' : dietaryRestrictions}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="emergency-cell">
+                                <strong>${escapeHtml(attendee.emergency_contact_name)}</strong><br>
+                                <small>${escapeHtml(attendee.emergency_contact_phone)}</small>
+                            </div>
+                        </td>
+                        <td>${formatDate(attendee.created_at)}</td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="action-btn" onclick="viewDetails(${attendee.id})" title="View Details">
+                                    <img src="/static/icons/info.circle.svg" alt="Info">
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
+
+            function formatDate(dateString) {
+                if (!dateString) return "N/A";
+                const date = new Date(dateString);
+                return (
+                    date.toLocaleDateString() +
+                    " " +
+                    date.toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                    })
+                );
+            }
+
+            function escapeHtml(text) {
+                const div = document.createElement("div");
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            function updateCount(count) {
+                document.getElementById("searchCount").textContent = `${count} entries`;
+            }
+
+            // Search functionality
+            document.getElementById("globalSearch").addEventListener("input", function (e) {
+                const searchTerm = e.target.value.toLowerCase();
+                const filteredAttendees = allAttendees.filter(
+                    (attendee) =>
+                        attendee.email.toLowerCase().includes(searchTerm) ||
+                        (attendee.legal_name && attendee.legal_name.toLowerCase().includes(searchTerm)) ||
+                        (attendee.preferred_name && attendee.preferred_name.toLowerCase().includes(searchTerm)) ||
+                        attendee.phone_number.toLowerCase().includes(searchTerm) ||
+                        attendee.emergency_contact_name.toLowerCase().includes(searchTerm)
+                );
+                renderAttendees(filteredAttendees);
+                updateCount(filteredAttendees.length);
+            });
+
+            function clearSearch() {
+                document.getElementById("globalSearch").value = "";
+                renderAttendees(allAttendees);
+                updateCount(allAttendees.length);
+            }
+
+            function setupKeyboardShortcuts() {
+                document.addEventListener("keydown", function (e) {
+                    if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+                        e.preventDefault();
+                        document.getElementById("globalSearch").focus();
+                    }
+                });
+            }
+
+            // Action functions
+            function viewDetails(attendeeId) {
+                const attendee = allAttendees.find(a => a.id === attendeeId);
+                if (!attendee) return;
+
+                const displayName = attendee.preferred_name || attendee.legal_name || "N/A";
+                const dietaryRestrictions = attendee.dietary_restrictions.length > 0 
+                    ? attendee.dietary_restrictions.join(", ") 
+                    : "None";
+
+                Swal.fire({
+                    title: `${displayName} - Details`,
+                    html: `
+                        <div style="text-align: left; line-height: 1.6;">
+                            <p><strong>Email:</strong> ${escapeHtml(attendee.email)}</p>
+                            <p><strong>Legal Name:</strong> ${escapeHtml(attendee.legal_name || 'N/A')}</p>
+                            <p><strong>Preferred Name:</strong> ${escapeHtml(attendee.preferred_name || 'N/A')}</p>
+                            <p><strong>Pronouns:</strong> ${escapeHtml(attendee.pronouns || 'N/A')}</p>
+                            <p><strong>Phone:</strong> ${escapeHtml(attendee.phone_number)}</p>
+                            <p><strong>Address:</strong> ${escapeHtml(attendee.address)}</p>
+                            <p><strong>T-Shirt Size:</strong> ${escapeHtml(attendee.tshirt_size || 'N/A')}</p>
+                            <p><strong>Dietary Restrictions:</strong> ${escapeHtml(dietaryRestrictions)}</p>
+                            <hr style="margin: 15px 0;">
+                            <p><strong>Emergency Contact:</strong> ${escapeHtml(attendee.emergency_contact_name)}</p>
+                            <p><strong>Emergency Email:</strong> ${escapeHtml(attendee.emergency_contact_email)}</p>
+                            <p><strong>Emergency Phone:</strong> ${escapeHtml(attendee.emergency_contact_phone)}</p>
+                            <hr style="margin: 15px 0;">
+                            <p><strong>Submitted:</strong> ${formatDate(attendee.created_at)}</p>
+                        </div>
+                    `,
+                    width: '600px',
+                    confirmButtonText: 'Close'
+                });
+            }
+
+            function exportData() {
+                if (allAttendees.length === 0) {
+                    Swal.fire("No Data", "No attendee data to export", "info");
+                    return;
+                }
+
+                // Create CSV content
+                const headers = [
+                    "ID", "Email", "Legal Name", "Preferred Name", "Pronouns", 
+                    "Phone", "Address", "T-Shirt Size", "Dietary Restrictions",
+                    "Emergency Contact Name", "Emergency Contact Email", "Emergency Contact Phone",
+                    "Submitted Date"
+                ];
+
+                const csvContent = [
+                    headers.join(","),
+                    ...allAttendees.map(attendee => [
+                        attendee.id,
+                        `"${attendee.email}"`,
+                        `"${attendee.legal_name || ''}"`,
+                        `"${attendee.preferred_name || ''}"`,
+                        `"${attendee.pronouns || ''}"`,
+                        `"${attendee.phone_number}"`,
+                        `"${attendee.address}"`,
+                        `"${attendee.tshirt_size || ''}"`,
+                        `"${attendee.dietary_restrictions.join("; ")}"`,
+                        `"${attendee.emergency_contact_name}"`,
+                        `"${attendee.emergency_contact_email}"`,
+                        `"${attendee.emergency_contact_phone}"`,
+                        `"${attendee.created_at}"`
+                    ].join(","))
+                ].join("\n");
+
+                // Download CSV
+                const blob = new Blob([csvContent], { type: "text/csv" });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `${eventData.name.replace(/\s+/g, '_')}_attendees_${new Date().toISOString().split('T')[0]}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+
+                Swal.fire("Success", "Attendee data exported successfully", "success");
+            }
+        </script>
+
+        <style>
+            .event-info {
+                background: white;
+                padding: 20px;
+                border-radius: 8px;
+                margin-bottom: 20px;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            }
+
+            .event-info h2 {
+                color: #333;
+                margin: 0 0 8px 0;
+            }
+
+            .event-info p {
+                color: #666;
+                margin: 0;
+            }
+
+            .name-cell strong {
+                color: #333;
+            }
+
+            .name-cell small {
+                color: #666;
+            }
+
+            .dietary-cell {
+                max-width: 150px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .emergency-cell strong {
+                color: #333;
+            }
+
+            .emergency-cell small {
+                color: #666;
+            }
+        </style>
+    </body>
+</html>

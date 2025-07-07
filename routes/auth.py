@@ -28,7 +28,10 @@ auth_bp = Blueprint("auth", __name__)
 def index():
     """Home page - redirect to auth or dashboard based on login status."""
     if "user_email" in session:
-        return render_template("dashboard.html")
+        from models.admin import is_admin
+
+        user_is_admin = is_admin(session["user_email"])
+        return render_template("dashboard.html", is_admin=user_is_admin)
     else:
         return render_template("auth.html", state="email_login")
 

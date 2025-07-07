@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Admin Management - Hack ID</title>
+        <link rel="stylesheet" href="/static/styles/admin/base.css" />
+        <link rel="stylesheet" href="/static/styles/admin/table.css" />
+        <link rel="stylesheet" href="/static/styles/admin/edit.css" />
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    </head>
+    <body>
+        <div class="admin-container">
+            <!-- Header -->
+            <div class="admin-header">
+                <div class="search-section">
+                    <input
+                        type="text"
+                        id="globalSearch"
+                        placeholder="Search admins... (Cmd+K)"
+                        autocomplete="off"
+                    />
+                    <button class="clear-search" onclick="clearSearch()">
+                        ×
+                    </button>
+                    <div class="search-count" id="searchCount">0 entries</div>
+                </div>
+
+                <div class="header-actions">
+                    <button class="action-btn primary" onclick="addAdmin()">
+                        <img
+                            src="/static/icons/plus.square.on.square.svg"
+                            alt="Add"
+                        />
+                        Add Admin
+                    </button>
+                    <button
+                        class="home-btn"
+                        onclick="window.location.href='/admin'"
+                    >
+                        <img src="/static/icons/house.svg" alt="Home" />
+                    </button>
+                </div>
+            </div>
+
+            <!-- Loading State -->
+            <div id="loading" class="loading">Loading admins...</div>
+
+            <!-- Empty State -->
+            <div id="emptyState" class="empty-state" style="display: none">
+                <h3>No Admins Found</h3>
+                <p>No administrators match your search criteria.</p>
+            </div>
+
+            <!-- Table Container -->
+            <div class="table-container" style="display: none">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Email</th>
+                            <th>Added By</th>
+                            <th>Added Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adminsTableBody">
+                        <!-- Dynamic content -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <script>
+            let allAdmins = [];
+
+            // Load admins on page load
+            document.addEventListener("DOMContentLoaded", function () {
+                loadAdmins();
+                setupKeyboardShortcuts();
+            });
+
+            async function loadAdmins() {
+                const loading = document.getElementById("loading");
+                const emptyState = document.getElementById("emptyState");
+                const tableContainer =
+                    document.querySelector(".table-container");
+
+                loading.style.display = "block";
+                emptyState.style.display = "none";
+                tableContainer.style.display = "none";
+
+                try {
+                    const response = await fetch("/admin/admins/data");
+                    const data = await response.json();
+
+                    if (data.success) {
+                        allAdmins = data.admins;
+                        renderAdmins(allAdmins);
+                        updateCount(allAdmins.length);
+
+                        if (allAdmins.length === 0) {
+                            emptyState.style.display = "block";
+                        } else {
+                            tableContainer.style.display = "block";
+                        }
+                    } else {
+                        throw new Error(data.error || "Failed to load admins");
+                    }
+                } catch (error) {
+                    console.error("Error loading admins:", error);
+                    Swal.fire(
+                        "Error",
+                        "Failed to load admins: " + error.message,
+                        "error"
+                    );
+                } finally {
+                    loading.style.display = "none";
+                }
+            }
+
+            function renderAdmins(admins) {
+                const tbody = document.getElementById("adminsTableBody");
+                tbody.innerHTML = "";
+
+                admins.forEach((admin) => {
+                    const row = document.createElement("tr");
+                    row.className = "admin-row";
+                    row.innerHTML = `
+                        <td>${admin.id}</td>
+                        <td>${escapeHtml(admin.email)}</td>
+                        <td>${escapeHtml(admin.added_by)}</td>
+                        <td>${formatDate(admin.added_at)}</td>
+                        <td>
+                            <span class="status-badge ${
+                                admin.is_active ? "active" : "inactive"
+                            }">
+                                ${admin.is_active ? "Active" : "Inactive"}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="action-buttons">
+                                ${
+                                    admin.email !== "contact@adamxu.net"
+                                        ? `
+                                    <button class="action-btn danger" onclick="removeAdmin('${escapeHtml(
+                                        admin.email
+                                    )}')" title="Remove Admin">
+                                        <img src="/static/icons/trash.svg" alt="Remove">
+                                    </button>
+                                `
+                                        : '<span style="color: #999; font-size: 11px;">System Admin</span>'
+                                }
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
+
+            function formatDate(dateString) {
+                if (!dateString) return "N/A";
+                const date = new Date(dateString);
+                return (
+                    date.toLocaleDateString() +
+                    " " +
+                    date.toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                    })
+                );
+            }
+
+            function escapeHtml(text) {
+                const div = document.createElement("div");
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            function updateCount(count) {
+                document.getElementById(
+                    "searchCount"
+                ).textContent = `${count} entries`;
+            }
+
+            // Search functionality
+            document
+                .getElementById("globalSearch")
+                .addEventListener("input", function (e) {
+                    const searchTerm = e.target.value.toLowerCase();
+                    const filteredAdmins = allAdmins.filter(
+                        (admin) =>
+                            admin.email.toLowerCase().includes(searchTerm) ||
+                            admin.added_by.toLowerCase().includes(searchTerm) ||
+                            admin.id.toString().includes(searchTerm)
+                    );
+                    renderAdmins(filteredAdmins);
+                    updateCount(filteredAdmins.length);
+                });
+
+            function clearSearch() {
+                document.getElementById("globalSearch").value = "";
+                renderAdmins(allAdmins);
+                updateCount(allAdmins.length);
+            }
+
+            function setupKeyboardShortcuts() {
+                document.addEventListener("keydown", function (e) {
+                    if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+                        e.preventDefault();
+                        document.getElementById("globalSearch").focus();
+                    }
+                });
+            }
+
+            // Admin management functions
+            async function addAdmin() {
+                const { value: email } = await Swal.fire({
+                    title: "Add Admin",
+                    input: "email",
+                    inputLabel: "Email Address:",
+                    inputPlaceholder: "Enter admin email address",
+                    showCancelButton: true,
+                    confirmButtonText: "Add Admin",
+                    inputValidator: (value) => {
+                        if (!value) {
+                            return "Please enter an email address";
+                        }
+                        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+                            return "Please enter a valid email address";
+                        }
+                    },
+                });
+
+                if (email) {
+                    try {
+                        const response = await fetch("/admin/admins/data", {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                            },
+                            body: JSON.stringify({ email: email }),
+                        });
+
+                        const data = await response.json();
+
+                        if (data.success) {
+                            Swal.fire(
+                                "Success",
+                                "Admin added successfully",
+                                "success"
+                            );
+                            loadAdmins(); // Refresh the table
+                        } else {
+                            throw new Error(
+                                data.error || "Failed to add admin"
+                            );
+                        }
+                    } catch (error) {
+                        console.error("Error adding admin:", error);
+                        Swal.fire(
+                            "Error",
+                            "Failed to add admin: " + error.message,
+                            "error"
+                        );
+                    }
+                }
+            }
+
+            async function removeAdmin(email) {
+                const result = await Swal.fire({
+                    title: "Remove Admin",
+                    html: `Are you sure you want to remove admin privileges for "<strong>${escapeHtml(
+                        email
+                    )}</strong>"?<br><br><span style="color: #dc3545;">This action cannot be undone.</span>`,
+                    icon: "warning",
+                    showCancelButton: true,
+                    confirmButtonColor: "#dc3545",
+                    confirmButtonText: "Yes, remove admin",
+                });
+
+                if (result.isConfirmed) {
+                    try {
+                        const response = await fetch(
+                            `/admin/admins/data/${encodeURIComponent(email)}`,
+                            {
+                                method: "DELETE",
+                            }
+                        );
+
+                        const data = await response.json();
+
+                        if (data.success) {
+                            Swal.fire(
+                                "Success",
+                                "Admin removed successfully",
+                                "success"
+                            );
+                            loadAdmins(); // Refresh the table
+                        } else {
+                            throw new Error(
+                                data.error || "Failed to remove admin"
+                            );
+                        }
+                    } catch (error) {
+                        console.error("Error removing admin:", error);
+                        Swal.fire(
+                            "Error",
+                            "Failed to remove admin: " + error.message,
+                            "error"
+                        );
+                    }
+                }
+            }
+        </script>
+
+        <style>
+            .status-badge {
+                padding: 4px 8px;
+                border-radius: 12px;
+                font-size: 11px;
+                font-weight: 500;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+
+            .status-badge.active {
+                background: #d4edda;
+                color: #155724;
+            }
+
+            .status-badge.inactive {
+                background: #f8d7da;
+                color: #721c24;
+            }
+        </style>
+    </body>
+</html>

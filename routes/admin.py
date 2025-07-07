@@ -19,7 +19,14 @@ from models.api_key import (
     get_api_key_logs,
 )
 from utils.database import get_db_connection
-from utils.events import get_all_events
+from utils.events import get_all_events, get_current_event
+from models.admin import (
+    is_admin,
+    get_all_admins,
+    add_admin,
+    remove_admin,
+    get_admin_stats,
+)
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -28,8 +35,12 @@ def require_admin(f):
     """Decorator to require admin authentication."""
 
     def wrapper(*args, **kwargs):
-        if "user_email" not in session or session["user_email"] != "contact@adamxu.net":
+        if "user_email" not in session:
+            return jsonify({"success": False, "error": "Not authenticated"}), 401
+
+        if not is_admin(session["user_email"]):
             return jsonify({"success": False, "error": "Unauthorized"}), 403
+
         return f(*args, **kwargs)
 
     wrapper.__name__ = f.__name__
@@ -43,11 +54,11 @@ def admin_redirect():
 
 @admin_bp.route("/admin")
 def admin_dashboard():
-    """Admin dashboard - only accessible to contact@adamxu.net."""
+    """Admin dashboard - accessible to all admins."""
     if "user_email" not in session:
         return redirect(url_for("auth.auth_google"))
 
-    if session["user_email"] != "contact@adamxu.net":
+    if not is_admin(session["user_email"]):
         return redirect("/")
 
     # Get basic statistics
@@ -70,24 +81,42 @@ def admin_dashboard():
         """
     ).fetchone()["count"]
 
+    # Current event stats
+    current_event = get_current_event()
+    current_event_attendees = 0
+    if current_event:
+        current_event_attendees = conn.execute(
+            """
+            SELECT COUNT(*) as count
+            FROM temporary_info
+            WHERE event_id = ?
+            """,
+            (current_event["id"],),
+        ).fetchone()["count"]
+
     conn.close()
+
+    # Get admin stats
+    admin_stats = get_admin_stats()
 
     stats = {
         "total_users": user_count,
         "total_api_keys": api_key_count,
         "api_calls_24h": recent_logs,
+        "current_event_attendees": current_event_attendees,
+        "total_admins": admin_stats["total_admins"],
     }
 
-    return render_template("admin/index.html", stats=stats)
+    return render_template("admin/index.html", stats=stats, current_event=current_event)
 
 
 @admin_bp.route("/admin/users")
 def admin_users():
-    """Admin users page - only accessible to contact@adamxu.net."""
+    """Admin users page - accessible to all admins."""
     if "user_email" not in session:
         return redirect(url_for("auth.auth_google"))
 
-    if session["user_email"] != "contact@adamxu.net":
+    if not is_admin(session["user_email"]):
         return redirect("/")
 
     # Get all users from database
@@ -113,11 +142,11 @@ def admin_users():
 
 @admin_bp.route("/admin/keys")
 def admin_keys():
-    """Admin API keys page - only accessible to contact@adamxu.net."""
+    """Admin API keys page - accessible to all admins."""
     if "user_email" not in session:
         return redirect(url_for("auth.auth_google"))
 
-    if session["user_email"] != "contact@adamxu.net":
+    if not is_admin(session["user_email"]):
         return redirect("/")
 
     return render_template("admin/keys.html")
@@ -125,8 +154,11 @@ def admin_keys():
 
 @admin_bp.route("/admin/update-user", methods=["POST"])
 def update_user_route():
-    """Update user data - only accessible to admin."""
-    if "user_email" not in session or session["user_email"] != "contact@adamxu.net":
+    """Update user data - accessible to all admins."""
+    if "user_email" not in session:
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+
+    if not is_admin(session["user_email"]):
         return jsonify({"success": False, "error": "Unauthorized"}), 403
 
     try:
@@ -289,6 +321,122 @@ def get_api_key_logs_route(key_id):
 
         return jsonify(
             {"success": True, "logs": logs_data, "key_name": key_check["name"]}
+        )
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+# Admin Management Routes
+@admin_bp.route("/admin/admins")
+@require_admin
+def admin_admins():
+    """Admin management page - accessible to all admins."""
+    return render_template("admin/admins.html")
+
+
+@admin_bp.route("/admin/admins/data", methods=["GET"])
+@require_admin
+def get_admins_route():
+    """Get all admin users."""
+    try:
+        admins = get_all_admins()
+        return jsonify({"success": True, "admins": admins})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@admin_bp.route("/admin/admins/data", methods=["POST"])
+@require_admin
+def add_admin_route():
+    """Add a new admin user."""
+    try:
+        data = request.get_json()
+        email = data.get("email")
+
+        if not email:
+            return jsonify({"success": False, "error": "Email is required"})
+
+        result = add_admin(email, session["user_email"])
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@admin_bp.route("/admin/admins/data/<email>", methods=["DELETE"])
+@require_admin
+def remove_admin_route(email):
+    """Remove admin privileges."""
+    try:
+        result = remove_admin(email, session["user_email"])
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+# Current Event Data Routes
+@admin_bp.route("/admin/current-event")
+@require_admin
+def admin_current_event():
+    """Current event data page - accessible to all admins."""
+    current_event = get_current_event()
+    if not current_event:
+        return (
+            render_template("admin/error.html", error="No current event configured"),
+            404,
+        )
+
+    return render_template("admin/current_event.html", event=current_event)
+
+
+@admin_bp.route("/admin/current-event/data", methods=["GET"])
+@require_admin
+def get_current_event_data():
+    """Get current event attendee data."""
+    try:
+        current_event = get_current_event()
+        if not current_event:
+            return jsonify({"success": False, "error": "No current event configured"})
+
+        conn = get_db_connection()
+
+        # Get users with temporary info for current event
+        attendees = conn.execute(
+            """
+            SELECT
+                u.id, u.email, u.legal_name, u.preferred_name, u.pronouns,
+                t.phone_number, t.address, t.emergency_contact_name,
+                t.emergency_contact_email, t.emergency_contact_phone,
+                t.dietary_restrictions, t.tshirt_size, t.created_at
+            FROM users u
+            JOIN temporary_info t ON u.id = t.user_id
+            WHERE t.event_id = ?
+            ORDER BY t.created_at DESC
+            """,
+            (current_event["id"],),
+        ).fetchall()
+
+        conn.close()
+
+        # Convert to list of dicts and parse JSON fields
+        attendees_data = []
+        for attendee in attendees:
+            attendee_dict = dict(attendee)
+            # Parse dietary restrictions JSON
+            import json
+
+            attendee_dict["dietary_restrictions"] = json.loads(
+                attendee_dict["dietary_restrictions"] or "[]"
+            )
+            attendees_data.append(attendee_dict)
+
+        return jsonify(
+            {
+                "success": True,
+                "attendees": attendees_data,
+                "event": current_event,
+                "count": len(attendees_data),
+            }
         )
 
     except Exception as e:

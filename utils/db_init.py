@@ -108,6 +108,27 @@ def init_db():
     """
     )
 
+    # Admins table for managing admin users
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS admins (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE NOT NULL,
+            added_by TEXT NOT NULL,
+            added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            is_active BOOLEAN DEFAULT TRUE
+        )
+    """
+    )
+
+    # Insert default admin if not exists
+    cursor.execute(
+        """
+        INSERT OR IGNORE INTO admins (email, added_by, added_at)
+        VALUES ('contact@adamxu.net', 'system', CURRENT_TIMESTAMP)
+        """
+    )
+
     # Create indexes for better performance
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_temporary_info_user_event ON temporary_info(user_id, event_id)"
@@ -118,6 +139,7 @@ def init_db():
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_temporary_info_expires ON temporary_info(expires_at)"
     )
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_admins_email ON admins(email)")
 
     conn.commit()
     conn.close()

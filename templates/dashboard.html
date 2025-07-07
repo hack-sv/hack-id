@@ -1,11 +1,138 @@
+<!DOCTYPE html>
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>hack.sv ID</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+                    Roboto, sans-serif;
+                background: #f8f9fa;
+                padding: 20px;
+            }
+
+            .container {
+                max-width: 800px;
+                margin: 0 auto;
+            }
+
+            .header {
+                background: white;
+                padding: 20px;
+                border-radius: 8px;
+                margin-bottom: 20px;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+
+            .header h1 {
+                color: #333;
+                margin: 0;
+            }
+
+            .header-actions {
+                display: flex;
+                gap: 10px;
+            }
+
+            .btn {
+                padding: 8px 16px;
+                border: none;
+                border-radius: 6px;
+                text-decoration: none;
+                font-size: 14px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.2s;
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+            }
+
+            .btn-primary {
+                background: #007bff;
+                color: white;
+            }
+
+            .btn-primary:hover {
+                background: #0056b3;
+                text-decoration: none;
+                color: white;
+            }
+
+            .btn-secondary {
+                background: #6c757d;
+                color: white;
+            }
+
+            .btn-secondary:hover {
+                background: #545b62;
+                text-decoration: none;
+                color: white;
+            }
+
+            .content {
+                background: white;
+                padding: 30px;
+                border-radius: 8px;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+                text-align: center;
+            }
+
+            .content h2 {
+                color: #333;
+                margin-bottom: 10px;
+            }
+
+            .content p {
+                color: #666;
+                line-height: 1.6;
+            }
+
+            .icon {
+                width: 16px;
+                height: 16px;
+            }
+        </style>
     </head>
     <body>
-        <a href="/logout">Logout</a>
-        <p>You shouldn't even be able to see this page ;)</p>
+        <div class="container">
+            <div class="header">
+                <h1>hack.sv ID</h1>
+                <div class="header-actions">
+                    {% if is_admin %}
+                    <a href="/admin" class="btn btn-primary">
+                        <img
+                            src="/static/icons/gear.svg"
+                            class="icon"
+                            alt="Admin"
+                        />
+                        Admin Panel
+                    </a>
+                    {% endif %}
+                    <a href="/logout" class="btn btn-secondary">Logout</a>
+                </div>
+            </div>
+
+            <div class="content">
+                <h2>Welcome to hack.sv ID</h2>
+                <p>Your identity management system for hack.sv events.</p>
+                {% if is_admin %}
+                <p style="margin-top: 15px; color: #007bff">
+                    <strong>Admin Access:</strong> You have administrative
+                    privileges.
+                </p>
+                {% endif %}
+            </div>
+        </div>
     </body>
 </html>

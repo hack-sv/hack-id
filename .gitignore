@@ -4,3 +4,4 @@ users.db
 counterspell-attendees.csv
 scrapyard-attendees.json
 __pycache__
+.DS_Store
