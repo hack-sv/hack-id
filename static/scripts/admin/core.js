@@ -34,12 +34,61 @@ function setupKeyboardShortcuts() {
             clearSearch();
             if (window.editingUser) window.cancelEdit();
         }
+
+        // Tab navigation in edit mode
+        if (e.key === "Tab" && window.editingUser) {
+            // Special handling for events field checkboxes
+            const activeElement = document.activeElement;
+            if (activeElement && activeElement.type === "checkbox") {
+                const eventsCell = activeElement.closest(
+                    '[data-field="events"]'
+                );
+                if (eventsCell) {
+                    const checkboxes = eventsCell.querySelectorAll(
+                        'input[type="checkbox"]'
+                    );
+                    const currentIndex =
+                        Array.from(checkboxes).indexOf(activeElement);
+
+                    if (!e.shiftKey && currentIndex < checkboxes.length - 1) {
+                        // Tab forward within checkboxes
+                        e.preventDefault();
+                        checkboxes[currentIndex + 1].focus();
+                        return;
+                    } else if (e.shiftKey && currentIndex > 0) {
+                        // Tab backward within checkboxes
+                        e.preventDefault();
+                        checkboxes[currentIndex - 1].focus();
+                        return;
+                    }
+                    // If at first/last checkbox, fall through to normal tab navigation
+                }
+            }
+
+            e.preventDefault();
+            const direction = e.shiftKey ? "backward" : "forward";
+            if (window.handleTabNavigation) {
+                window.handleTabNavigation(direction);
+            }
+        }
     });
 
-    // Auto-save on Enter
+    // Auto-save on Enter - now works globally when in edit mode
     document.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" && e.target.classList.contains("edit-input")) {
-            window.saveUser(window.editingUser);
+        if (e.key === "Enter") {
+            // If in edit mode, always save regardless of focus
+            if (window.editingUser) {
+                e.preventDefault();
+                window.saveUser(window.editingUser);
+                return;
+            }
+
+            // If in search box, enter edit mode for first visible result
+            if (e.target.id === "globalSearch") {
+                e.preventDefault();
+                enterEditModeForFirstResult();
+                return;
+            }
         }
     });
 
@@ -193,6 +242,41 @@ function getCellValue(row, column) {
         return row.dataset.emergencyContact || "";
 
     return cell.textContent.trim();
+}
+
+// Enter edit mode for first visible result
+function enterEditModeForFirstResult() {
+    // Find first visible user row
+    const visibleRows = allRows.filter((row) => row.style.display !== "none");
+
+    if (visibleRows.length > 0) {
+        const firstRow = visibleRows[0];
+        const userEmail = firstRow.dataset.userId;
+
+        if (userEmail && window.editUser) {
+            // Enter edit mode
+            window.editUser(userEmail);
+
+            // Focus on email field (first field) after a short delay
+            setTimeout(() => {
+                focusEmailField(userEmail);
+            }, 150);
+        }
+    }
+}
+
+// Focus on email field (first field) for a user in edit mode
+function focusEmailField(userEmail) {
+    const row = document.querySelector(`[data-user-id="${userEmail}"]`);
+    if (row) {
+        const emailCell = row.querySelector('[data-field="email"]');
+        if (emailCell) {
+            const input = emailCell.querySelector(".edit-input");
+            if (input) {
+                input.focus();
+            }
+        }
+    }
 }
 
 // Add global search listener (moved to DOMContentLoaded)

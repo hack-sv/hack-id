@@ -31,6 +31,28 @@ const FIELD_MAPPING = {
     preferred_name: "preferredName",
 };
 
+// Tab navigation order (email is first, then the rest in logical order)
+const TAB_ORDER = [
+    "email",
+    "legal_name",
+    "preferred_name",
+    "pronouns",
+    "dob",
+    "discord",
+    "events",
+];
+
+// Field types for special handling
+const FIELD_TYPES = {
+    email: "text",
+    preferred_name: "text",
+    legal_name: "text",
+    pronouns: "text",
+    dob: "date",
+    discord: "text",
+    events: "checkboxes",
+};
+
 // Toast notification system
 function showToast(message, type = "success") {
     const container = getOrCreateToastContainer();
@@ -415,12 +437,19 @@ function updateEventsDisplay(cell, selectedEvents) {
 
     let eventsContent;
     if (selectedEvents.length === 0) {
-        eventsContent = "No events";
+        eventsContent = '<span style="color: #666">No events</span>';
     } else {
-        eventsContent = selectedEvents.join(" ");
+        // Create properly formatted event tags with colors
+        eventsContent = selectedEvents
+            .map((eventId) => {
+                const eventInfo = eventsData[eventId];
+                const eventName = eventInfo ? eventInfo.name : eventId;
+                return `<span class="event-tag event-${eventId}">${eventName}</span>`;
+            })
+            .join(" ");
     }
 
-    cell.innerHTML = `${eventsContent} <img src="/static/icons/pencil.svg" alt="Edit" class="edit-icon" style="cursor: pointer;" onclick="editUser('${userEmail}')">`;
+    cell.innerHTML = `<div>${eventsContent}</div> <img src="/static/icons/pencil.svg" alt="Edit" class="edit-icon" style="cursor: pointer;" onclick="editUser('${userEmail}')">`;
 }
 
 // Helper function to update display with new values after successful save
@@ -548,11 +577,113 @@ function updateUserCount() {
     }
 }
 
+// Tab Navigation Functions
+function getCurrentFocusedField() {
+    if (!editingUser) return null;
+
+    const activeElement = document.activeElement;
+    if (!activeElement) return null;
+
+    // Check if active element is an edit input
+    if (activeElement.classList.contains("edit-input")) {
+        const cell = activeElement.closest("[data-field]");
+        if (cell) {
+            return cell.getAttribute("data-field");
+        }
+    }
+
+    // Check if active element is in events checkboxes
+    const eventsCell = activeElement.closest('[data-field="events"]');
+    if (eventsCell) {
+        return "events";
+    }
+
+    return null;
+}
+
+function focusField(fieldName) {
+    if (!editingUser) return false;
+
+    const row = document.querySelector(`[data-user-id="${editingUser}"]`);
+    if (!row) return false;
+
+    const cell = row.querySelector(`[data-field="${fieldName}"]`);
+    if (!cell) return false;
+
+    if (fieldName === "events") {
+        // For events field, focus first checkbox
+        const firstCheckbox = cell.querySelector('input[type="checkbox"]');
+        if (firstCheckbox) {
+            firstCheckbox.focus();
+            return true;
+        }
+    } else {
+        // For text fields, focus the input
+        const input = cell.querySelector(".edit-input");
+        if (input) {
+            input.focus();
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function handleTabNavigation(direction) {
+    if (!editingUser) return;
+
+    const currentField = getCurrentFocusedField();
+    let currentIndex = -1;
+
+    // If no field is focused, start with first field
+    if (!currentField) {
+        currentIndex = -1;
+    } else {
+        currentIndex = TAB_ORDER.indexOf(currentField);
+        // Handle case where current field is not in tab order
+        if (currentIndex === -1) {
+            currentIndex = -1; // Start from beginning
+        }
+    }
+
+    let nextIndex;
+    let attempts = 0;
+    const maxAttempts = TAB_ORDER.length;
+
+    do {
+        if (direction === "forward") {
+            nextIndex = (currentIndex + 1) % TAB_ORDER.length;
+        } else {
+            nextIndex =
+                (currentIndex - 1 + TAB_ORDER.length) % TAB_ORDER.length;
+        }
+
+        const nextField = TAB_ORDER[nextIndex];
+
+        // Try to focus the field
+        if (focusField(nextField)) {
+            return; // Successfully focused
+        }
+
+        // If focus failed, try next field
+        currentIndex = nextIndex;
+        attempts++;
+    } while (attempts < maxAttempts);
+
+    // If we couldn't focus any field, try to focus the first available field
+    for (const field of TAB_ORDER) {
+        if (focusField(field)) {
+            return;
+        }
+    }
+}
+
 // Make functions and variables globally accessible
 window.editUser = editUser;
 window.saveUser = saveUser;
 window.cancelEdit = cancelEdit;
 window.deleteUser = deleteUser;
+window.handleTabNavigation = handleTabNavigation;
 
 // Make variables accessible via getters/setters
 Object.defineProperty(window, "editingUser", {

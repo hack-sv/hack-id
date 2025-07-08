@@ -534,6 +534,30 @@
         <script>
             // Populate eventsData from server-side data
             eventsData = {{ events | tojson }};
+
+            // Generate dynamic CSS for event colors
+            function generateEventCSS() {
+                let css = '';
+                Object.entries(eventsData).forEach(([eventId, eventInfo]) => {
+                    if (eventInfo.color) {
+                        css += `.event-${eventId} { background: #${eventInfo.color}; color: white; }\n`;
+                    }
+                });
+                return css;
+            }
+
+            // Inject dynamic CSS into the page
+            function injectEventCSS() {
+                const css = generateEventCSS();
+                if (css) {
+                    const style = document.createElement('style');
+                    style.textContent = css;
+                    document.head.appendChild(style);
+                }
+            }
+
+            // Inject CSS when page loads
+            document.addEventListener('DOMContentLoaded', injectEventCSS);
         </script>
 
         <script src="/static/scripts/admin/filters.js"></script>
