@@ -3,6 +3,7 @@
 Import users from CSV and JSON files into the database.
 Handles both counterspell-attendees.csv and scrapyard-attendees.json files.
 Includes deduplication, data cleaning with Ollama, and comprehensive field mapping.
+Also supports generating fake test data with: python import_users.py temp <count>
 """
 
 import csv
@@ -10,6 +11,9 @@ import json
 import sqlite3
 import os
 import re
+import sys
+import random
+from datetime import datetime, timedelta
 from typing import Dict, List, Set, Optional, Any
 import ollama
 
@@ -17,10 +21,11 @@ DATABASE = "users.db"
 
 
 def init_db():
-    """Initialize the database with the users table."""
+    """Initialize the database with all required tables."""
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
 
+    # Users table (updated to match the main schema)
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS users (
@@ -29,15 +34,307 @@ def init_db():
             legal_name TEXT,
             preferred_name TEXT,
             pronouns TEXT,
-            date_of_birth TEXT,
+            dob TEXT,
             discord_id TEXT,
             events TEXT DEFAULT '[]'
         )
     """
     )
 
+    # Temporary info table for event-specific sensitive data
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS temporary_info (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            event_id TEXT NOT NULL,
+            phone_number TEXT NOT NULL,
+            address TEXT NOT NULL,
+            emergency_contact_name TEXT NOT NULL,
+            emergency_contact_email TEXT NOT NULL,
+            emergency_contact_phone TEXT NOT NULL,
+            dietary_restrictions TEXT DEFAULT '[]',
+            tshirt_size TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            expires_at TIMESTAMP NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+            UNIQUE(user_id, event_id)
+        )
+    """
+    )
+
     conn.commit()
     conn.close()
+
+
+def generate_fake_users(count: int) -> List[Dict]:
+    """Generate fake users with random data for testing."""
+
+    # Common first names
+    first_names = [
+        "Emma",
+        "Liam",
+        "Olivia",
+        "Noah",
+        "Ava",
+        "Ethan",
+        "Sophia",
+        "Mason",
+        "Isabella",
+        "William",
+        "Mia",
+        "James",
+        "Charlotte",
+        "Benjamin",
+        "Amelia",
+        "Lucas",
+        "Harper",
+        "Henry",
+        "Evelyn",
+        "Alexander",
+        "Abigail",
+        "Michael",
+        "Emily",
+        "Daniel",
+        "Elizabeth",
+        "Jacob",
+        "Sofia",
+        "Logan",
+        "Avery",
+        "Jackson",
+        "Ella",
+        "Sebastian",
+        "Madison",
+        "Jack",
+        "Scarlett",
+        "Aiden",
+        "Victoria",
+        "Owen",
+        "Aria",
+        "Samuel",
+        "Grace",
+        "Matthew",
+        "Chloe",
+        "Joseph",
+        "Camila",
+        "Levi",
+        "Penelope",
+        "David",
+        "Riley",
+        "John",
+        "Layla",
+        "Wyatt",
+        "Lillian",
+        "Carter",
+        "Nora",
+        "Julian",
+        "Zoey",
+        "Luke",
+        "Mila",
+        "Grayson",
+        "Aubrey",
+        "Isaac",
+        "Hannah",
+        "Jayden",
+        "Lily",
+        "Theodore",
+        "Addison",
+        "Gabriel",
+        "Eleanor",
+        "Anthony",
+        "Natalie",
+        "Dylan",
+        "Luna",
+        "Leo",
+        "Savannah",
+        "Lincoln",
+        "Brooklyn",
+        "Jaxon",
+        "Leah",
+        "Joshua",
+    ]
+
+    # Common last names
+    last_names = [
+        "Smith",
+        "Johnson",
+        "Williams",
+        "Brown",
+        "Jones",
+        "Garcia",
+        "Miller",
+        "Davis",
+        "Rodriguez",
+        "Martinez",
+        "Hernandez",
+        "Lopez",
+        "Gonzalez",
+        "Wilson",
+        "Anderson",
+        "Thomas",
+        "Taylor",
+        "Moore",
+        "Jackson",
+        "Martin",
+        "Lee",
+        "Perez",
+        "Thompson",
+        "White",
+        "Harris",
+        "Sanchez",
+        "Clark",
+        "Ramirez",
+        "Lewis",
+        "Robinson",
+        "Walker",
+        "Young",
+        "Allen",
+        "King",
+        "Wright",
+        "Scott",
+        "Torres",
+        "Nguyen",
+        "Hill",
+        "Flores",
+        "Green",
+        "Adams",
+        "Nelson",
+        "Baker",
+        "Hall",
+        "Rivera",
+        "Campbell",
+        "Mitchell",
+        "Carter",
+        "Roberts",
+        "Gomez",
+        "Phillips",
+        "Evans",
+        "Turner",
+        "Diaz",
+        "Parker",
+        "Cruz",
+        "Edwards",
+        "Collins",
+        "Reyes",
+        "Stewart",
+        "Morris",
+        "Morales",
+        "Murphy",
+        "Cook",
+        "Rogers",
+        "Gutierrez",
+        "Ortiz",
+        "Morgan",
+        "Cooper",
+        "Peterson",
+        "Bailey",
+        "Reed",
+        "Kelly",
+        "Howard",
+        "Ramos",
+        "Kim",
+        "Cox",
+        "Ward",
+        "Richardson",
+    ]
+
+    # Common pronouns
+    pronouns_list = ["he/him", "she/her", "they/them"]
+
+    # Dietary restrictions with test values
+    dietary_options = [
+        [],  # No restrictions
+        [],  # Still no restrictions
+        ["Vegetarian"],
+        ["Vegan"],
+        ["Gluten-free"],
+        ["Nut-allergy"],
+        ["Dairy-free"],
+        ["Water"],
+        ["Vegetarian", "Gluten-free"],
+        ["Test restriction", "Water"],
+        ["Test restriction 2", "Oxygen"],
+        ["EVERYTHING. YES, EVERYTHING."],
+    ]
+
+    # T-shirt sizes
+    tshirt_sizes = ["XS", "S", "M", "L", "XL", "XXL"]
+
+    # Available events from the events.json
+    available_events = ["counterspell", "scrapyard"]
+
+    users = []
+
+    for i in range(count):
+        first_name = random.choice(first_names)
+        last_name = random.choice(last_names)
+
+        # Generate birth date between 2007 and 2012
+        start_date = datetime(2007, 1, 1)
+        end_date = datetime(2012, 12, 31)
+        random_date = start_date + timedelta(
+            days=random.randint(0, (end_date - start_date).days)
+        )
+        birth_date = random_date.strftime("%Y-%m-%d")
+
+        # Generate email
+        domains = [
+            "gmail.com",
+            "gmail.com",
+            "gmail.com",
+            "gmail.com",
+            "gmail.com",
+            "gmail.com",
+            "gmail.com",
+            "gmail.com",
+            "gmail.com",
+            "gmail.com",
+            "gmail.com",
+            "outlook.com",
+            "aol.com",
+            "yahoo.com",
+            "hack.sv",
+            "example.com",
+        ]
+        email = f"{first_name.lower()}.{last_name.lower()}@{random.choice(domains)}"
+
+        # Random events (at least one, possibly both/all)
+        user_events = []
+        # Ensure at least one event
+        user_events.append(random.choice(available_events))
+        # 50% chance to add another event
+        if random.random() < 0.5:
+            other_events = [e for e in available_events if e not in user_events]
+            if other_events:
+                user_events.append(random.choice(other_events))
+        # 25% chance to add a third event if not already in all
+        if len(user_events) < 3 and random.random() < 0.25:
+            other_events = [e for e in available_events if e not in user_events]
+            if other_events:
+                user_events.append(random.choice(other_events))
+
+        user = {
+            "email": email,
+            "legal_name": f"{first_name} {last_name}",
+            "preferred_name": (
+                first_name if random.random() < 0.8 else f"{first_name[:2]}"
+            ),  # 80% use first name, 20% use nickname
+            "pronouns": random.choice(pronouns_list),
+            "dob": birth_date,
+            "discord_id": (
+                f"{random.randint(100000000000000000, 999999999999999999)}"
+                if random.random() < 0.7
+                else ""
+            ),  # 70% have Discord
+            "events": user_events,
+            "dietary_restrictions": random.choice(dietary_options),
+            "tshirt_size": random.choice(tshirt_sizes),
+        }
+
+        users.append(user)
+
+    print(f"Generated {len(users)} fake users")
+    return users
 
 
 def parse_counterspell_csv(filename: str) -> List[Dict]:
@@ -61,7 +358,7 @@ def parse_counterspell_csv(filename: str) -> List[Dict]:
                     "legal_name": row.get("Legal Name", "").strip(),
                     "preferred_name": row.get("Preferred Name", "").strip(),
                     "pronouns": row.get("Pronouns", "").strip(),
-                    "date_of_birth": row.get("DOB", "").strip(),
+                    "dob": row.get("DOB", "").strip(),
                     "discord_id": row.get("Discord", "").strip(),
                     "events": ["counterspell"],
                 }
@@ -99,7 +396,7 @@ def parse_scrapyard_json(filename: str) -> List[Dict]:
                     "legal_name": item.get("fullName", "").strip(),
                     "preferred_name": item.get("preferredName", "").strip(),
                     "pronouns": item.get("pronouns", "").strip(),
-                    "date_of_birth": item.get("dateOfBirth", "").strip(),
+                    "dob": item.get("dateOfBirth", "").strip(),
                     "discord_id": discord_id,
                     "events": ["scrapyard"],
                 }
@@ -209,16 +506,19 @@ def merge_users(
     return merged
 
 
-def insert_users_to_db(users: Dict[str, Dict]):
+def insert_users_to_db(users: Dict[str, Dict], is_fake_data=False):
     """Insert users into the database."""
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
 
     inserted = 0
     updated = 0
+    temp_info_created = 0
 
     for user in users.values():
         events_json = json.dumps(user["events"])
+
+        dob_field = user.get("dob") or user.get("dob")
 
         try:
             # Try to insert new user
@@ -226,7 +526,7 @@ def insert_users_to_db(users: Dict[str, Dict]):
                 """
                 INSERT INTO users (
                     email, legal_name, preferred_name, pronouns,
-                    date_of_birth, discord_id, events
+                    dob, discord_id, events
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
@@ -235,11 +535,12 @@ def insert_users_to_db(users: Dict[str, Dict]):
                     user.get("legal_name") or None,
                     user.get("preferred_name") or None,
                     user.get("pronouns") or None,
-                    user.get("date_of_birth") or None,
+                    dob_field or None,
                     user.get("discord_id") or None,
                     events_json,
                 ),
             )
+            user_id = cursor.lastrowid
             inserted += 1
         except sqlite3.IntegrityError:
             # User exists, update their data
@@ -249,7 +550,7 @@ def insert_users_to_db(users: Dict[str, Dict]):
                 SET legal_name = COALESCE(?, legal_name),
                     preferred_name = COALESCE(?, preferred_name),
                     pronouns = COALESCE(?, pronouns),
-                    date_of_birth = COALESCE(?, date_of_birth),
+                    dob = COALESCE(?, dob),
                     discord_id = COALESCE(?, discord_id),
                     events = ?
                 WHERE email = ?
@@ -258,22 +559,100 @@ def insert_users_to_db(users: Dict[str, Dict]):
                     user.get("legal_name") or None,
                     user.get("preferred_name") or None,
                     user.get("pronouns") or None,
-                    user.get("date_of_birth") or None,
+                    dob_field or None,
                     user.get("discord_id") or None,
                     events_json,
                     user["email"],
                 ),
             )
+            # Get the user_id for existing user
+            cursor.execute("SELECT id FROM users WHERE email = ?", (user["email"],))
+            user_id = cursor.fetchone()[0]
             updated += 1
+
+        # If this is fake data and has dietary restrictions or tshirt size, create temporary_info records
+        if is_fake_data and (
+            user.get("dietary_restrictions") or user.get("tshirt_size")
+        ):
+            dietary_json = json.dumps(user.get("dietary_restrictions", []))
+
+            # Calculate expiration date (1 week from now)
+            expires_at = datetime.now() + timedelta(weeks=1)
+
+            # Create temporary_info records for each event the user is in
+            for event_id in user["events"]:
+                try:
+                    cursor.execute(
+                        """
+                        INSERT OR REPLACE INTO temporary_info (
+                            user_id, event_id, phone_number, address,
+                            emergency_contact_name, emergency_contact_email, emergency_contact_phone,
+                            dietary_restrictions, tshirt_size, expires_at
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            user_id,
+                            event_id,
+                            f"555-{random.randint(100, 999)}-{random.randint(1000, 9999)}",  # Fake phone
+                            f"{random.randint(100, 9999)} Test St, Test City, CA {random.randint(90000, 99999)}",  # Fake address
+                            f"Emergency Contact {random.randint(1, 100)}",  # Fake emergency contact name
+                            f"emergency{random.randint(1, 1000)}@example.com",  # Fake emergency email
+                            f"555-{random.randint(100, 999)}-{random.randint(1000, 9999)}",  # Fake emergency phone
+                            dietary_json,
+                            user.get("tshirt_size"),
+                            expires_at,
+                        ),
+                    )
+                    temp_info_created += 1
+                except sqlite3.IntegrityError:
+                    # Temporary info already exists for this user/event combination
+                    pass
 
     conn.commit()
     conn.close()
 
     print(f"Database updated: {inserted} new users, {updated} existing users updated")
+    if is_fake_data and temp_info_created > 0:
+        print(f"Created {temp_info_created} temporary info records")
 
 
 def main():
-    """Main function to import users from both files."""
+    """Main function to import users from both files or generate fake data."""
+
+    # Check for fake data generation command
+    if len(sys.argv) == 3 and sys.argv[1] == "temp":
+        try:
+            count = int(sys.argv[2])
+            print(f"Generating {count} fake users...")
+
+            # Initialize database
+            print("Initializing database...")
+            init_db()
+
+            # Generate fake users
+            fake_users = generate_fake_users(count)
+
+            # Convert to the format expected by insert_users_to_db
+            fake_users_dict = {user["email"]: user for user in fake_users}
+
+            # Insert into database
+            print("Inserting fake users into database...")
+            insert_users_to_db(fake_users_dict, is_fake_data=True)
+
+            print("Fake data generation completed successfully!")
+            print(f"Generated {len(fake_users)} fake users")
+            return
+
+        except ValueError:
+            print("Error: Count must be a valid integer")
+            print("Usage: python import_users.py temp <count>")
+            return
+        except Exception as e:
+            print(f"Error during fake data generation: {e}")
+            raise
+
+    # Original import functionality
     print("Starting user import with enhanced deduplication and data cleaning...")
 
     try:
@@ -295,7 +674,7 @@ def main():
         merged_users = merge_users(counterspell_users, scrapyard_users)
 
         # Insert into database with Ollama cleaning
-        print("Inserting users into database with dietary restrictions cleaning...")
+        print("Inserting users into database...")
         insert_users_to_db(merged_users)
 
         print("Import completed successfully!")

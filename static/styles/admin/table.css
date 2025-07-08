@@ -3,6 +3,7 @@
 .table-container {
     width: 100%;
     margin: 0;
+    padding-top: 14px; /* Add padding to account for fixed search bar */
 }
 
 table {
