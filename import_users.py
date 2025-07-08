@@ -34,7 +34,7 @@ def init_db():
             legal_name TEXT,
             preferred_name TEXT,
             pronouns TEXT,
-            dob TEXT,
+            date_of_birth TEXT,
             discord_id TEXT,
             events TEXT DEFAULT '[]'
         )
@@ -269,13 +269,13 @@ def generate_fake_users(count: int) -> List[Dict]:
         first_name = random.choice(first_names)
         last_name = random.choice(last_names)
 
-        # Generate birth date between 2007 and 2012
+        # Generate birth date between 2007 and 2012 in CSV format "Month Day, Year"
         start_date = datetime(2007, 1, 1)
         end_date = datetime(2012, 12, 31)
         random_date = start_date + timedelta(
             days=random.randint(0, (end_date - start_date).days)
         )
-        birth_date = random_date.strftime("%Y-%m-%d")
+        birth_date = random_date.strftime("%B %d, %Y")
 
         # Generate email
         domains = [
@@ -302,13 +302,8 @@ def generate_fake_users(count: int) -> List[Dict]:
         user_events = []
         # Ensure at least one event
         user_events.append(random.choice(available_events))
-        # 50% chance to add another event
-        if random.random() < 0.5:
-            other_events = [e for e in available_events if e not in user_events]
-            if other_events:
-                user_events.append(random.choice(other_events))
-        # 25% chance to add a third event if not already in all
-        if len(user_events) < 3 and random.random() < 0.25:
+        # 30% chance to add another event
+        if random.random() < 0.3:
             other_events = [e for e in available_events if e not in user_events]
             if other_events:
                 user_events.append(random.choice(other_events))
@@ -320,12 +315,12 @@ def generate_fake_users(count: int) -> List[Dict]:
                 first_name if random.random() < 0.8 else f"{first_name[:2]}"
             ),  # 80% use first name, 20% use nickname
             "pronouns": random.choice(pronouns_list),
-            "dob": birth_date,
+            "date_of_birth": birth_date,
             "discord_id": (
                 f"{random.randint(100000000000000000, 999999999999999999)}"
-                if random.random() < 0.7
+                if random.random() < 0.4
                 else ""
-            ),  # 70% have Discord
+            ),  # 40% have Discord
             "events": user_events,
             "dietary_restrictions": random.choice(dietary_options),
             "tshirt_size": random.choice(tshirt_sizes),
@@ -358,7 +353,7 @@ def parse_counterspell_csv(filename: str) -> List[Dict]:
                     "legal_name": row.get("Legal Name", "").strip(),
                     "preferred_name": row.get("Preferred Name", "").strip(),
                     "pronouns": row.get("Pronouns", "").strip(),
-                    "dob": row.get("DOB", "").strip(),
+                    "date_of_birth": row.get("DOB", "").strip(),
                     "discord_id": row.get("Discord", "").strip(),
                     "events": ["counterspell"],
                 }
@@ -396,7 +391,7 @@ def parse_scrapyard_json(filename: str) -> List[Dict]:
                     "legal_name": item.get("fullName", "").strip(),
                     "preferred_name": item.get("preferredName", "").strip(),
                     "pronouns": item.get("pronouns", "").strip(),
-                    "dob": item.get("dateOfBirth", "").strip(),
+                    "date_of_birth": item.get("dateOfBirth", "").strip(),
                     "discord_id": discord_id,
                     "events": ["scrapyard"],
                 }
@@ -518,7 +513,7 @@ def insert_users_to_db(users: Dict[str, Dict], is_fake_data=False):
     for user in users.values():
         events_json = json.dumps(user["events"])
 
-        dob_field = user.get("dob") or user.get("dob")
+        date_of_birth_field = user.get("date_of_birth") or user.get("date_of_birth")
 
         try:
             # Try to insert new user
@@ -526,7 +521,7 @@ def insert_users_to_db(users: Dict[str, Dict], is_fake_data=False):
                 """
                 INSERT INTO users (
                     email, legal_name, preferred_name, pronouns,
-                    dob, discord_id, events
+                    date_of_birth, discord_id, events
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
@@ -535,7 +530,7 @@ def insert_users_to_db(users: Dict[str, Dict], is_fake_data=False):
                     user.get("legal_name") or None,
                     user.get("preferred_name") or None,
                     user.get("pronouns") or None,
-                    dob_field or None,
+                    date_of_birth_field or None,
                     user.get("discord_id") or None,
                     events_json,
                 ),
@@ -550,7 +545,7 @@ def insert_users_to_db(users: Dict[str, Dict], is_fake_data=False):
                 SET legal_name = COALESCE(?, legal_name),
                     preferred_name = COALESCE(?, preferred_name),
                     pronouns = COALESCE(?, pronouns),
-                    dob = COALESCE(?, dob),
+                    date_of_birth = COALESCE(?, date_of_birth),
                     discord_id = COALESCE(?, discord_id),
                     events = ?
                 WHERE email = ?
@@ -559,7 +554,7 @@ def insert_users_to_db(users: Dict[str, Dict], is_fake_data=False):
                     user.get("legal_name") or None,
                     user.get("preferred_name") or None,
                     user.get("pronouns") or None,
-                    dob_field or None,
+                    date_of_birth_field or None,
                     user.get("discord_id") or None,
                     events_json,
                     user["email"],
