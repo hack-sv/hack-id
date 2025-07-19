@@ -243,12 +243,23 @@ def create_api_key_route():
         data = request.get_json()
         name = data.get("name")
         permissions = data.get("permissions", [])
+        rate_limit_rpm = data.get("rate_limit_rpm", 60)
 
         if not name:
             return jsonify({"success": False, "error": "Name is required"})
 
+        # Validate rate limit
+        if not isinstance(rate_limit_rpm, int) or rate_limit_rpm < 0:
+            return jsonify({"success": False, "error": "Invalid rate limit"})
+
         # Generate new API key
-        api_key = create_api_key(name, session["user_email"], permissions)
+        api_key = create_api_key(
+            name,
+            session["user_email"],
+            permissions,
+            metadata=None,
+            rate_limit_rpm=rate_limit_rpm,
+        )
 
         return jsonify(
             {
@@ -256,6 +267,7 @@ def create_api_key_route():
                 "key": api_key,  # Only return the key on creation
                 "name": name,
                 "permissions": permissions,
+                "rate_limit_rpm": rate_limit_rpm,
             }
         )
 

@@ -3,6 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="csrf-token" content="{{ csrf_token() }}" />
         <title>API Key Management - Hack ID</title>
 
         <!-- Admin Styles -->
@@ -163,6 +164,7 @@
                         <th data-sort="created_by">Created By</th>
                         <th data-sort="created_at">Created</th>
                         <th data-sort="last_used_at">Last Used</th>
+                        <th data-sort="rate_limit_rpm">Rate Limit</th>
                         <th>Permissions</th>
                         <th>Actions</th>
                     </tr>
@@ -265,6 +267,13 @@
                                 ? formatDate(key.last_used_at)
                                 : "Never"
                         }</td>
+                        <td>
+                            <span class="rate-limit-badge" style="background: ${getRateLimitColor(
+                                key.rate_limit_rpm
+                            )}; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">
+                                ${formatRateLimit(key.rate_limit_rpm)}
+                            </span>
+                        </td>
                         <td>
                             <div class="permissions-list">
                                 ${formatPermissionsForDisplay(key.permissions)}
@@ -417,15 +426,28 @@
                     },
                     preConfirm: () => {
                         const name = document.getElementById("keyName").value;
+                        const rateLimitRpm = parseInt(
+                            document.getElementById("rateLimitRpm").value
+                        );
+
                         if (!name) {
                             Swal.showValidationMessage(
                                 "Please enter a key name"
                             );
                             return false;
                         }
+
+                        if (isNaN(rateLimitRpm) || rateLimitRpm < 0) {
+                            Swal.showValidationMessage(
+                                "Please select a valid rate limit"
+                            );
+                            return false;
+                        }
+
                         return {
                             name: name,
                             permissions: window.currentPermissions || [],
+                            rate_limit_rpm: rateLimitRpm,
                         };
                     },
                 });
@@ -436,6 +458,7 @@
                             method: "POST",
                             headers: {
                                 "Content-Type": "application/json",
+                                "X-CSRFToken": getCSRFToken(),
                             },
                             body: JSON.stringify(formValues),
                         });
@@ -489,7 +512,17 @@
                 let html = `
                     <div style="text-align: left;">
                         <label for="keyName" style="display: block; margin-bottom: 5px; font-weight: 500;">Name:</label>
-                        <input id="keyName" class="swal2-input" placeholder="Enter key name" style="margin-bottom: 20px;">
+                        <input id="keyName" class="swal2-input" placeholder="Enter key name" style="margin-bottom: 15px;">
+
+                        <label for="rateLimitRpm" style="display: block; margin-bottom: 5px; font-weight: 500;">Rate Limit (Requests per Minute):</label>
+                        <select id="rateLimitRpm" class="swal2-input" style="margin-bottom: 20px;">
+                            <option value="60">60 RPM (Development - 1/sec)</option>
+                            <option value="120">120 RPM (Testing - 2/sec)</option>
+                            <option value="300">300 RPM (Production Light - 5/sec)</option>
+                            <option value="600">600 RPM (Production Heavy - 10/sec)</option>
+                            <option value="1200">1200 RPM (High Volume - 20/sec)</option>
+                            <option value="0">Unlimited (Admin Only)</option>
+                        </select>
 
                         <label style="display: block; margin-bottom: 10px; font-weight: 500;">Permissions:</label>
                         <div id="selectedPermissions" style="margin-bottom: 15px; min-height: 40px; border: 1px solid #ddd; border-radius: 4px; padding: 8px; background: #f8f9fa;">
@@ -657,6 +690,7 @@
                                 method: "PATCH",
                                 headers: {
                                     "Content-Type": "application/json",
+                                    "X-CSRFToken": getCSRFToken(),
                                 },
                                 body: JSON.stringify({ name: newName }),
                             }
@@ -804,6 +838,30 @@
                         "error"
                     );
                 }
+            }
+
+            // Rate limit formatting functions
+            function formatRateLimit(rateLimitRpm) {
+                if (rateLimitRpm === 0) {
+                    return "Unlimited";
+                }
+                return `${rateLimitRpm} RPM`;
+            }
+
+            function getRateLimitColor(rateLimitRpm) {
+                if (rateLimitRpm === 0) return "#dc3545"; // Red for unlimited
+                if (rateLimitRpm <= 60) return "#28a745"; // Green for low
+                if (rateLimitRpm <= 300) return "#ffc107"; // Yellow for medium
+                if (rateLimitRpm <= 600) return "#fd7e14"; // Orange for high
+                return "#dc3545"; // Red for very high
+            }
+
+            // CSRF token helper
+            function getCSRFToken() {
+                const metaTag = document.querySelector(
+                    'meta[name="csrf-token"]'
+                );
+                return metaTag ? metaTag.getAttribute("content") : "";
             }
         </script>
     </body>

@@ -67,9 +67,41 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             last_used_at TIMESTAMP,
             permissions TEXT DEFAULT '[]',
-            metadata TEXT DEFAULT '{}'
+            metadata TEXT DEFAULT '{}',
+            rate_limit_rpm INTEGER DEFAULT 60
         )
     """
+    )
+
+    # Add rate_limit_rpm column if it doesn't exist (for existing databases)
+    try:
+        cursor.execute(
+            "ALTER TABLE api_keys ADD COLUMN rate_limit_rpm INTEGER DEFAULT 60"
+        )
+    except sqlite3.OperationalError:
+        # Column already exists
+        pass
+
+    # Opt-out tokens table for permanent secure deletion links
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS opt_out_tokens (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_email TEXT NOT NULL,
+            token TEXT UNIQUE NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            used_at TIMESTAMP NULL,
+            is_used BOOLEAN DEFAULT FALSE
+        )
+    """
+    )
+
+    # Create index for fast token lookups
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_opt_out_tokens_token ON opt_out_tokens(token)"
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_opt_out_tokens_email ON opt_out_tokens(user_email)"
     )
 
     # API key usage logs table

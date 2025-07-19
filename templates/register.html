@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Complete Registration - hack.sv ID</title>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Complete Your Registration</h1>
+            
+            <p>Welcome, {{ user_name }}! Please complete your profile to continue.</p>
+            <p><strong>Email:</strong> {{ user_email }}</p>
+            
+            {% if errors %}
+                <div class="errors">
+                    <h3>Please fix the following errors:</h3>
+                    <ul>
+                        {% for error in errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+            
+            <form method="post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <div class="form-group">
+                    <label for="legal_name">Legal Name *</label>
+                    <input 
+                        type="text" 
+                        id="legal_name" 
+                        name="legal_name" 
+                        value="{{ legal_name or '' }}" 
+                        required 
+                        placeholder="Your full legal name (as it appears on ID)"
+                    />
+                    <small>This is used for official event registration and verification.</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="preferred_name">Preferred Name</label>
+                    <input 
+                        type="text" 
+                        id="preferred_name" 
+                        name="preferred_name" 
+                        value="{{ preferred_name or '' }}" 
+                        placeholder="What you'd like to be called (optional)"
+                    />
+                    <small>This will be displayed on your name tag and in communications.</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="pronouns">Pronouns *</label>
+                    <select id="pronouns" name="pronouns" required>
+                        <option value="">Select your pronouns</option>
+                        <option value="he/him/his" {% if pronouns == "he/him/his" %}selected{% endif %}>he/him/his</option>
+                        <option value="she/her/hers" {% if pronouns == "she/her/hers" %}selected{% endif %}>she/her/hers</option>
+                        <option value="they/them/theirs" {% if pronouns == "they/them/theirs" %}selected{% endif %}>they/them/theirs</option>
+                        <option value="other" {% if pronouns == "other" %}selected{% endif %}>other</option>
+                    </select>
+                    <small>If you select "other", we'll use your preferred name instead of pronouns in communications.</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="dob">Date of Birth *</label>
+                    <input 
+                        type="date" 
+                        id="dob" 
+                        name="dob" 
+                        value="{{ dob or '' }}" 
+                        required 
+                    />
+                    <small>Required for age verification and event eligibility.</small>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit">Complete Registration</button>
+                </div>
+            </form>
+            
+            <div class="privacy-notice">
+                <h3>Privacy Notice</h3>
+                <p>
+                    Your information is used only for event management and communication. 
+                    You can delete all your data at any time from your dashboard.
+                    <a href="/privacy">Read our full privacy policy</a>.
+                </p>
+            </div>
+        </div>
+    </body>
+</html>

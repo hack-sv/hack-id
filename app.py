@@ -2,19 +2,50 @@
 
 import os
 from flask import Flask, request, jsonify
+from flask_wtf.csrf import CSRFProtect
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from config import SECRET_KEY, DEBUG_MODE, PROD, print_debug_info, validate_config
 from utils.db_init import init_db
+from utils.rate_limiter import rate_limit_api_key, start_cleanup_thread
 from routes.auth import auth_bp
 from routes.admin import admin_bp
+from routes.opt_out import opt_out_bp
 from models.api_key import get_key_permissions, log_api_key_usage
 
 # Create Flask app
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
 
+# Configure secure session cookies
+app.config.update(
+    SESSION_COOKIE_SECURE=PROD,  # Only send over HTTPS in production
+    SESSION_COOKIE_HTTPONLY=True,  # Prevent XSS access to cookies
+    SESSION_COOKIE_SAMESITE="Lax",  # CSRF protection
+    PERMANENT_SESSION_LIFETIME=3600,  # 1 hour session timeout
+)
+
+# Initialize CSRF protection
+csrf = CSRFProtect(app)
+
+# Exempt API endpoints from CSRF protection (they use API key auth)
+csrf.exempt("routes.api")
+
+# Initialize rate limiter
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://",
+)
+
+# Apply stricter rate limits to auth endpoints
+limiter.limit("5 per minute")(auth_bp)
+
 # Register blueprints
 app.register_blueprint(auth_bp)
 app.register_blueprint(admin_bp)
+app.register_blueprint(opt_out_bp)
 
 # Import and register API blueprint
 from routes.api import api_bp
@@ -25,6 +56,37 @@ app.register_blueprint(api_bp)
 from routes.event_admin import event_admin_bp
 
 app.register_blueprint(event_admin_bp)
+
+
+# Security headers middleware
+@app.after_request
+def add_security_headers(response):
+    """Add security headers to all responses."""
+    # Content Security Policy
+    csp = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "img-src 'self' data: https:; "
+        "font-src 'self'; "
+        "connect-src 'self'; "
+        "frame-ancestors 'none';"
+    )
+    response.headers["Content-Security-Policy"] = csp
+
+    # Other security headers
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+
+    # HSTS for production
+    if PROD:
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains"
+        )
+
+    return response
 
 
 def require_api_key(required_permissions=None):
@@ -76,6 +138,7 @@ def require_api_key(required_permissions=None):
 # Test API endpoint
 @app.route("/api/test", methods=["GET"])
 @require_api_key(["users.read"])
+@rate_limit_api_key
 def api_test():
     """Test endpoint that requires API key with users.read permission."""
     from datetime import datetime
@@ -98,6 +161,9 @@ if __name__ == "__main__":
 
     # Initialize database
     init_db()
+
+    # Start rate limiter cleanup thread
+    start_cleanup_thread()
 
     # Determine port based on environment
     port = int(os.getenv("PORT", 3000))

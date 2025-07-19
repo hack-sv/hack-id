@@ -18,12 +18,19 @@ DEBUG_MODE = not PROD
 
 # Base URL configuration
 if PROD:
-    BASE_URL = "http://id.hack.sv"
+    BASE_URL = "https://id.hack.sv"
 else:
     BASE_URL = "http://127.0.0.1:3000"
 
 # Flask configuration
-SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-this")
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    print("CRITICAL ERROR: SECRET_KEY environment variable is not set!")
+    print("Please set a strong, random SECRET_KEY in your .env file.")
+    print(
+        "You can generate one with: python -c 'import secrets; print(secrets.token_hex(32))'"
+    )
+    exit(1)
 
 # Google OAuth configuration
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
@@ -43,6 +50,7 @@ DISCORD_GUILD_ID = int(os.getenv("DISCORD_GUILD_ID", "0"))
 # Database configuration
 DATABASE = "users.db"
 
+
 def print_debug_info():
     """Print debug information about environment variables."""
     if DEBUG_MODE:
@@ -50,12 +58,16 @@ def print_debug_info():
         print(f"PROD: {PROD}")
         print(f"DEBUG_MODE: {DEBUG_MODE}")
         print(f"BASE_URL: {BASE_URL}")
-        print(f"GOOGLE_CLIENT_ID: {GOOGLE_CLIENT_ID}")
+        print(f"GOOGLE_CLIENT_ID: {'[SET]' if GOOGLE_CLIENT_ID else '[NOT SET]'}")
         print(
-            f"GOOGLE_CLIENT_SECRET: {GOOGLE_CLIENT_SECRET[:10] if GOOGLE_CLIENT_SECRET else 'None'}..."
+            f"GOOGLE_CLIENT_SECRET: {'[SET]' if GOOGLE_CLIENT_SECRET else '[NOT SET]'}"
         )
+        print(f"SECRET_KEY: {'[SET]' if SECRET_KEY else '[NOT SET]'}")
+        print(f"SENDGRID_API_KEY: {'[SET]' if SENDGRID_API_KEY else '[NOT SET]'}")
+        print(f"DISCORD_BOT_TOKEN: {'[SET]' if DISCORD_BOT_TOKEN else '[NOT SET]'}")
         print(f"REDIRECT_URI: {REDIRECT_URI}")
         print("===================================")
+
 
 def validate_config():
     """Validate that required configuration is present."""

@@ -7,6 +7,9 @@ from services.event_service import (
     get_user_event_status,
 )
 from utils.events import get_current_event, get_event_info, get_all_events
+from utils.validation import validate_api_request
+from utils.error_handling import handle_api_error, handle_validation_error
+from utils.rate_limiter import rate_limit_api_key
 from models.api_key import get_key_permissions, log_api_key_usage
 from config import DEBUG_MODE
 
@@ -121,6 +124,7 @@ def api_all_events():
 
 @api_bp.route("/api/register-event", methods=["POST"])
 @require_api_key(["events.register"])
+@rate_limit_api_key
 def api_register_event():
     """Register user for an event."""
     try:
@@ -128,11 +132,14 @@ def api_register_event():
         if not data:
             return jsonify({"success": False, "error": "JSON data required"}), 400
 
-        user_email = data.get("user_email")
-        event_id = data.get("event_id")  # Optional, defaults to current event
+        # Validate input data
+        validation_result = validate_api_request(data, ["user_email"])
+        if not validation_result["valid"]:
+            return handle_validation_error(validation_result)
 
-        if not user_email:
-            return jsonify({"success": False, "error": "user_email is required"}), 400
+        validated_data = validation_result["data"]
+        user_email = validated_data["user_email"]
+        event_id = validated_data.get("event_id")  # Optional, defaults to current event
 
         # Register user for event
         result = register_user_for_event(user_email, event_id)
@@ -143,13 +150,12 @@ def api_register_event():
             return jsonify(result), 400
 
     except Exception as e:
-        if DEBUG_MODE:
-            print(f"Error in api_register_event: {e}")
-        return jsonify({"success": False, "error": "Internal server error"}), 500
+        return handle_api_error(e, "api_register_event")
 
 
 @api_bp.route("/api/submit-temporary-info", methods=["POST"])
 @require_api_key(["events.submit_info"])
+@rate_limit_api_key
 def api_submit_temporary_info():
     """Submit temporary info for an event."""
     try:
@@ -157,36 +163,34 @@ def api_submit_temporary_info():
         if not data:
             return jsonify({"success": False, "error": "JSON data required"}), 400
 
-        # Extract required fields
-        user_email = data.get("user_email")
-        event_id = data.get("event_id")
-        phone_number = data.get("phone_number")
-        address = data.get("address")
-        emergency_contact_name = data.get("emergency_contact_name")
-        emergency_contact_email = data.get("emergency_contact_email")
-        emergency_contact_phone = data.get("emergency_contact_phone")
+        # Validate input data
+        required_fields = [
+            "user_email",
+            "event_id",
+            "phone_number",
+            "address",
+            "emergency_contact_name",
+            "emergency_contact_email",
+            "emergency_contact_phone",
+        ]
+        validation_result = validate_api_request(data, required_fields)
+        if not validation_result["valid"]:
+            return handle_validation_error(validation_result)
+
+        validated_data = validation_result["data"]
+
+        # Extract validated fields
+        user_email = validated_data["user_email"]
+        event_id = validated_data["event_id"]
+        phone_number = validated_data["phone_number"]
+        address = validated_data["address"]
+        emergency_contact_name = validated_data["emergency_contact_name"]
+        emergency_contact_email = validated_data["emergency_contact_email"]
+        emergency_contact_phone = validated_data["emergency_contact_phone"]
 
         # Extract optional fields
         dietary_restrictions = data.get("dietary_restrictions", [])
-        tshirt_size = data.get("tshirt_size")
-
-        # Validate required fields
-        required_fields = {
-            "user_email": user_email,
-            "event_id": event_id,
-            "phone_number": phone_number,
-            "address": address,
-            "emergency_contact_name": emergency_contact_name,
-            "emergency_contact_email": emergency_contact_email,
-            "emergency_contact_phone": emergency_contact_phone,
-        }
-
-        for field_name, value in required_fields.items():
-            if not value:
-                return (
-                    jsonify({"success": False, "error": f"{field_name} is required"}),
-                    400,
-                )
+        tshirt_size = validated_data.get("tshirt_size")
 
         # Submit temporary info
         result = submit_temporary_info(
@@ -207,13 +211,12 @@ def api_submit_temporary_info():
             return jsonify(result), 400
 
     except Exception as e:
-        if DEBUG_MODE:
-            print(f"Error in api_submit_temporary_info: {e}")
-        return jsonify({"success": False, "error": "Internal server error"}), 500
+        return handle_api_error(e, "api_submit_temporary_info")
 
 
 @api_bp.route("/api/user-status", methods=["GET"])
 @require_api_key(["users.read"])
+@rate_limit_api_key
 def api_user_status():
     """Get user's event registration and temporary info status."""
     try:

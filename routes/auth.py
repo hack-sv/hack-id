@@ -9,6 +9,7 @@ from flask import (
     url_for,
     jsonify,
 )
+from flask import current_app
 from services.auth_service import (
     send_email_verification,
     verify_email_code,
@@ -18,6 +19,7 @@ from services.auth_service import (
     verify_discord_token,
     complete_discord_verification,
 )
+from models.user import get_user_by_email, create_user, update_user
 from models.user import get_user_by_email
 from config import DEBUG_MODE
 
@@ -29,9 +31,18 @@ def index():
     """Home page - redirect to auth or dashboard based on login status."""
     if "user_email" in session:
         from models.admin import is_admin
+        from services.dashboard_service import get_user_dashboard_data
 
         user_is_admin = is_admin(session["user_email"])
-        return render_template("dashboard.html", is_admin=user_is_admin)
+        dashboard_data = get_user_dashboard_data(session["user_email"])
+
+        # If user hasn't completed registration, redirect to register
+        if not dashboard_data["profile_complete"]:
+            return redirect("/register")
+
+        return render_template(
+            "dashboard.html", is_admin=user_is_admin, dashboard=dashboard_data
+        )
     else:
         return render_template("auth.html", state="email_login")
 
@@ -69,6 +80,12 @@ def auth_google_callback():
     # Check if this is part of Discord verification flow
     if "verification_token" in session:
         return redirect(url_for("auth.verify_complete"))
+
+    # Check if user needs to complete registration
+    user = get_user_by_email(result["user"]["email"])
+    if not user or not user.get("legal_name"):
+        # User needs to complete registration
+        return redirect("/register")
 
     return redirect("/")
 
@@ -211,3 +228,81 @@ def verify_complete():
         )
     else:
         return render_template("auth.html", state="error", error=result["error"])
+
+
+@auth_bp.route("/register", methods=["GET", "POST"])
+def register():
+    """User registration form to complete profile."""
+    if "user_email" not in session:
+        return redirect(url_for("auth.index"))
+
+    user_email = session["user_email"]
+    user_name = session.get("user_name", "")
+
+    # Check if user already has complete registration
+    user = get_user_by_email(user_email)
+    if user and user.get("legal_name"):
+        return redirect("/")
+
+    if request.method == "GET":
+        return render_template(
+            "register.html", user_email=user_email, user_name=user_name
+        )
+
+    # Handle POST - process registration
+    legal_name = request.form.get("legal_name", "").strip()
+    preferred_name = request.form.get("preferred_name", "").strip()
+    pronouns = request.form.get("pronouns", "").strip()
+    dob = request.form.get("dob", "").strip()
+
+    # Validation
+    errors = []
+    if not legal_name:
+        errors.append("Legal name is required")
+    if not dob:
+        errors.append("Date of birth is required")
+    if not pronouns:
+        errors.append("Pronouns are required")
+
+    # Validate date format (YYYY-MM-DD)
+    if dob:
+        try:
+            from datetime import datetime
+
+            datetime.strptime(dob, "%Y-%m-%d")
+        except ValueError:
+            errors.append("Invalid date format")
+
+    if errors:
+        return render_template(
+            "register.html",
+            user_email=user_email,
+            user_name=user_name,
+            errors=errors,
+            legal_name=legal_name,
+            preferred_name=preferred_name,
+            pronouns=pronouns,
+            dob=dob,
+        )
+
+    # Create or update user
+    if user:
+        # Update existing user
+        update_user(
+            user["id"],
+            legal_name=legal_name,
+            preferred_name=preferred_name or None,
+            pronouns=pronouns,
+            dob=dob,
+        )
+    else:
+        # Create new user
+        create_user(
+            email=user_email,
+            legal_name=legal_name,
+            preferred_name=preferred_name or None,
+            pronouns=pronouns,
+            dob=dob,
+        )
+
+    return redirect("/")

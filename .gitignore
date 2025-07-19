@@ -5,3 +5,6 @@ counterspell-attendees.csv
 scrapyard-attendees.json
 __pycache__
 .DS_Store
+test_opt_out.csv
+counterspell-checkin.txt
+scrapyard-checkin.tsv

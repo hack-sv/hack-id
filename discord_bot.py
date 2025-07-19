@@ -22,7 +22,7 @@ DEBUG_MODE = not PROD
 
 # Base URL configuration
 if PROD:
-    BASE_URL = "http://id.hack.sv"
+    BASE_URL = "https://id.hack.sv"
 else:
     BASE_URL = "http://127.0.0.1:3000"
 
@@ -182,6 +182,15 @@ async def verify(ctx):
 
     # Send ephemeral response
     await ctx.respond(embed=embed, view=view, ephemeral=True)
+
+
+@bot.slash_command(
+    guild_ids=[DISCORD_GUILD_ID], description="Ping command that responds with pong!"
+)
+async def ping(ctx):
+    """Handle /ping slash command."""
+    user_id = ctx.author.id
+    await ctx.respond(f"<@{user_id}>", ephemeral=True)
 
 
 class VerificationView(discord.ui.View):
@@ -372,3 +381,29 @@ if __name__ == "__main__":
 
     print("Starting Discord bot...")
     bot.run(DISCORD_BOT_TOKEN)
+
+
+def remove_user_roles(discord_id: str) -> list:
+    """
+    Remove all verification roles from a user.
+    Returns list of removed role names.
+
+    Note: This is a placeholder implementation. In production, you'd need
+    to implement actual Discord role removal through the bot's async context.
+    """
+    removed_roles = []
+
+    try:
+        # TODO: Implement actual Discord role removal
+        # This would require either:
+        # 1. A separate Discord bot command/API
+        # 2. Using asyncio to run async Discord operations
+        # 3. A queue system for Discord operations
+
+        print(f"Would remove Discord roles for user {discord_id}")
+        removed_roles = ["Verified", "Attendee"]  # Placeholder
+
+    except Exception as e:
+        print(f"Error removing Discord roles for {discord_id}: {e}")
+
+    return removed_roles

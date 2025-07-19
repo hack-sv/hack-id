@@ -80,6 +80,17 @@
                 color: white;
             }
 
+            .btn-danger {
+                background: #dc3545;
+                color: white;
+            }
+
+            .btn-danger:hover {
+                background: #c82333;
+                text-decoration: none;
+                color: white;
+            }
+
             .content {
                 background: white;
                 padding: 30px;
@@ -124,14 +135,170 @@
             </div>
 
             <div class="content">
+                {% if dashboard and dashboard.user %}
+                <h2>{{ dashboard.user.display_name }}'s Dashboard</h2>
+                <p>
+                    {{ dashboard.user.pronouns if dashboard.user.pronouns !=
+                    'other' else '' }}
+                </p>
+                {% else %}
                 <h2>Welcome to hack.sv ID</h2>
-                <p>Your identity management system for hack.sv events.</p>
-                {% if is_admin %}
-                <p style="margin-top: 15px; color: #007bff">
+                {% endif %} {% if is_admin %}
+                <div class="admin-notice">
                     <strong>Admin Access:</strong> You have administrative
                     privileges.
-                </p>
+                </div>
+                {% endif %} {% if dashboard %}
+                <!-- User Profile Section -->
+                <div class="profile-section">
+                    <h3>Profile Information</h3>
+                    <div class="profile-info">
+                        <div class="info-item">
+                            <strong>Email:</strong> {{ dashboard.user.email }}
+                        </div>
+                        <div class="info-item">
+                            <strong>Legal Name:</strong> {{
+                            dashboard.user.legal_name }}
+                        </div>
+                        {% if dashboard.user.preferred_name %}
+                        <div class="info-item">
+                            <strong>Preferred Name:</strong> {{
+                            dashboard.user.preferred_name }}
+                        </div>
+                        {% endif %}
+                        <div class="info-item">
+                            <strong>Pronouns:</strong>
+                            {% if dashboard.user.pronouns == 'other' %} Other
+                            (we'll use {{ dashboard.user.preferred_name or
+                            dashboard.user.legal_name }}) {% else %} {{
+                            dashboard.user.pronouns }} {% endif %}
+                        </div>
+                        <div class="info-item">
+                            <strong>Date of Birth:</strong> {{
+                            dashboard.user.dob }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Discord Section -->
+                <div class="discord-section">
+                    <h3>Discord Integration</h3>
+                    {% if dashboard.discord.linked %}
+                    <div class="discord-info">
+                        <div class="discord-status">
+                            ✅ Discord Account Linked
+                        </div>
+                        {% if dashboard.discord.username %}
+                        <div class="discord-details">
+                            <strong>Username:</strong> {{
+                            dashboard.discord.username }} {% if
+                            dashboard.discord.discriminator and
+                            dashboard.discord.discriminator != '0' %} #{{
+                            dashboard.discord.discriminator }} {% endif %}
+                        </div>
+                        {% if dashboard.discord.display_name and
+                        dashboard.discord.display_name !=
+                        dashboard.discord.username %}
+                        <div class="discord-details">
+                            <strong>Display Name:</strong> {{
+                            dashboard.discord.display_name }}
+                        </div>
+                        {% endif %} {% elif dashboard.discord.error %}
+                        <div class="discord-error">
+                            ⚠️ {{ dashboard.discord.error }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div class="discord-info">
+                        <div class="discord-status">
+                            ❌ No Discord Account Linked
+                        </div>
+                        <p>
+                            Link your Discord account to get verification roles
+                            for events.
+                        </p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Events Section -->
+                <div class="events-section">
+                    <h3>Your Events</h3>
+                    {% if dashboard.enrolled_events %}
+                    <div class="enrolled-events">
+                        <h4>Enrolled Events</h4>
+                        <div class="events-list">
+                            {% for event in dashboard.enrolled_events %}
+                            <div class="event-item">
+                                <div class="event-name">{{ event.name }}</div>
+                                <div class="event-description">
+                                    {{ event.description }}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %} {% if dashboard.event_registrations %}
+                    <div class="event-registrations">
+                        <h4>Event Registrations</h4>
+                        <div class="registrations-list">
+                            {% for reg in dashboard.event_registrations %}
+                            <div class="registration-item">
+                                <div class="registration-event">
+                                    {{ reg.event_name }}
+                                </div>
+                                <div class="registration-date">
+                                    Registered: {{ reg.registered_at }}
+                                </div>
+                                <div class="registration-expires">
+                                    Expires: {{ reg.expires_at }}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %} {% if not dashboard.enrolled_events and not
+                    dashboard.event_registrations %}
+                    <div class="no-events">
+                        <p>You're not enrolled in any events yet.</p>
+                    </div>
+                    {% endif %}
+                </div>
                 {% endif %}
+
+                <div
+                    style="
+                        margin-top: 30px;
+                        padding-top: 20px;
+                        border-top: 1px solid #eee;
+                    "
+                >
+                    <h3
+                        style="
+                            color: #666;
+                            font-size: 16px;
+                            margin-bottom: 15px;
+                        "
+                    >
+                        Privacy Options
+                    </h3>
+                    <p
+                        style="
+                            font-size: 14px;
+                            color: #666;
+                            margin-bottom: 15px;
+                        "
+                    >
+                        You have full control over your data. If you no longer
+                        want to participate in hack.sv events, you can
+                        permanently delete all of your information from our
+                        systems.
+                    </p>
+                    <a href="/opt-out-self" class="btn btn-danger">
+                        🗑️ Delete My Data
+                    </a>
+                </div>
             </div>
         </div>
     </body>

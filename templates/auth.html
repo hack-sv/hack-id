@@ -60,6 +60,7 @@
                 >
                 <div class="divider">Or</div>
                 <form method="post" action="{{ url_for('auth.send_code') }}">
+                    {{ csrf_token() }}
                     <input
                         type="email"
                         name="email"
@@ -93,6 +94,7 @@
                     method="post"
                     action="{{ url_for('auth.verify_code_route') }}"
                 >
+                    {{ csrf_token() }}
                     <input type="hidden" name="email" value="{{ email }}" />
                     <input
                         type="text"
