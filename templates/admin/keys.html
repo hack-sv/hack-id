@@ -742,6 +742,9 @@
                             `/admin/api_keys/${keyId}`,
                             {
                                 method: "DELETE",
+                                headers: {
+                                    "X-CSRFToken": getCSRFToken(),
+                                },
                             }
                         );
 

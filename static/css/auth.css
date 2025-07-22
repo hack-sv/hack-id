@@ -1,0 +1,209 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: "Barlow Condensed", sans-serif;
+    background-color: #00ccff;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.auth-container {
+    background: white;
+    border: 4px solid black;
+    border-radius: 6px;
+    width: 596px;
+    height: 596px;
+    padding: 20px 50px 60px 50px;
+    position: relative;
+    box-sizing: border-box;
+    text-align: center;
+}
+
+.hack-logo {
+    width: 200px;
+    height: auto;
+    display: block;
+    margin: 0 auto 10px auto;
+}
+
+.title {
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 24px;
+    font-weight: 400;
+    color: black;
+    margin-bottom: 25px;
+    line-height: 1.2;
+}
+
+.subtitle {
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 16px;
+    font-weight: 400;
+    color: black;
+    line-height: 1.4;
+    max-width: 400px;
+    margin: 0 auto 30px auto;
+}
+
+.auth-section {
+    display: none;
+}
+
+.auth-section.active {
+    display: block;
+}
+
+.google-btn {
+    background: white;
+    border: 2px solid black;
+    border-radius: 4px;
+    padding: 12px 24px;
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 18px;
+    font-weight: 500;
+    color: black;
+    text-decoration: none;
+    display: block;
+    margin: 0 auto 10px auto;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: 300px;
+    box-sizing: border-box;
+}
+
+.google-btn:hover {
+    background: #f8f9fa;
+    transform: translateY(-1px);
+}
+
+.divider {
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 16px;
+    color: black;
+    margin: 10px 0;
+}
+
+.email-form {
+    width: 300px;
+    margin: 0 auto;
+}
+
+.email-input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid black;
+    border-radius: 4px;
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 16px;
+    margin-bottom: 10px;
+    background: white;
+    display: block;
+}
+
+.email-input::placeholder {
+    color: #999;
+}
+
+.verify-btn {
+    background: white;
+    border: 2px solid black;
+    border-radius: 4px;
+    padding: 12px 24px;
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 18px;
+    font-weight: 500;
+    color: black;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: 100%;
+    display: block;
+}
+
+.verify-btn:hover {
+    background: #f8f9fa;
+    transform: translateY(-1px);
+}
+
+.privacy-link {
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 14px;
+    color: #00ccff;
+    text-decoration: none;
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.privacy-link:hover {
+    text-decoration: underline;
+}
+
+.error {
+    background: #ffe6e6;
+    border: 2px solid #ff4444;
+    border-radius: 4px;
+    padding: 12px;
+    margin-bottom: 20px;
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 16px;
+    color: #cc0000;
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.code-input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid black;
+    border-radius: 4px;
+    font-family: "VT323", monospace;
+    font-size: 24px;
+    text-align: center;
+    letter-spacing: 4px;
+    margin-bottom: 25px;
+    background: white;
+    display: block;
+}
+
+.back-link {
+    margin-top: 25px;
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 16px;
+    color: #666;
+    text-decoration: none;
+    display: block;
+}
+
+.back-link:hover {
+    text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+    .auth-container {
+        width: 90vw;
+        height: auto;
+        min-height: 500px;
+        padding: 30px 20px;
+    }
+
+    .hack-logo {
+        width: 150px;
+    }
+
+    .title {
+        font-size: 20px;
+    }
+
+    .subtitle {
+        font-size: 14px;
+    }
+}

@@ -157,7 +157,7 @@ def init_db():
     cursor.execute(
         """
         INSERT OR IGNORE INTO admins (email, added_by, added_at)
-        VALUES ('contact@adamxu.net', 'system', CURRENT_TIMESTAMP)
+        VALUES ('admin@example.com', 'system', CURRENT_TIMESTAMP)
         """
     )
 

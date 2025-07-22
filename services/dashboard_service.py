@@ -3,7 +3,8 @@
 import json
 from typing import Dict, List, Any, Optional
 from models.user import get_user_by_email
-from utils.events import get_all_events
+from models.temporary_info import get_temporary_info
+from utils.events import get_all_events, get_current_event
 from utils.discord import get_discord_user_info
 from utils.database import get_db_connection
 
@@ -26,6 +27,7 @@ def get_user_dashboard_data(user_email: str) -> Dict[str, Any]:
             "error": None,
         },
         "event_registrations": [],
+        "temporary_info": None,
         "profile_complete": False,
     }
 
@@ -40,13 +42,13 @@ def get_user_dashboard_data(user_email: str) -> Dict[str, Any]:
         "preferred_name": user.get("preferred_name"),
         "display_name": user.get("preferred_name") or user.get("legal_name") or "User",
         "pronouns": user.get("pronouns"),
-        "dob": user.get("dob"),
+        "dob": user.get("date_of_birth"),
         "discord_id": user.get("discord_id"),
     }
 
     # Check if profile is complete
     dashboard_data["profile_complete"] = bool(
-        user.get("legal_name") and user.get("pronouns") and user.get("dob")
+        user.get("legal_name") and user.get("pronouns") and user.get("date_of_birth")
     )
 
     # Get enrolled events
@@ -92,6 +94,31 @@ def get_user_dashboard_data(user_email: str) -> Dict[str, Any]:
                 dashboard_data["event_registrations"].append(reg_info)
 
         conn.close()
+
+    # Get temporary info for current event
+    current_event = get_current_event()
+    if current_event and user.get("id"):
+        temp_info = get_temporary_info(user["id"], current_event["id"])
+        if temp_info:
+            # Format emergency contact for display
+            emergency_contact = f"{temp_info['emergency_contact_name']}, {temp_info['emergency_contact_email']}, {temp_info['emergency_contact_phone']}"
+
+            # Format dietary restrictions
+            dietary_restrictions = temp_info.get("dietary_restrictions", [])
+            if isinstance(dietary_restrictions, list):
+                dietary_display = (
+                    ", ".join(dietary_restrictions) if dietary_restrictions else "None"
+                )
+            else:
+                dietary_display = dietary_restrictions or "None"
+
+            dashboard_data["temporary_info"] = {
+                "phone_number": temp_info["phone_number"],
+                "address": temp_info["address"],
+                "emergency_contact": emergency_contact,
+                "dietary_restrictions": dietary_display,
+                "tshirt_size": temp_info.get("tshirt_size", "Not specified"),
+            }
 
     # Get Discord information
     if user.get("discord_id"):

@@ -193,7 +193,9 @@ def purge_event_temporary_data(event_id, admin_email):
         return {"success": False, "error": f"Invalid event: {event_id}"}
 
     # Additional security check - only allow specific admin
-    if admin_email != "contact@adamxu.net":
+    from models.admin import is_admin
+
+    if not is_admin(admin_email):
         return {"success": False, "error": "Unauthorized"}
 
     # Get count before deletion for logging

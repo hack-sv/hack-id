@@ -6,25 +6,30 @@
         <title>
             {% if state == 'discord' %}Discord Verification{% elif state ==
             'email_verify' %}Verify Email{% elif state == 'error' %}Error{% else
-            %}Login{% endif %} - Hack ID
+            %}Login{% endif %} - hack.sv
         </title>
-        <style>
-            .auth-section {
-                display: none;
-            }
-            .auth-section.active {
-                display: block;
-            }
-        </style>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=VT323&display=swap"
+            rel="stylesheet"
+        />
+        <link
+            rel="stylesheet"
+            href="{{ url_for('static', filename='css/auth.css') }}"
+        />
     </head>
     <body>
-        <div class="container">
-            <div class="header">
-                <h1>
-                    {% if state == 'discord' %}Discord Verification{% elif state
-                    == 'email_verify' %}Verify Email{% elif state == 'error'
-                    %}Error{% else %}Login{% endif %}
-                </h1>
+        <div class="auth-container">
+            <img
+                src="{{ url_for('static', filename='logo-big.svg') }}"
+                alt="HACK.SV"
+                class="hack-logo"
+            />
+            <div class="title">hack.sv ID Management System</div>
+            <div class="subtitle">
+                If you've attended one of our hackathons before, use the email
+                you previously used to login.
             </div>
 
             <!-- Error Section -->
@@ -37,7 +42,7 @@
                     <p>{{ error }}</p>
                 </div>
                 {% endif %}
-                <a href="/" class="btn">Go Home</a>
+                <a href="/" class="google-btn">Go Home</a>
             </div>
 
             <!-- Email Login Section -->
@@ -45,30 +50,35 @@
                 id="email-login-section"
                 class="auth-section {% if not state or state == 'email_login' %}active{% endif %}"
             >
-                <p>Enter your email address to receive a verification code.</p>
-
                 {% if error and state == 'email_login' %}
                 <div class="error">
                     <p>{{ error }}</p>
                 </div>
                 {% endif %}
 
-                <a
-                    href="{{ url_for('auth.auth_google') }}"
-                    class="btn btn-secondary"
-                    >Login with Google</a
+                <a href="{{ url_for('auth.auth_google') }}" class="google-btn"
+                    >Sign in with Google</a
                 >
-                <div class="divider">Or</div>
-                <form method="post" action="{{ url_for('auth.send_code') }}">
-                    {{ csrf_token() }}
+                <div class="divider">or</div>
+                <form
+                    method="post"
+                    action="{{ url_for('auth.send_code') }}"
+                    class="email-form"
+                >
+                    <input
+                        type="hidden"
+                        name="csrf_token"
+                        value="{{ csrf_token() }}"
+                    />
                     <input
                         type="email"
                         name="email"
-                        placeholder="Your email address"
+                        placeholder="Enter email"
                         required
+                        class="email-input"
                     />
-                    <button type="submit" class="btn">
-                        Send Verification Code
+                    <button type="submit" class="verify-btn">
+                        Get verification code
                     </button>
                 </form>
             </div>
@@ -78,11 +88,11 @@
                 id="email-verify-section"
                 class="auth-section {% if state == 'email_verify' %}active{% endif %}"
             >
-                <p>
+                <div class="subtitle" style="margin-bottom: 20px">
                     We've sent a verification code to
-                    <strong>{{ email }}</strong>.
-                </p>
-                <p>Please check your inbox and enter the code below.</p>
+                    <strong>{{ email }}</strong>. <br />Please check your inbox
+                    and enter the code below.
+                </div>
 
                 {% if error and state == 'email_verify' %}
                 <div class="error">
@@ -93,8 +103,13 @@
                 <form
                     method="post"
                     action="{{ url_for('auth.verify_code_route') }}"
+                    class="email-form"
                 >
-                    {{ csrf_token() }}
+                    <input
+                        type="hidden"
+                        name="csrf_token"
+                        value="{{ csrf_token() }}"
+                    />
                     <input type="hidden" name="email" value="{{ email }}" />
                     <input
                         type="text"
@@ -103,14 +118,12 @@
                         required
                         class="code-input"
                     />
-                    <button type="submit" class="btn">Verify</button>
+                    <button type="submit" class="verify-btn">Verify</button>
                 </form>
 
-                <div style="margin-top: 20px">
-                    <a href="{{ url_for('auth.index') }}" class="link"
-                        >Use a different email</a
-                    >
-                </div>
+                <a href="{{ url_for('auth.index') }}" class="back-link"
+                    >Use a different email</a
+                >
             </div>
 
             <!-- Discord Verification Section -->
@@ -118,23 +131,30 @@
                 id="discord-verify-section"
                 class="auth-section {% if state == 'discord' %}active{% endif %}"
             >
-                <p>Hello <strong>{{ discord_username }}</strong>!</p>
-                <p>
-                    To complete your Discord verification and get access to
-                    event channels, please sign in:
-                </p>
+                <div class="subtitle" style="margin-bottom: 20px">
+                    Hello <strong>{{ discord_username }}</strong>! <br />To
+                    complete your Discord verification and get access to event
+                    channels, please sign in:
+                </div>
 
-                <a href="{{ url_for('auth.auth_google') }}" class="btn"
+                <a href="{{ url_for('auth.auth_google') }}" class="google-btn"
                     >Sign in with Google</a
                 >
 
-                <div class="divider">Or</div>
+                <div class="divider">or</div>
 
-                <a href="{{ url_for('auth.index') }}" class="btn btn-secondary"
+                <a href="{{ url_for('auth.index') }}" class="google-btn"
                     >Sign in with Email</a
                 >
 
-                <div style="margin-top: 20px; font-size: 14px; color: #666">
+                <div
+                    style="
+                        margin-top: 20px;
+                        font-size: 14px;
+                        color: #666;
+                        text-align: center;
+                    "
+                >
                     <p>
                         <strong>Note:</strong> You must have registered for one
                         of our events to complete verification.
@@ -142,6 +162,10 @@
                     <p>This verification link expires in 10 minutes.</p>
                 </div>
             </div>
+
+            <a href="https://hack.sv/privacy" class="privacy-link"
+                >Privacy Policy</a
+            >
         </div>
     </body>
 </html>

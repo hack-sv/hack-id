@@ -8,6 +8,7 @@ from flask_limiter.util import get_remote_address
 from config import SECRET_KEY, DEBUG_MODE, PROD, print_debug_info, validate_config
 from utils.db_init import init_db
 from utils.rate_limiter import rate_limit_api_key, start_cleanup_thread
+from utils.censoring import register_censoring_filters
 from routes.auth import auth_bp
 from routes.admin import admin_bp
 from routes.opt_out import opt_out_bp
@@ -25,27 +26,36 @@ app.config.update(
     PERMANENT_SESSION_LIFETIME=3600,  # 1 hour session timeout
 )
 
+# Register censoring filters for templates
+register_censoring_filters(app)
+
 # Initialize CSRF protection
 csrf = CSRFProtect(app)
 
 # Exempt API endpoints from CSRF protection (they use API key auth)
 csrf.exempt("routes.api")
 
-# Initialize rate limiter
-limiter = Limiter(
-    app=app,
-    key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"],
-    storage_uri="memory://",
-)
+# Initialize rate limiter (disabled in development)
+if not DEBUG_MODE:
+    limiter = Limiter(
+        app=app,
+        key_func=get_remote_address,
+        default_limits=["200 per day", "50 per hour"],
+        storage_uri="memory://",
+    )
 
-# Apply stricter rate limits to auth endpoints
-limiter.limit("5 per minute")(auth_bp)
+    # Apply stricter rate limits to auth endpoints
+    limiter.limit("5 per minute")(auth_bp)
+else:
+    # No rate limiting in development mode
+    print("DEBUG: Rate limiting disabled in development mode")
 
 # Register blueprints
 app.register_blueprint(auth_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(opt_out_bp)
+
+# Admin routes keep CSRF protection for security
 
 # Import and register API blueprint
 from routes.api import api_bp
@@ -162,9 +172,10 @@ if __name__ == "__main__":
     # Initialize database
     init_db()
 
-    # Start rate limiter cleanup thread
-    start_cleanup_thread()
+    # Start rate limiter cleanup thread (only in production)
+    if not DEBUG_MODE:
+        start_cleanup_thread()
 
     # Determine port based on environment
     port = int(os.getenv("PORT", 3000))
-    app.run(debug=DEBUG_MODE, port=port, host="0.0.0.0" if PROD else "127.0.0.1")
+    app.run(debug=DEBUG_MODE, port=port, host="0.0.0.0")

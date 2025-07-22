@@ -10,6 +10,8 @@ from flask import (
     url_for,
     jsonify,
 )
+
+# CSRF exemption will be handled in app.py
 from models.user import get_all_users, update_user
 from models.api_key import (
     get_all_api_keys,

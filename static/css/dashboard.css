@@ -1,0 +1,300 @@
+/* Dashboard-specific styles */
+body {
+    background: #00ccff;
+    min-height: 100vh;
+    padding: 20px;
+    margin: 0;
+}
+
+.dashboard-header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.logo-section {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.hack-logo {
+    height: 60px;
+    width: auto;
+}
+
+.id-text {
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 48px;
+    font-weight: 400;
+    color: #00ccff;
+    text-shadow: 2px 2px 0px black;
+}
+
+.dashboard-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Force single column on small screens */
+@media (max-width: 768px) {
+    .dashboard-container {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+}
+
+.left-column,
+.right-column {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Section styling */
+.welcome-section,
+.events-section,
+.discord-section,
+.logout-section,
+.delete-section,
+.profile-section,
+.per-event-section {
+    background: white;
+    border: 4px solid black;
+    border-radius: 6px;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.welcome-text {
+    font-family: "VT323", monospace;
+    font-size: 32px;
+    color: black;
+    margin: 0;
+}
+
+.section-title {
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 24px;
+    font-weight: 500;
+    color: black;
+    margin-bottom: 15px;
+}
+
+/* Events section */
+.event-item {
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 18px;
+    color: black;
+    margin-bottom: 8px;
+}
+
+.no-events {
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 16px;
+    color: #666;
+    font-style: italic;
+}
+
+/* Discord section */
+.discord-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+}
+
+.discord-username,
+.not-connected {
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 18px;
+    color: black;
+}
+
+.unlink-btn,
+.join-discord-btn {
+    background: #00ccff;
+    border: 2px solid black;
+    border-radius: 4px;
+    padding: 8px 16px;
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.unlink-btn:hover,
+.join-discord-btn:hover {
+    background: #0099cc;
+    transform: translateY(-1px);
+}
+
+/* Logout button */
+.logout-btn {
+    background: white;
+    border: 2px solid black;
+    border-radius: 4px;
+    padding: 12px 24px;
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 18px;
+    font-weight: 500;
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: block;
+    text-align: center;
+}
+
+.logout-btn:hover {
+    background: #f8f9fa;
+    transform: translateY(-1px);
+}
+
+/* Profile and per-event info */
+.profile-info,
+.per-event-info {
+    margin-bottom: 20px;
+}
+
+.info-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+    gap: 15px;
+}
+
+.info-label {
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 16px;
+    font-weight: 500;
+    color: black;
+    min-width: 120px;
+    flex-shrink: 0;
+}
+
+.info-value {
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 16px;
+    color: black;
+    text-align: right;
+    word-break: break-word;
+}
+
+/* Reveal buttons */
+.reveal-btn {
+    background: #00ccff;
+    border: 2px solid black;
+    border-radius: 4px;
+    padding: 10px 20px;
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 16px;
+    font-weight: 500;
+    color: black;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: 100%;
+}
+
+.reveal-btn:hover {
+    background: #0099cc;
+    transform: translateY(-1px);
+}
+
+/* Delete section */
+.delete-warning {
+    margin-bottom: 15px;
+}
+
+.delete-checkbox {
+    margin-right: 10px;
+}
+
+.delete-label {
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 14px;
+    color: black;
+    line-height: 1.4;
+}
+
+.delete-btn {
+    background: #ccc;
+    border: 2px solid black;
+    border-radius: 4px;
+    padding: 12px 24px;
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 16px;
+    font-weight: 500;
+    color: #666;
+    cursor: not-allowed;
+    transition: all 0.2s ease;
+    width: 100%;
+}
+
+.delete-btn.enabled {
+    background: #ff4444;
+    color: white;
+    cursor: pointer;
+}
+
+.delete-btn.enabled:hover {
+    background: #cc0000;
+    transform: translateY(-1px);
+}
+
+/* Mobile responsive */
+
+
+    .left-column,
+    .right-column {
+        width: 100% !important;
+        height: auto;
+    }
+
+    .welcome-section,
+    .events-section,
+    .discord-section,
+    .logout-section,
+    .delete-section,
+    .profile-section,
+    .per-event-section {
+        width: 100% !important;
+        height: auto;
+    }
+
+    .info-line {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+
+    .info-value {
+        text-align: left;
+    }
+
+    .discord-info {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .hack-logo {
+        height: 50px;
+    }
+
+    .id-text {
+        font-size: 40px;
+    }
+
+    .welcome-text {
+        font-size: 24px;
+    }
+}

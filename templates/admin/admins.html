@@ -3,6 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="csrf-token" content="{{ csrf_token() }}" />
         <title>Admin Management - Hack ID</title>
         <link rel="stylesheet" href="/static/styles/admin/base.css" />
         <link rel="stylesheet" href="/static/styles/admin/table.css" />
@@ -142,7 +143,7 @@
                         <td>
                             <div class="action-buttons">
                                 ${
-                                    admin.email !== "contact@adamxu.net"
+                                    admin.id !== 1 // First admin (system admin)
                                         ? `
                                     <button class="action-btn danger" onclick="removeAdmin('${escapeHtml(
                                         admin.email
@@ -239,6 +240,7 @@
                             method: "POST",
                             headers: {
                                 "Content-Type": "application/json",
+                                "X-CSRFToken": getCSRFToken(),
                             },
                             body: JSON.stringify({ email: email }),
                         });
@@ -286,6 +288,9 @@
                             `/admin/admins/data/${encodeURIComponent(email)}`,
                             {
                                 method: "DELETE",
+                                headers: {
+                                    "X-CSRFToken": getCSRFToken(),
+                                },
                             }
                         );
 
@@ -312,6 +317,14 @@
                         );
                     }
                 }
+            }
+
+            // CSRF token helper
+            function getCSRFToken() {
+                const metaTag = document.querySelector(
+                    'meta[name="csrf-token"]'
+                );
+                return metaTag ? metaTag.getAttribute("content") : "";
             }
         </script>
 
