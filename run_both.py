@@ -14,7 +14,7 @@ from threading import Thread
 def run_flask():
     """Run the Flask application using Gunicorn."""
     print("Starting Flask app with Gunicorn...")
-    subprocess.run(["gunicorn", "--workers", "4", "--bind", "0.0.0.0:5000", "app:app"])
+    subprocess.run(["gunicorn", "--workers", "4", "--bind", "0.0.0.0:3000", "app:app"])
 
 
 def run_discord_bot():
