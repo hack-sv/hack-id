@@ -276,6 +276,9 @@ function saveUser(userEmail) {
     // Send update
     fetch("/admin/update-user", {
         method: "POST",
+        headers: {
+            "X-CSRFToken": getCSRFToken(),
+        },
         body: formData,
     })
         .then((response) => response.json())

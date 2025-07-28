@@ -3,6 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="csrf-token" content="{{ csrf_token() }}" />
         <title>Admin Panel - Hack ID</title>
 
         <!-- Bootstrap CSS -->
@@ -73,7 +74,11 @@
         </div>
 
         <!-- Home Icon -->
-        <div class="home-icon" onclick="window.location.href='/'" title="Home">
+        <div
+            class="home-icon"
+            onclick="window.location.href='/admin'"
+            title="Admin Dashboard"
+        >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
             </svg>
@@ -624,6 +629,14 @@
                         }
                     });
             });
+
+            // CSRF token helper
+            function getCSRFToken() {
+                const metaTag = document.querySelector(
+                    'meta[name="csrf-token"]'
+                );
+                return metaTag ? metaTag.getAttribute("content") : "";
+            }
         </script>
     </body>
 </html>
