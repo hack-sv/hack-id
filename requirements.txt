@@ -5,6 +5,7 @@ annotated-types==0.7.0
 anyio==4.9.0
 attrs==25.3.0
 blinker==1.9.0
+cachelib==0.13.0
 certifi==2025.4.26
 charset-normalizer==3.4.2
 click==8.2.1
@@ -12,6 +13,7 @@ Deprecated==1.2.18
 ecdsa==0.19.1
 Flask==3.1.1
 Flask-Limiter==3.12
+Flask-Session==0.8.0
 Flask-WTF==1.2.2
 frozenlist==1.6.0
 gunicorn==23.0.0
@@ -25,6 +27,7 @@ limits==5.4.0
 markdown-it-py==3.0.0
 MarkupSafe==3.0.2
 mdurl==0.1.2
+msgspec==0.19.0
 multidict==6.4.4
 ollama==0.5.1
 ordered-set==4.1.0
