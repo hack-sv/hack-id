@@ -1,7 +1,6 @@
 """OAuth temporary token models and utilities."""
 
 import secrets
-import json
 from datetime import datetime, timedelta
 from utils.database import get_db_connection
 
@@ -13,22 +12,31 @@ def generate_oauth_token(length=32):
 
 def create_oauth_token(user_email, expires_in_seconds=120):
     """Create a temporary OAuth token for a user."""
-    conn = get_db_connection()
-    token = generate_oauth_token()
-    expires_at = datetime.now() + timedelta(seconds=expires_in_seconds)
-    
-    # Delete any existing tokens for this user
-    conn.execute("DELETE FROM oauth_tokens WHERE user_email = ?", (user_email,))
-    
-    # Insert new token
-    conn.execute(
-        "INSERT INTO oauth_tokens (token, user_email, expires_at) VALUES (?, ?, ?)",
-        (token, user_email, expires_at),
-    )
-    conn.commit()
-    conn.close()
-    
-    return token
+    try:
+        conn = get_db_connection()
+        token = generate_oauth_token()
+        expires_at = datetime.now() + timedelta(seconds=expires_in_seconds)
+
+        # Delete any existing tokens for this user
+        conn.execute("DELETE FROM oauth_tokens WHERE user_email = ?", (user_email,))
+
+        # Insert new token
+        conn.execute(
+            "INSERT INTO oauth_tokens (token, user_email, expires_at) VALUES (?, ?, ?)",
+            (token, user_email, expires_at),
+        )
+        conn.commit()
+        conn.close()
+
+        return token
+    except Exception as e:
+        print(f"Error creating OAuth token for {user_email}: {e}")
+        print(
+            f"Database connection: {conn if 'conn' in locals() else 'Not established'}"
+        )
+        if "conn" in locals():
+            conn.close()
+        raise
 
 
 def verify_oauth_token(token):
@@ -38,14 +46,14 @@ def verify_oauth_token(token):
         "SELECT user_email FROM oauth_tokens WHERE token = ? AND expires_at > ?",
         (token, datetime.now()),
     ).fetchone()
-    
+
     if result:
         # Delete the token after successful verification (single use)
         conn.execute("DELETE FROM oauth_tokens WHERE token = ?", (token,))
         conn.commit()
         conn.close()
         return result["user_email"]
-    
+
     conn.close()
     return None
 

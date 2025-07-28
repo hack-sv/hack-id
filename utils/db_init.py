@@ -12,8 +12,13 @@ from config import DATABASE
 
 def init_db():
     """Initialize the database with all required tables."""
-    conn = sqlite3.connect(DATABASE)
-    cursor = conn.cursor()
+    try:
+        conn = sqlite3.connect(DATABASE)
+        cursor = conn.cursor()
+        print(f"Connected to database: {DATABASE}")
+    except Exception as e:
+        print(f"Error connecting to database {DATABASE}: {e}")
+        raise
 
     # Users table
     cursor.execute(
@@ -162,17 +167,22 @@ def init_db():
     )
 
     # OAuth temporary tokens table
-    cursor.execute(
+    try:
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS oauth_tokens (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                token TEXT UNIQUE NOT NULL,
+                user_email TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP NOT NULL
+            )
         """
-        CREATE TABLE IF NOT EXISTS oauth_tokens (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            token TEXT UNIQUE NOT NULL,
-            user_email TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            expires_at TIMESTAMP NOT NULL
         )
-    """
-    )
+        print("OAuth tokens table created/verified successfully")
+    except Exception as e:
+        print(f"Error creating oauth_tokens table: {e}")
+        raise
 
     # Create indexes for better performance
     cursor.execute(
@@ -192,9 +202,48 @@ def init_db():
         "CREATE INDEX IF NOT EXISTS idx_oauth_tokens_expires ON oauth_tokens(expires_at)"
     )
 
-    conn.commit()
-    conn.close()
-    print("Database initialized successfully!")
+    try:
+        conn.commit()
+        conn.close()
+        print("Database initialized successfully!")
+    except Exception as e:
+        print(f"Error committing database changes: {e}")
+        conn.close()
+        raise
+
+
+def check_table_exists(table_name):
+    """Check if a specific table exists in the database."""
+    try:
+        conn = sqlite3.connect(DATABASE)
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+            (table_name,),
+        )
+        result = cursor.fetchone()
+        conn.close()
+        exists = result is not None
+        print(f"Table '{table_name}' exists: {exists}")
+        return exists
+    except Exception as e:
+        print(f"Error checking if table '{table_name}' exists: {e}")
+        return False
+
+
+def list_all_tables():
+    """List all tables in the database."""
+    try:
+        conn = sqlite3.connect(DATABASE)
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        tables = [row[0] for row in cursor.fetchall()]
+        conn.close()
+        print(f"All tables in database: {tables}")
+        return tables
+    except Exception as e:
+        print(f"Error listing tables: {e}")
+        return []
 
 
 if __name__ == "__main__":

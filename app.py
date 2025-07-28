@@ -6,7 +6,7 @@ from flask_wtf.csrf import CSRFProtect
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from config import SECRET_KEY, DEBUG_MODE, PROD, print_debug_info, validate_config
-from utils.db_init import init_db
+from utils.db_init import init_db, check_table_exists, list_all_tables
 from utils.rate_limiter import rate_limit_api_key, start_cleanup_thread
 from utils.censoring import register_censoring_filters
 from routes.auth import auth_bp
@@ -171,6 +171,11 @@ if __name__ == "__main__":
 
     # Initialize database
     init_db()
+
+    # Verify critical tables exist
+    if DEBUG_MODE:
+        list_all_tables()
+        check_table_exists("oauth_tokens")
 
     # Start rate limiter cleanup thread (only in production)
     if not DEBUG_MODE:

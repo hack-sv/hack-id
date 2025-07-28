@@ -32,7 +32,7 @@ DISCORD_GUILD_ID = int(os.getenv("DISCORD_GUILD_ID", "0"))
 DATABASE = "users.db"
 
 # Countdown configuration
-COUNTDOWN_CHANNEL_ID = 1363613340768665670
+COUNTDOWN_CHANNEL_ID = 1398862467341352990
 TARGET_DATE = datetime(2025, 8, 23, 8, 0, 0)  # August 23, 2025 at 8:00 AM PST
 
 # Bot setup
@@ -286,7 +286,7 @@ async def daily_countdown():
             return
 
         # Send the countdown message
-        message = f"# {days_remaining} days remain...\n-# @everyone"
+        message = f"# Some number of days remain..."
         await channel.send(message)
         print(f"Sent countdown message: {days_remaining} days remaining")
 
