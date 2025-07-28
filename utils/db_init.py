@@ -161,6 +161,19 @@ def init_db():
         """
     )
 
+    # OAuth temporary tokens table
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS oauth_tokens (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            token TEXT UNIQUE NOT NULL,
+            user_email TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            expires_at TIMESTAMP NOT NULL
+        )
+    """
+    )
+
     # Create indexes for better performance
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_temporary_info_user_event ON temporary_info(user_id, event_id)"
@@ -172,6 +185,12 @@ def init_db():
         "CREATE INDEX IF NOT EXISTS idx_temporary_info_expires ON temporary_info(expires_at)"
     )
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_admins_email ON admins(email)")
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_oauth_tokens_token ON oauth_tokens(token)"
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_oauth_tokens_expires ON oauth_tokens(expires_at)"
+    )
 
     conn.commit()
     conn.close()

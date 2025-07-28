@@ -1,123 +1,88 @@
-/* Dashboard-specific styles */
-body {
-    background: #00ccff;
-    min-height: 100vh;
-    padding: 20px;
-    margin: 0;
-}
+/* Dashboard specific styles - extends auth.css */
 
-.dashboard-header {
-    text-align: center;
-    margin-bottom: 20px;
-}
-
-.logo-section {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-}
-
-.hack-logo {
-    height: 60px;
-    width: auto;
-}
-
-.id-text {
-    font-family: "Barlow Condensed", sans-serif;
-    font-size: 48px;
-    font-weight: 400;
-    color: #00ccff;
-    text-shadow: 2px 2px 0px black;
-}
-
+/* Override auth container for dashboard */
 .dashboard-container {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    max-width: 1200px;
-    margin: 0 auto;
-}
-
-/* Force single column on small screens */
-@media (max-width: 768px) {
-    .dashboard-container {
-        display: flex;
-        flex-direction: column;
-        gap: 15px;
-    }
-}
-
-.left-column,
-.right-column {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-/* Section styling */
-.welcome-section,
-.events-section,
-.discord-section,
-.logout-section,
-.delete-section,
-.profile-section,
-.per-event-section {
     background: white;
     border: 4px solid black;
     border-radius: 6px;
-    padding: 20px;
+    width: 596px;
+    min-height: 596px;
+    padding: 20px 50px 60px 50px;
+    position: relative;
     box-sizing: border-box;
+    text-align: center;
+    margin: 20px auto;
 }
 
-.welcome-text {
-    font-family: "VT323", monospace;
-    font-size: 32px;
-    color: black;
-    margin: 0;
+/* Dashboard sections */
+.dashboard-section {
+    margin-bottom: 25px;
+    text-align: left;
+}
+
+.dashboard-section:last-of-type {
+    margin-bottom: 20px;
 }
 
 .section-title {
     font-family: "Barlow Condensed", sans-serif;
-    font-size: 24px;
+    font-size: 18px;
     font-weight: 500;
     color: black;
-    margin-bottom: 15px;
+    margin-bottom: 12px;
+    text-align: center;
+    border-bottom: 2px solid #f0f0f0;
+    padding-bottom: 8px;
 }
 
-/* Events section */
+/* Event items */
 .event-item {
+    background: #f8f9fa;
+    border: 2px solid black;
+    border-radius: 4px;
+    padding: 10px 15px;
+    margin-bottom: 10px;
     font-family: "Barlow Condensed", sans-serif;
-    font-size: 18px;
+    font-size: 16px;
     color: black;
-    margin-bottom: 8px;
 }
 
 .no-events {
     font-family: "Barlow Condensed", sans-serif;
     font-size: 16px;
     color: #666;
+    text-align: center;
     font-style: italic;
 }
 
 /* Discord section */
 .discord-info {
     display: flex;
-    align-items: center;
     justify-content: space-between;
-    gap: 15px;
+    align-items: center;
+    background: #f8f9fa;
+    border: 2px solid black;
+    border-radius: 4px;
+    padding: 10px 15px;
+    margin-bottom: 10px;
 }
 
-.discord-username,
-.not-connected {
+.discord-username {
     font-family: "Barlow Condensed", sans-serif;
-    font-size: 18px;
+    font-size: 16px;
+    font-weight: 500;
     color: black;
 }
 
-.unlink-btn,
+.not-connected {
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 16px;
+    color: #666;
+    font-style: italic;
+}
+
 .join-discord-btn {
-    background: #00ccff;
+    background: white;
     border: 2px solid black;
     border-radius: 4px;
     padding: 8px 16px;
@@ -126,17 +91,83 @@ body {
     font-weight: 500;
     color: black;
     text-decoration: none;
-    cursor: pointer;
     transition: all 0.2s ease;
 }
 
-.unlink-btn:hover,
 .join-discord-btn:hover {
-    background: #0099cc;
+    background: #f8f9fa;
     transform: translateY(-1px);
 }
 
-/* Logout button */
+/* Profile info */
+.profile-info,
+.per-event-info {
+    background: #f8f9fa;
+    border: 2px solid black;
+    border-radius: 4px;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.info-line {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.info-line:last-child {
+    margin-bottom: 0;
+}
+
+.info-label {
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 16px;
+    font-weight: 500;
+    color: black;
+}
+
+.info-value {
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 16px;
+    color: #666;
+}
+
+/* Action buttons */
+.action-button {
+    text-align: center;
+    margin-top: 15px;
+}
+
+.reveal-btn,
+.unlink-btn,
+.delete-btn {
+    background: white;
+    border: 2px solid black;
+    border-radius: 4px;
+    padding: 10px 20px;
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 16px;
+    font-weight: 500;
+    color: black;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin: 0 5px;
+}
+
+.reveal-btn:hover,
+.unlink-btn:hover,
+.delete-btn:hover:not(:disabled) {
+    background: #f8f9fa;
+    transform: translateY(-1px);
+}
+
+.delete-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: white;
+    transform: none;
+}
+
 .logout-btn {
     background: white;
     border: 2px solid black;
@@ -147,10 +178,8 @@ body {
     font-weight: 500;
     color: black;
     text-decoration: none;
-    cursor: pointer;
+    display: inline-block;
     transition: all 0.2s ease;
-    display: block;
-    text-align: center;
 }
 
 .logout-btn:hover {
@@ -158,64 +187,27 @@ body {
     transform: translateY(-1px);
 }
 
-/* Profile and per-event info */
-.profile-info,
-.per-event-info {
-    margin-bottom: 20px;
-}
-
-.info-line {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 12px;
-    gap: 15px;
-}
-
-.info-label {
-    font-family: "Barlow Condensed", sans-serif;
-    font-size: 16px;
-    font-weight: 500;
-    color: black;
-    min-width: 120px;
-    flex-shrink: 0;
-}
-
-.info-value {
-    font-family: "Barlow Condensed", sans-serif;
-    font-size: 16px;
-    color: black;
-    text-align: right;
-    word-break: break-word;
-}
-
-/* Reveal buttons */
-.reveal-btn {
-    background: #00ccff;
+/* Delete section specific styles */
+.delete-content {
+    background: #f8f9fa;
     border: 2px solid black;
     border-radius: 4px;
-    padding: 10px 20px;
-    font-family: "Barlow Condensed", sans-serif;
-    font-size: 16px;
-    font-weight: 500;
-    color: black;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    width: 100%;
-}
-
-.reveal-btn:hover {
-    background: #0099cc;
-    transform: translateY(-1px);
-}
-
-/* Delete section */
-.delete-warning {
+    padding: 15px;
     margin-bottom: 15px;
 }
 
+.delete-warning {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 15px;
+    text-align: left;
+    gap: 10px;
+}
+
 .delete-checkbox {
-    margin-right: 10px;
+    margin: 0;
+    margin-top: 2px;
+    flex-shrink: 0;
 }
 
 .delete-label {
@@ -223,78 +215,84 @@ body {
     font-size: 14px;
     color: black;
     line-height: 1.4;
-}
-
-.delete-btn {
-    background: #ccc;
-    border: 2px solid black;
-    border-radius: 4px;
-    padding: 12px 24px;
-    font-family: "Barlow Condensed", sans-serif;
-    font-size: 16px;
-    font-weight: 500;
-    color: #666;
-    cursor: not-allowed;
-    transition: all 0.2s ease;
-    width: 100%;
-}
-
-.delete-btn.enabled {
-    background: #ff4444;
-    color: white;
+    margin: 0;
     cursor: pointer;
 }
 
-.delete-btn.enabled:hover {
-    background: #cc0000;
-    transform: translateY(-1px);
+.delete-info {
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 14px;
+    color: #666;
+    line-height: 1.4;
+    margin-bottom: 15px;
+    text-align: left;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 12px;
 }
 
-/* Mobile responsive */
+.delete-info a {
+    color: #00ccff;
+    text-decoration: none;
+}
 
+.delete-info a:hover {
+    text-decoration: underline;
+}
 
-    .left-column,
-    .right-column {
-        width: 100% !important;
-        height: auto;
-    }
+.no-per-event-info {
+    background: #f8f9fa;
+    border: 2px solid black;
+    border-radius: 4px;
+    padding: 15px;
+    text-align: center;
+}
 
-    .welcome-section,
-    .events-section,
-    .discord-section,
-    .logout-section,
-    .delete-section,
-    .profile-section,
-    .per-event-section {
-        width: 100% !important;
-        height: auto;
+.no-per-event-info p {
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 16px;
+    color: #666;
+    margin: 0;
+    font-style: italic;
+}
+
+/* Privacy link at bottom */
+.dashboard-container > .privacy-link {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 14px;
+    color: #666;
+    text-decoration: none;
+}
+
+.dashboard-container > .privacy-link:hover {
+    text-decoration: underline;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+    .dashboard-container {
+        width: 90vw;
+        padding: 20px;
+        margin: 10px auto;
     }
 
     .info-line {
         flex-direction: column;
         align-items: flex-start;
-        gap: 5px;
     }
 
-    .info-value {
-        text-align: left;
+    .info-label {
+        margin-bottom: 5px;
     }
 
     .discord-info {
         flex-direction: column;
         align-items: flex-start;
         gap: 10px;
-    }
-
-    .hack-logo {
-        height: 50px;
-    }
-
-    .id-text {
-        font-size: 40px;
-    }
-
-    .welcome-text {
-        font-size: 24px;
     }
 }

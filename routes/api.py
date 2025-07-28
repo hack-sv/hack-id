@@ -11,6 +11,9 @@ from utils.validation import validate_api_request
 from utils.error_handling import handle_api_error, handle_validation_error
 from utils.rate_limiter import rate_limit_api_key
 from models.api_key import get_key_permissions, log_api_key_usage
+from models.oauth_token import verify_oauth_token
+from models.user import get_user_by_email
+from models.admin import is_admin
 from config import DEBUG_MODE
 
 api_bp = Blueprint("api", __name__)
@@ -241,6 +244,51 @@ def api_user_status():
     except Exception as e:
         if DEBUG_MODE:
             print(f"Error in api_user_status: {e}")
+        return jsonify({"success": False, "error": "Internal server error"}), 500
+
+
+# OAuth user info endpoint
+@api_bp.route("/api/oauth/user-info", methods=["POST"])
+@require_api_key(["oauth"])
+@rate_limit_api_key
+def oauth_user_info():
+    """Get user information using OAuth temporary token."""
+    try:
+        data = request.get_json()
+        if not data or "token" not in data:
+            return jsonify({"success": False, "error": "Token is required"}), 400
+
+        token = data["token"]
+
+        # Verify the OAuth token and get user email
+        user_email = verify_oauth_token(token)
+        if not user_email:
+            return jsonify({"success": False, "error": "Invalid or expired token"}), 401
+
+        # Get user information
+        user = get_user_by_email(user_email)
+        if not user:
+            return jsonify({"success": False, "error": "User not found"}), 404
+
+        # Return user information (only safe, public fields)
+        user_info = {
+            "success": True,
+            "user": {
+                "email": user["email"],
+                "legal_name": user.get("legal_name"),
+                "preferred_name": user.get("preferred_name"),
+                "pronouns": user.get("pronouns"),
+                "date_of_birth": user.get("date_of_birth")
+                or user.get("dob"),  # Handle both field names
+                "is_admin": is_admin(user["email"]),
+            },
+        }
+
+        return jsonify(user_info), 200
+
+    except Exception as e:
+        if DEBUG_MODE:
+            print(f"Error in oauth_user_info: {e}")
         return jsonify({"success": False, "error": "Internal server error"}), 500
 
 

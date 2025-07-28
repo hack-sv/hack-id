@@ -1,0 +1,218 @@
+/* Opt-out page specific styles - extends auth.css */
+
+/* Override auth container for opt-out page */
+.opt-out-container {
+    background: white;
+    border: 4px solid black;
+    border-radius: 6px;
+    width: 596px;
+    min-height: 596px;
+    padding: 20px 50px 60px 50px;
+    position: relative;
+    box-sizing: border-box;
+    text-align: center;
+    margin: 20px auto;
+}
+
+/* Opt-out sections */
+.opt-out-section {
+    margin-bottom: 25px;
+    text-align: left;
+}
+
+.section-title {
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 18px;
+    font-weight: 500;
+    color: black;
+    margin-bottom: 12px;
+    text-align: center;
+    border-bottom: 2px solid #f0f0f0;
+    padding-bottom: 8px;
+}
+
+/* Warning and error styles */
+.warning {
+    background: #fff3cd;
+    border: 2px solid #ffc107;
+    border-radius: 4px;
+    padding: 15px;
+    margin-bottom: 20px;
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 16px;
+    color: #856404;
+    text-align: left;
+}
+
+.error {
+    background: #f8d7da;
+    border: 2px solid #dc3545;
+    border-radius: 4px;
+    padding: 15px;
+    margin-bottom: 20px;
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 16px;
+    color: #721c24;
+    text-align: left;
+}
+
+/* Deletion list */
+.deletion-list {
+    background: #f8f9fa;
+    border: 2px solid black;
+    border-radius: 4px;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.deletion-list ul {
+    margin: 0;
+    padding-left: 20px;
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 16px;
+    color: black;
+}
+
+.deletion-list li {
+    margin: 8px 0;
+    line-height: 1.4;
+}
+
+/* Info list */
+.info-list {
+    background: #f8f9fa;
+    border: 2px solid black;
+    border-radius: 4px;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.info-list ul {
+    margin: 0;
+    padding-left: 20px;
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 16px;
+    color: black;
+}
+
+.info-list li {
+    margin: 8px 0;
+    line-height: 1.4;
+}
+
+/* Discord warning */
+.discord-warning {
+    background: #e8f5e8;
+    border: 2px solid #28a745;
+    border-radius: 4px;
+    padding: 15px;
+    margin-bottom: 15px;
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 16px;
+    color: #155724;
+    text-align: left;
+}
+
+/* Delete warning (checkbox section) */
+.delete-warning {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    text-align: left;
+    gap: 10px;
+    background: #f8f9fa;
+    border: 2px solid black;
+    border-radius: 4px;
+    padding: 15px;
+}
+
+.delete-checkbox {
+    margin: 0;
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+.delete-label {
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 14px;
+    color: black;
+    line-height: 1.4;
+    margin: 0;
+    cursor: pointer;
+}
+
+/* Action buttons */
+.action-button {
+    text-align: center;
+    margin-top: 15px;
+}
+
+.delete-btn {
+    background: #dc3545;
+    border: 2px solid black;
+    border-radius: 4px;
+    padding: 12px 24px;
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 18px;
+    font-weight: 500;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.delete-btn:hover {
+    background: #c82333;
+    transform: translateY(-1px);
+}
+
+/* Help text */
+.help-text {
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 14px;
+    color: #666;
+    line-height: 1.4;
+    text-align: center;
+    margin-top: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+/* Privacy link at bottom */
+.opt-out-container > .privacy-link {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 14px;
+    color: #666;
+    text-decoration: none;
+}
+
+.opt-out-container > .privacy-link:hover {
+    text-decoration: underline;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+    .opt-out-container {
+        width: 90vw;
+        padding: 20px;
+        margin: 10px auto;
+    }
+
+    .delete-warning {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .delete-checkbox {
+        margin-top: 0;
+    }
+}
+
+li {
+    /* disk position inner so that when centered no far distance */
+    list-style-position: inside;
+}

@@ -3,180 +3,104 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Data Deletion Request - Hack ID</title>
-        <style>
-            body {
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                line-height: 1.6;
-                margin: 0;
-                padding: 20px;
-                background-color: #f5f5f5;
-                color: #333;
-            }
-            .container {
-                max-width: 600px;
-                margin: 0 auto;
-                background: white;
-                padding: 30px;
-                border-radius: 8px;
-                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            }
-            h1 {
-                color: #d32f2f;
-                margin-bottom: 20px;
-                font-size: 24px;
-            }
-            .warning {
-                background: #fff3cd;
-                border: 1px solid #ffeaa7;
-                border-radius: 4px;
-                padding: 15px;
-                margin: 20px 0;
-            }
-            .error {
-                background: #f8d7da;
-                border: 1px solid #f5c6cb;
-                border-radius: 4px;
-                padding: 15px;
-                margin: 20px 0;
-                color: #721c24;
-            }
-            .deletion-list {
-                background: #f8f9fa;
-                border-radius: 4px;
-                padding: 15px;
-                margin: 15px 0;
-            }
-            .deletion-list ul {
-                margin: 10px 0;
-                padding-left: 20px;
-            }
-            .deletion-list li {
-                margin: 5px 0;
-            }
-            .form-group {
-                margin: 20px 0;
-            }
-            .checkbox-group {
-                display: flex;
-                align-items: flex-start;
-                gap: 10px;
-                margin: 15px 0;
-            }
-            .checkbox-group input[type="checkbox"] {
-                margin-top: 4px;
-            }
-            .checkbox-group label {
-                flex: 1;
-                font-size: 14px;
-            }
-            .btn {
-                background: #d32f2f;
-                color: white;
-                border: none;
-                padding: 12px 24px;
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 16px;
-                margin: 10px 5px 10px 0;
-            }
-            .btn:hover {
-                background: #b71c1c;
-            }
-            .btn-secondary {
-                background: #6c757d;
-            }
-            .btn-secondary:hover {
-                background: #5a6268;
-            }
-            .user-info {
-                background: #e3f2fd;
-                border-radius: 4px;
-                padding: 15px;
-                margin: 15px 0;
-            }
-            .discord-warning {
-                background: #e8f5e8;
-                border: 1px solid #c3e6c3;
-                border-radius: 4px;
-                padding: 15px;
-                margin: 15px 0;
-            }
-        </style>
+        <title>Data Deletion Request - hack.sv</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=VT323&display=swap"
+            rel="stylesheet"
+        />
+        <link
+            rel="stylesheet"
+            href="{{ url_for('static', filename='css/auth.css') }}"
+        />
+        <link
+            rel="stylesheet"
+            href="{{ url_for('static', filename='css/opt_out.css') }}"
+        />
     </head>
     <body>
-        <div class="container">
+        <div class="opt-out-container">
+            <img
+                src="{{ url_for('static', filename='logo-big.svg') }}"
+                alt="HACK.SV"
+                class="hack-logo"
+            />
+
             {% if error %}
+                <div class="title">Error</div>
                 <div class="error">
                     <strong>Error:</strong> {{ error }}
                 </div>
-                <p><a href="/">Return to homepage</a></p>
+                <div class="action-button">
+                    <a href="/" class="google-btn">Return to homepage</a>
+                </div>
             {% else %}
-                <h1>🗑️ Delete My Data</h1>
-                
+                <div class="title">Delete My Data</div>
+
                 {% if user_email %}
-                    <div class="user-info">
-                        <strong>Account:</strong> {{ user_email }}
+                    <div class="subtitle">
+                        Account: {{ user_email }}
                     </div>
                 {% endif %}
 
                 {% if preview %}
-                    <div class="warning">
-                        <strong>⚠️ Warning:</strong> This action cannot be undone. All of your data will be permanently deleted from our systems.
-                    </div>
-
-                    <h3>What will be deleted:</h3>
-                    <div class="deletion-list">
-                        <ul>
-                            {% for item in preview.items_to_delete %}
-                                <li>{{ item }}</li>
-                            {% endfor %}
-                        </ul>
-                    </div>
-
-                    {% if preview.discord_warning %}
-                        <div class="discord-warning">
-                            <strong>🤖 Discord Notice:</strong> You will lose your verification status and any event-specific roles in our Discord server. You'll need to re-verify if you want to participate in future events.
+                    <div class="opt-out-section">
+                        <div class="warning">
+                            <strong>⚠️ Warning:</strong> This action cannot be undone. All of your data will be permanently deleted from our systems.
                         </div>
-                    {% endif %}
 
-                    <h3>Important Information:</h3>
-                    <ul>
-                        <li><strong>Immediate Effect:</strong> Your data will be deleted immediately and cannot be recovered</li>
-                        <li><strong>Event Access:</strong> You will lose access to any current or future events you're registered for</li>
-                        <li><strong>Discord Roles:</strong> Any verification roles will be removed from Discord</li>
-                        <li><strong>Re-registration:</strong> If you want to participate in future events, you'll need to create a new account</li>
-                        <li><strong>Email Lists:</strong> You will be removed from all email communications</li>
-                    </ul>
+                        <div class="section-title">What will be deleted:</div>
+                        <div class="deletion-list">
+                            <ul>
+                                {% for item in preview.items_to_delete %}
+                                    <li>{{ item }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
 
-                    <form method="post">
-                        <div class="form-group">
-                            <div class="checkbox-group">
-                                <input type="checkbox" id="confirm_deletion" name="confirm_deletion" value="yes" required>
-                                <label for="confirm_deletion">
-                                    <strong>I understand that this action is permanent and cannot be undone.</strong> 
+                        {% if preview.discord_warning %}
+                            <div class="discord-warning">
+                                <strong>🤖 Discord Notice:</strong> You will lose your verification status and any event-specific roles in our Discord server. You'll need to re-verify if you want to participate in future events.
+                            </div>
+                        {% endif %}
+
+                        <div class="section-title">Important Information:</div>
+                        <div class="info-list">
+                            <ul>
+                                <li><strong>Immediate Effect:</strong> Your data will be deleted immediately and cannot be recovered</li>
+                                <li><strong>Event Access:</strong> You will lose access to any current or future events you're registered for</li>
+                                <li><strong>Discord Roles:</strong> Any verification roles will be removed from Discord</li>
+                                <li><strong>Re-registration:</strong> If you want to participate in future events, you'll need to create a new account</li>
+                                <li><strong>Email Lists:</strong> You will be removed from all email communications</li>
+                            </ul>
+                        </div>
+
+                        <form method="post">
+                            <div class="delete-warning">
+                                <input type="checkbox" id="confirm_deletion" name="confirm_deletion" value="yes" required class="delete-checkbox" />
+                                <label for="confirm_deletion" class="delete-label">
+                                    <strong>I understand that this action is permanent and cannot be undone.</strong>
                                     I want to permanently delete all of my data from Hack ID systems.
                                 </label>
                             </div>
-                        </div>
 
-                        <div class="form-group">
-                            <button type="submit" class="btn">
-                                🗑️ Delete All My Data
-                            </button>
-                            <button type="button" class="btn btn-secondary" onclick="window.close()">
-                                Cancel
-                            </button>
-                        </div>
-                    </form>
+                            <div class="action-button">
+                                <button type="submit" class="delete-btn">
+                                    Delete All My Data
+                                </button>
+                            </div>
+                        </form>
 
-                    <hr style="margin: 30px 0;">
-                    <p style="font-size: 14px; color: #666;">
-                        <strong>Questions?</strong> If you have concerns about your data or need help, 
-                        please contact us before proceeding with deletion.
-                    </p>
+                        <div class="help-text">
+                            <strong>Questions?</strong> If you have concerns about your data or need help, please contact us before proceeding with deletion.
+                        </div>
+                    </div>
                 {% endif %}
             {% endif %}
+
+            <a href="https://hack.sv/privacy" class="privacy-link">Privacy Policy</a>
+        </div>
         </div>
     </body>
 </html>

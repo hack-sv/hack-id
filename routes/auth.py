@@ -21,7 +21,9 @@ from services.auth_service import (
 )
 from models.user import get_user_by_email, create_user, update_user
 from models.user import get_user_by_email
+from models.oauth_token import create_oauth_token
 from config import DEBUG_MODE
+from urllib.parse import unquote
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -74,11 +76,14 @@ def auth_google_callback():
         return render_template("auth.html", state="error", error=result["error"])
 
     # Store user info in session
+    session.permanent = True
     session["user_email"] = result["user"]["email"]
     session["user_name"] = result["user"]["name"]
 
     # Check if this is part of Discord verification flow
     if "verification_token" in session:
+        # remove verification_token from session
+        session.pop("verification_token", None)
         return redirect(url_for("auth.verify_complete"))
 
     # Check if user needs to complete registration
@@ -87,7 +92,49 @@ def auth_google_callback():
         # User needs to complete registration
         return redirect("/register")
 
+    # Check if this is part of OAuth flow
+    if "oauth_redirect" in session:
+        # Generate OAuth token and redirect to external app
+        token = create_oauth_token(result["user"]["email"], expires_in_seconds=120)
+        redirect_url = session.pop("oauth_redirect")
+        separator = "&" if "?" in redirect_url else "?"
+        return redirect(f"{redirect_url}{separator}token={token}")
+
     return redirect("/")
+
+
+@auth_bp.route("/oauth")
+def oauth():
+    """OAuth endpoint for external applications."""
+    redirect_url = request.args.get("redirect")
+
+    if not redirect_url:
+        return render_template(
+            "auth.html", state="error", error="Missing redirect parameter"
+        )
+
+    # Decode the redirect URL if it's URL encoded
+    redirect_url = unquote(redirect_url)
+
+    # Store redirect URL in session for after login
+    session["oauth_redirect"] = redirect_url
+
+    # If user is already logged in, generate token and redirect
+    if "user_email" in session:
+        user = get_user_by_email(session["user_email"])
+        if user and user.get("legal_name"):  # User has completed registration
+            # Generate temporary OAuth token
+            token = create_oauth_token(session["user_email"], expires_in_seconds=120)
+
+            # Clear the oauth redirect from session
+            session.pop("oauth_redirect", None)
+
+            # Redirect to the external application with token
+            separator = "&" if "?" in redirect_url else "?"
+            return redirect(f"{redirect_url}{separator}token={token}")
+
+    # User is not logged in or hasn't completed registration, show login screen
+    return render_template("auth.html", state="email_login")
 
 
 @auth_bp.route("/logout")
@@ -155,16 +202,34 @@ def verify_code_route():
         # Check if user exists
         user = get_user_by_email(email)
         if user:
+            session.permanent = True
             session["user_email"] = email
             session["user_name"] = (
                 user.get("preferred_name") or user.get("legal_name") or ""
             )
+
+            # Check if this is part of OAuth flow
+            if "oauth_redirect" in session and user.get("legal_name"):
+                # Generate OAuth token and redirect to external app
+                token = create_oauth_token(
+                    session["user_email"], expires_in_seconds=120
+                )
+                redirect_url = session.pop("oauth_redirect")
+                separator = "&" if "?" in redirect_url else "?"
+                final_redirect = f"{redirect_url}{separator}token={token}"
+
+                if request.is_json:
+                    return jsonify({"success": True, "redirect": final_redirect})
+                else:
+                    return redirect(final_redirect)
+
             if request.is_json:
                 return jsonify({"success": True, "redirect": "/"})
             else:
                 return redirect("/")
         else:
             # User doesn't exist, redirect to registration
+            session.permanent = True
             session["pending_email"] = email
             if request.is_json:
                 return jsonify({"success": True, "redirect": "/register"})
@@ -191,6 +256,7 @@ def verify_discord(token):
         )
 
     # Store token in session for later use
+    session.permanent = True
     session["verification_token"] = token
     session["discord_id"] = token_info["discord_id"]
     session["discord_username"] = token_info["discord_username"]
@@ -304,5 +370,13 @@ def register():
             pronouns=pronouns,
             dob=dob,
         )
+
+    # Check if this is part of OAuth flow
+    if "oauth_redirect" in session:
+        # Generate OAuth token and redirect to external app
+        token = create_oauth_token(session["user_email"], expires_in_seconds=120)
+        redirect_url = session.pop("oauth_redirect")
+        separator = "&" if "?" in redirect_url else "?"
+        return redirect(f"{redirect_url}{separator}token={token}")
 
     return redirect("/")

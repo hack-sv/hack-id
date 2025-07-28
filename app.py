@@ -32,9 +32,6 @@ register_censoring_filters(app)
 # Initialize CSRF protection
 csrf = CSRFProtect(app)
 
-# Exempt API endpoints from CSRF protection (they use API key auth)
-csrf.exempt("routes.api")
-
 # Initialize rate limiter (disabled in development)
 if not DEBUG_MODE:
     limiter = Limiter(
@@ -61,6 +58,9 @@ app.register_blueprint(opt_out_bp)
 from routes.api import api_bp
 
 app.register_blueprint(api_bp)
+
+# Exempt API endpoints from CSRF protection (they use API key auth)
+csrf.exempt(api_bp)
 
 # Import and register event admin blueprint
 from routes.event_admin import event_admin_bp
