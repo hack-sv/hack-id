@@ -81,17 +81,36 @@ def remove_discord_roles(user_email: str) -> Dict[str, Any]:
         discord_id = user["discord_id"]
         result["discord_id"] = discord_id
 
-        # Import Discord bot functions
+        # Use the Discord utilities to remove roles
         try:
-            from discord_bot import remove_user_roles
+            from utils.discord import remove_all_event_roles
 
-            # Remove roles (this function should be implemented in discord_bot.py)
-            removed_roles = remove_user_roles(discord_id)
-            result["roles_removed"] = removed_roles
-            result["success"] = True
+            # Remove all event-related roles
+            removal_result = remove_all_event_roles(discord_id)
+
+            if removal_result["success"]:
+                result["success"] = True
+                result["roles_removed"] = removal_result["roles_removed"]
+                result["total_removed"] = removal_result["total_removed"]
+
+                if DEBUG_MODE:
+                    print(
+                        f"Successfully removed {removal_result['total_removed']} Discord roles for {user_email}"
+                    )
+            else:
+                result["error"] = removal_result.get(
+                    "error", "Failed to remove Discord roles"
+                )
+                result["roles_removed"] = removal_result.get("roles_removed", [])
+                result["roles_failed"] = removal_result.get("roles_failed", [])
+
+                if DEBUG_MODE:
+                    print(
+                        f"Partial Discord role removal for {user_email}: {result['error']}"
+                    )
 
         except ImportError:
-            result["error"] = "Discord bot not available"
+            result["error"] = "Discord utilities not available"
         except Exception as e:
             result["error"] = f"Discord role removal failed: {str(e)}"
             logger.error(f"Discord role removal error for {user_email}: {e}")
@@ -131,6 +150,17 @@ def delete_user_data(user_email: str, include_discord: bool = True) -> Dict[str,
         if not summary["user_found"]:
             result["errors"].append("User not found")
             return result
+
+        # Remove Discord roles FIRST (before deleting user data from database)
+        if include_discord and summary.get("discord_linked"):
+            discord_result = remove_discord_roles(user_email)
+            result["discord_result"] = discord_result
+
+            if (
+                not discord_result["success"]
+                and discord_result["error"] != "No Discord account linked"
+            ):
+                result["errors"].append(f"Discord: {discord_result['error']}")
 
         conn = get_db_connection()
         total_deleted = 0
@@ -175,17 +205,6 @@ def delete_user_data(user_email: str, include_discord: bool = True) -> Dict[str,
         conn.close()
 
         result["total_records_deleted"] = total_deleted
-
-        # Remove Discord roles if requested
-        if include_discord:
-            discord_result = remove_discord_roles(user_email)
-            result["discord_result"] = discord_result
-
-            if (
-                not discord_result["success"]
-                and discord_result["error"] != "No Discord account linked"
-            ):
-                result["errors"].append(f"Discord: {discord_result['error']}")
 
         # Consider successful if we deleted something or user wasn't found in main table
         result["success"] = total_deleted > 0 or len(result["errors"]) == 0

@@ -45,7 +45,7 @@ A comprehensive identity management system for hackathon events, built with Flas
 -   Python 3.8+
 -   Google Cloud Platform account
 -   Discord Bot (optional, for Discord integration)
--   SendGrid account (optional, for email notifications)
+-   AWS SES account (optional, for email notifications)
 
 ### 1. Clone and Install
 
@@ -79,7 +79,10 @@ DISCORD_BOT_TOKEN=your-discord-bot-token
 DISCORD_GUILD_ID=your-discord-server-id
 
 # Optional - Email Notifications
-SENDGRID_API_KEY=your-sendgrid-api-key
+MAIL_HOST=email-smtp.us-west-1.amazonaws.com
+MAIL_PORT=587
+MAIL_USERNAME=your-aws-ses-smtp-username
+MAIL_PASSWORD=your-aws-ses-smtp-password
 ```
 
 ### 3. Google OAuth Setup
@@ -161,7 +164,10 @@ hack-id/
 | `GOOGLE_CLIENT_SECRET` | Yes      | Google OAuth client secret        |
 | `DISCORD_BOT_TOKEN`    | No       | Discord bot token for integration |
 | `DISCORD_GUILD_ID`     | No       | Discord server ID                 |
-| `SENDGRID_API_KEY`     | No       | SendGrid API key for emails       |
+| `MAIL_HOST`            | No       | AWS SES SMTP host                 |
+| `MAIL_PORT`            | No       | AWS SES SMTP port (587)           |
+| `MAIL_USERNAME`        | No       | AWS SES SMTP username             |
+| `MAIL_PASSWORD`        | No       | AWS SES SMTP password             |
 
 ### Production Deployment
 

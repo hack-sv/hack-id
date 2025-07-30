@@ -324,44 +324,6 @@ async def on_member_update(before, after):
     pass
 
 
-async def assign_roles_after_verification(discord_id):
-    """Assign roles to user after successful verification."""
-    try:
-        guild = bot.get_guild(DISCORD_GUILD_ID)
-        if not guild:
-            print(f"Guild {DISCORD_GUILD_ID} not found")
-            return False
-
-        member = guild.get_member(int(discord_id))
-        if not member:
-            print(f"Member {discord_id} not found in guild")
-            return False
-
-        # Get user data
-        user = get_user_by_discord_id(discord_id)
-        if not user:
-            print(f"User with Discord ID {discord_id} not found in database")
-            return False
-
-        # Parse events and assign roles
-        events = json.loads(user["events"])
-        roles_to_assign = assign_roles_to_user(member, events)
-
-        if roles_to_assign:
-            await member.add_roles(
-                *roles_to_assign, reason="Discord verification completed"
-            )
-            print(f"Assigned {len(roles_to_assign)} roles to {member}")
-            return True
-        else:
-            print(f"No roles to assign for events: {events}")
-            return False
-
-    except Exception as e:
-        print(f"Error assigning roles: {e}")
-        return False
-
-
 if __name__ == "__main__":
     if DEBUG_MODE:
         print("=== DISCORD BOT STARTUP DEBUG ===")

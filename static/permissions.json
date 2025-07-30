@@ -60,7 +60,16 @@
             "name": "Discord Integration",
             "description": "Allow managing Discord roles and user verification",
             "category": "Discord",
-            "endpoints": [],
+            "endpoints": [
+                "/api/discord/user/<discord_id>",
+                "/api/discord/verification-token",
+                "/api/discord/verification-token/<token>",
+                "/api/discord/role-mappings",
+                "/api/discord/user-roles/<discord_id>",
+                "/api/discord/verified-users",
+                "/api/discord/complete-verification",
+                "/api/discord/remove-roles"
+            ],
             "risk_level": "medium"
         },
         "analytics.read": {

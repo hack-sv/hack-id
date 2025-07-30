@@ -67,6 +67,66 @@ def remove_discord_role(discord_id, role_id):
         return False
 
 
+def remove_all_event_roles(discord_id):
+    """Remove all event-related Discord roles from a user."""
+    if not DISCORD_BOT_TOKEN:
+        if DEBUG_MODE:
+            print("WARNING: Discord bot token not configured. Roles not removed.")
+        return {
+            "success": False,
+            "error": "Discord bot token not configured",
+            "roles_removed": [],
+        }
+
+    try:
+        # Load events configuration to get role IDs
+        from utils.events import get_all_events
+
+        events = get_all_events()
+
+        removed_roles = []
+        failed_roles = []
+
+        for event_id, event_data in events.items():
+            role_id = event_data.get("discord-role-id")
+            if role_id:
+                success = remove_discord_role(discord_id, role_id)
+                if success:
+                    removed_roles.append(
+                        {
+                            "event_id": event_id,
+                            "event_name": event_data.get("name", event_id),
+                            "role_id": role_id,
+                        }
+                    )
+                else:
+                    failed_roles.append(
+                        {
+                            "event_id": event_id,
+                            "event_name": event_data.get("name", event_id),
+                            "role_id": role_id,
+                        }
+                    )
+
+        return {
+            "success": len(failed_roles) == 0,
+            "roles_removed": removed_roles,
+            "roles_failed": failed_roles,
+            "total_removed": len(removed_roles),
+            "total_failed": len(failed_roles),
+        }
+
+    except Exception as e:
+        if DEBUG_MODE:
+            print(f"Error removing all event roles for {discord_id}: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "roles_removed": [],
+            "roles_failed": [],
+        }
+
+
 def get_discord_user_info(discord_id):
     """Get Discord user information from guild member endpoint."""
     if not DISCORD_BOT_TOKEN:

@@ -12,9 +12,12 @@ from utils.error_handling import handle_api_error, handle_validation_error
 from utils.rate_limiter import rate_limit_api_key
 from models.api_key import get_key_permissions, log_api_key_usage
 from models.oauth_token import verify_oauth_token
-from models.user import get_user_by_email
+from models.user import get_user_by_email, get_user_by_discord_id, get_all_users
+from models.auth import save_verification_token, get_verification_token, mark_token_used
 from models.admin import is_admin
 from config import DEBUG_MODE
+import json
+from datetime import datetime
 
 api_bp = Blueprint("api", __name__)
 
@@ -69,23 +72,22 @@ def require_api_key(required_permissions=None):
 def api_current_event():
     """Get current event information."""
     try:
-        current_event_id = get_current_event()
-        if not current_event_id:
+        # Get current event data directly
+        current_event_data = get_current_event()
+        if not current_event_data:
             return (
                 jsonify({"success": False, "error": "No current event available"}),
                 404,
             )
 
-        event_info = get_event_info(current_event_id)
-
         return jsonify(
             {
                 "success": True,
                 "current_event": {
-                    "id": current_event_id,
-                    "name": event_info.get("name", current_event_id),
-                    "description": event_info.get("description", ""),
-                    "discord_role_id": event_info.get("discord-role-id"),
+                    "id": current_event_data["id"],
+                    "name": current_event_data.get("name", current_event_data["id"]),
+                    "description": current_event_data.get("description", ""),
+                    "discord_role_id": current_event_data.get("discord-role-id"),
                 },
             }
         )
@@ -101,7 +103,8 @@ def api_all_events():
     """Get all available events."""
     try:
         events = get_all_events()
-        current_event_id = get_current_event()
+        current_event_data = get_current_event()
+        current_event_id = current_event_data["id"] if current_event_data else None
 
         events_list = []
         for event_id, event_data in events.items():
@@ -116,7 +119,11 @@ def api_all_events():
             )
 
         return jsonify(
-            {"success": True, "events": events_list, "current_event": current_event_id}
+            {
+                "success": True,
+                "events": events_list,
+                "current_event": current_event_data,
+            }
         )
 
     except Exception as e:
@@ -306,3 +313,365 @@ def api_test():
             "timestamp": datetime.now().isoformat(),
         }
     )
+
+
+# ===== DISCORD API ENDPOINTS =====
+
+
+@api_bp.route("/api/discord/user/<discord_id>", methods=["GET"])
+@require_api_key(["discord.manage"])
+@rate_limit_api_key
+def api_discord_user(discord_id):
+    """Get user data by Discord ID."""
+    try:
+        user = get_user_by_discord_id(discord_id)
+        if not user:
+            return jsonify({"success": False, "error": "User not found"}), 404
+
+        # Return user data with events
+        return (
+            jsonify(
+                {
+                    "success": True,
+                    "user": {
+                        "id": user["id"],
+                        "email": user["email"],
+                        "legal_name": user["legal_name"],
+                        "preferred_name": user["preferred_name"],
+                        "pronouns": user["pronouns"],
+                        "discord_id": user["discord_id"],
+                        "events": user["events"],
+                        "verified": True,  # If user exists with discord_id, they're verified
+                    },
+                }
+            ),
+            200,
+        )
+
+    except Exception as e:
+        return handle_api_error(e, "api_discord_user")
+
+
+@api_bp.route("/api/discord/verification-token", methods=["POST"])
+@require_api_key(["discord.manage"])
+@rate_limit_api_key
+def api_create_verification_token():
+    """Create a new Discord verification token."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "error": "JSON data required"}), 400
+
+        # Validate required fields
+        required_fields = ["discord_id", "discord_username"]
+        for field in required_fields:
+            if field not in data:
+                return (
+                    jsonify({"success": False, "error": f"Missing field: {field}"}),
+                    400,
+                )
+
+        discord_id = str(data["discord_id"])
+        discord_username = data["discord_username"]
+        message_id = data.get("message_id")
+
+        # Create verification token
+        token = save_verification_token(discord_id, discord_username, message_id)
+
+        return jsonify({"success": True, "token": token, "expires_in_minutes": 10}), 200
+
+    except Exception as e:
+        return handle_api_error(e, "api_create_verification_token")
+
+
+@api_bp.route("/api/discord/verification-token/<token>", methods=["GET"])
+@require_api_key(["discord.manage"])
+@rate_limit_api_key
+def api_get_verification_token(token):
+    """Get verification token details."""
+    try:
+        token_data = get_verification_token(token)
+        if not token_data:
+            return (
+                jsonify({"success": False, "error": "Token not found or expired"}),
+                404,
+            )
+
+        return (
+            jsonify(
+                {
+                    "success": True,
+                    "token_data": {
+                        "token": token_data["token"],
+                        "discord_id": token_data["discord_id"],
+                        "discord_username": token_data["discord_username"],
+                        "message_id": token_data["message_id"],
+                        "expires_at": token_data["expires_at"],
+                        "used": bool(token_data["used"]),
+                    },
+                }
+            ),
+            200,
+        )
+
+    except Exception as e:
+        return handle_api_error(e, "api_get_verification_token")
+
+
+@api_bp.route("/api/discord/verification-token/<token>", methods=["DELETE"])
+@require_api_key(["discord.manage"])
+@rate_limit_api_key
+def api_mark_token_used(token):
+    """Mark verification token as used."""
+    try:
+        # Check if token exists first
+        token_data = get_verification_token(token)
+        if not token_data:
+            return (
+                jsonify({"success": False, "error": "Token not found or expired"}),
+                404,
+            )
+
+        # Mark as used
+        mark_token_used(token)
+
+        return jsonify({"success": True, "message": "Token marked as used"}), 200
+
+    except Exception as e:
+        return handle_api_error(e, "api_mark_token_used")
+
+
+@api_bp.route("/api/discord/role-mappings", methods=["GET"])
+@require_api_key(["discord.manage"])
+@rate_limit_api_key
+def api_discord_role_mappings():
+    """Get event to Discord role ID mappings."""
+    try:
+        events = get_all_events()
+        role_mappings = {}
+
+        for event_id, event_data in events.items():
+            if "discord-role-id" in event_data:
+                role_mappings[event_id] = event_data["discord-role-id"]
+
+        return jsonify({"success": True, "role_mappings": role_mappings}), 200
+
+    except Exception as e:
+        return handle_api_error(e, "api_discord_role_mappings")
+
+
+@api_bp.route("/api/discord/user-roles/<discord_id>", methods=["GET"])
+@require_api_key(["discord.manage"])
+@rate_limit_api_key
+def api_discord_user_roles(discord_id):
+    """Get roles a user should have based on their events."""
+    try:
+        user = get_user_by_discord_id(discord_id)
+        if not user:
+            return jsonify({"success": False, "error": "User not found"}), 404
+
+        events = get_all_events()
+        user_events = user["events"]
+        roles_to_assign = []
+
+        for event_id in user_events:
+            if event_id in events and "discord-role-id" in events[event_id]:
+                role_id = events[event_id]["discord-role-id"]
+                roles_to_assign.append(
+                    {
+                        "event_id": event_id,
+                        "role_id": role_id,
+                        "event_name": events[event_id].get("name", event_id),
+                    }
+                )
+
+        return (
+            jsonify(
+                {
+                    "success": True,
+                    "discord_id": discord_id,
+                    "user_events": user_events,
+                    "roles_to_assign": roles_to_assign,
+                }
+            ),
+            200,
+        )
+
+    except Exception as e:
+        return handle_api_error(e, "api_discord_user_roles")
+
+
+@api_bp.route("/api/discord/verified-users", methods=["GET"])
+@require_api_key(["discord.manage"])
+@rate_limit_api_key
+def api_discord_verified_users():
+    """Get all users with Discord IDs for role checking."""
+    try:
+        all_users = get_all_users()
+        verified_users = []
+
+        for user in all_users:
+            if user.get("discord_id"):
+                verified_users.append(
+                    {
+                        "id": user["id"],
+                        "email": user["email"],
+                        "discord_id": user["discord_id"],
+                        "events": user["events"],
+                        "preferred_name": user.get("preferred_name"),
+                        "legal_name": user.get("legal_name"),
+                    }
+                )
+
+        return (
+            jsonify(
+                {
+                    "success": True,
+                    "verified_users": verified_users,
+                    "count": len(verified_users),
+                }
+            ),
+            200,
+        )
+
+    except Exception as e:
+        return handle_api_error(e, "api_discord_verified_users")
+
+
+@api_bp.route("/api/discord/complete-verification", methods=["POST"])
+@require_api_key(["discord.manage"])
+@rate_limit_api_key
+def api_discord_complete_verification():
+    """Complete Discord verification by linking Discord ID to user account."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "error": "JSON data required"}), 400
+
+        # Validate required fields
+        required_fields = ["discord_id", "user_email"]
+        for field in required_fields:
+            if field not in data:
+                return (
+                    jsonify({"success": False, "error": f"Missing field: {field}"}),
+                    400,
+                )
+
+        discord_id = str(data["discord_id"])
+        user_email = data["user_email"]
+
+        # Get user by email
+        user = get_user_by_email(user_email)
+        if not user:
+            return jsonify({"success": False, "error": "User not found"}), 404
+
+        # Check if Discord ID is already linked to another user
+        existing_user = get_user_by_discord_id(discord_id)
+        if existing_user and existing_user["email"] != user_email:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": "Discord ID already linked to another account",
+                    }
+                ),
+                400,
+            )
+
+        # Update user with Discord ID
+        from models.user import update_user
+
+        update_user(user["id"], discord_id=discord_id)
+
+        return (
+            jsonify(
+                {
+                    "success": True,
+                    "message": "Discord verification completed",
+                    "user_email": user_email,
+                    "discord_id": discord_id,
+                }
+            ),
+            200,
+        )
+
+    except Exception as e:
+        return handle_api_error(e, "api_discord_complete_verification")
+
+
+@api_bp.route("/api/discord/remove-roles", methods=["POST"])
+@require_api_key(["discord.manage"])
+@rate_limit_api_key
+def api_discord_remove_roles():
+    """Remove Discord roles from a user."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "error": "JSON data required"}), 400
+
+        # Support both discord_id and user_email
+        discord_id = data.get("discord_id")
+        user_email = data.get("user_email")
+
+        if not discord_id and not user_email:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": "Either discord_id or user_email is required",
+                    }
+                ),
+                400,
+            )
+
+        # If user_email provided, get discord_id from database
+        if user_email and not discord_id:
+            user = get_user_by_email(user_email)
+            if not user:
+                return jsonify({"success": False, "error": "User not found"}), 404
+            discord_id = user.get("discord_id")
+            if not discord_id:
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "error": "User has no Discord account linked",
+                        }
+                    ),
+                    404,
+                )
+
+        # Remove roles using Discord utilities
+        from utils.discord import remove_all_event_roles
+
+        removal_result = remove_all_event_roles(str(discord_id))
+
+        if removal_result["success"]:
+            return (
+                jsonify(
+                    {
+                        "success": True,
+                        "discord_id": str(discord_id),
+                        "roles_removed": removal_result["roles_removed"],
+                        "total_removed": removal_result["total_removed"],
+                        "message": f"Successfully removed {removal_result['total_removed']} Discord roles",
+                    }
+                ),
+                200,
+            )
+        else:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "discord_id": str(discord_id),
+                        "error": removal_result.get("error", "Failed to remove roles"),
+                        "roles_removed": removal_result.get("roles_removed", []),
+                        "roles_failed": removal_result.get("roles_failed", []),
+                    }
+                ),
+                500,
+            )
+
+    except Exception as e:
+        return handle_api_error(e, "api_discord_remove_roles")

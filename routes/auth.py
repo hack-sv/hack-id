@@ -245,9 +245,15 @@ def verify_code_route():
             )
 
 
-@auth_bp.route("/verify/<token>")
-def verify_discord(token):
+@auth_bp.route("/verify")
+def verify_discord():
     """Discord verification endpoint."""
+    token = request.args.get("token")
+    if not token:
+        return render_template(
+            "auth.html", state="error", error="Missing verification token."
+        )
+
     token_info = verify_discord_token(token)
 
     if not token_info:

@@ -1,17 +1,19 @@
 {
     "counterspell": {
         "name": "Counterspell",
-        "discord-role-id": 1308115271050858608,
+        "discord-role-id": 1308587592715079700,
         "discord-name": "<:counterspell:1308115271050858608> Counterspell Silicon Valley",
         "description": "2-day game jam",
-        "color": "EB5286"
+        "color": "EB5286",
+        "legacy": true
     },
     "scrapyard": {
         "name": "Scrapyard",
-        "discord-role-id": 1320732117272891392,
+        "discord-role-id": 1320731910984699974,
         "discord-name": "<:scrapyard:1320732117272891392> Scrapyard Silicon Valley",
         "description": "12-hour hardware hackathon",
-        "color": "327D78"
+        "color": "327D78",
+        "legacy": true
     },
     "hacksv_2025": {
         "name": "hack.sv",

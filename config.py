@@ -38,8 +38,11 @@ GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 # Use environment REDIRECT_URI if set, otherwise use dynamic URL based on environment
 REDIRECT_URI = os.getenv("REDIRECT_URI") or f"{BASE_URL}/auth/google/callback"
 
-# SendGrid configuration
-SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
+# AWS SES SMTP configuration
+MAIL_HOST = os.getenv("MAIL_HOST", "email-smtp.us-west-1.amazonaws.com")
+MAIL_PORT = int(os.getenv("MAIL_PORT", "587"))
+MAIL_USERNAME = os.getenv("MAIL_USERNAME")
+MAIL_PASSWORD = os.getenv("MAIL_PASSWORD")
 EMAIL_SENDER = os.getenv("EMAIL_SENDER", "adam@scrapyard.dev")
 EMAIL_SENDER_NAME = os.getenv("EMAIL_SENDER_NAME", "Adam Xu")
 
@@ -63,7 +66,10 @@ def print_debug_info():
             f"GOOGLE_CLIENT_SECRET: {'[SET]' if GOOGLE_CLIENT_SECRET else '[NOT SET]'}"
         )
         print(f"SECRET_KEY: {'[SET]' if SECRET_KEY else '[NOT SET]'}")
-        print(f"SENDGRID_API_KEY: {'[SET]' if SENDGRID_API_KEY else '[NOT SET]'}")
+        print(f"MAIL_HOST: {MAIL_HOST}")
+        print(f"MAIL_PORT: {MAIL_PORT}")
+        print(f"MAIL_USERNAME: {'[SET]' if MAIL_USERNAME else '[NOT SET]'}")
+        print(f"MAIL_PASSWORD: {'[SET]' if MAIL_PASSWORD else '[NOT SET]'}")
         print(f"DISCORD_BOT_TOKEN: {'[SET]' if DISCORD_BOT_TOKEN else '[NOT SET]'}")
         print(f"REDIRECT_URI: {REDIRECT_URI}")
         print("===================================")
