@@ -95,18 +95,19 @@ def get_user_by_discord_id(discord_id):
 
 def assign_roles_to_user(member, events):
     """Assign Discord roles based on user's events."""
-    # Load role mappings
+    # Load role mappings from events.json
     try:
-        with open("role_id.json", "r") as f:
-            role_mappings = json.load(f)
-    except FileNotFoundError:
-        print("role_id.json not found")
+        from utils.events import get_all_events
+
+        all_events = get_all_events()
+    except Exception as e:
+        print(f"Failed to load events configuration: {e}")
         return []
 
     roles_to_assign = []
     for event in events:
-        if event in role_mappings:
-            role_id = role_mappings[event]
+        if event in all_events and "discord-role-id" in all_events[event]:
+            role_id = all_events[event]["discord-role-id"]
             role = member.guild.get_role(role_id)
             if role:
                 roles_to_assign.append(role)
