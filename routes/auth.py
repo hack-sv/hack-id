@@ -274,7 +274,7 @@ def verify_discord():
     session["verification_token"] = token
 
     # Show login options (like OAuth flow) instead of immediately redirecting to Google
-    return render_template("auth.html", state="login", verification_flow=True)
+    return render_template("auth.html", state="email_login", verification_flow=True)
 
 
 @auth_bp.route("/verify/complete")
