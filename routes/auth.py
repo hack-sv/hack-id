@@ -80,17 +80,16 @@ def auth_google_callback():
     session["user_email"] = result["user"]["email"]
     session["user_name"] = result["user"]["name"]
 
-    # Check if this is part of Discord verification flow
-    if "verification_token" in session:
-        # remove verification_token from session
-        session.pop("verification_token", None)
-        return redirect(url_for("auth.verify_complete"))
-
     # Check if user needs to complete registration
     user = get_user_by_email(result["user"]["email"])
     if not user or not user.get("legal_name"):
         # User needs to complete registration
+        # Keep verification_token in session if it exists for after registration
         return redirect("/register")
+
+    # Check if this is part of Discord verification flow (after user exists)
+    if "verification_token" in session:
+        return redirect(url_for("auth.verify_complete"))
 
     # Check if this is part of OAuth flow
     if "oauth_redirect" in session:
@@ -271,16 +270,27 @@ def verify_discord():
     if "user_email" in session:
         return redirect(url_for("auth.verify_complete"))
 
-    # Otherwise, redirect to Google OAuth
-    return redirect(url_for("auth.auth_google"))
+    # Store verification token in session for after login/registration
+    session["verification_token"] = token
+
+    # Show login options (like OAuth flow) instead of immediately redirecting to Google
+    return render_template("auth.html", state="login", verification_flow=True)
 
 
 @auth_bp.route("/verify/complete")
 def verify_complete():
     """Complete Discord verification."""
-    if "verification_token" not in session or "user_email" not in session:
+    if "verification_token" not in session:
         return render_template(
             "auth.html", state="error", error="Invalid verification state."
+        )
+
+    # If user is not logged in, redirect to login
+    if "user_email" not in session:
+        return render_template(
+            "auth.html",
+            state="error",
+            error="Please log in first to complete Discord verification.",
         )
 
     result = complete_discord_verification(
@@ -288,14 +298,21 @@ def verify_complete():
     )
 
     if result["success"]:
+        # Get full user data for the success page
+        user = get_user_by_email(session["user_email"])
+
         # Clear verification session data
         session.pop("verification_token", None)
         session.pop("discord_id", None)
         session.pop("discord_username", None)
 
         return render_template(
-            "auth.html",
-            state="discord_success",
+            "verify_success.html",
+            preferred_name=user.get("preferred_name")
+            or user.get("legal_name")
+            or "User",
+            email=user["email"],
+            events=user.get("events", []),
             discord_username=result["discord_username"],
         )
     else:
@@ -377,6 +394,10 @@ def register():
             dob=dob,
         )
 
+    # Check if this is part of Discord verification flow
+    if "verification_token" in session:
+        return redirect(url_for("auth.verify_complete"))
+
     # Check if this is part of OAuth flow
     if "oauth_redirect" in session:
         # Generate OAuth token and redirect to external app
@@ -386,3 +407,38 @@ def register():
         return redirect(f"{redirect_url}{separator}token={token}")
 
     return redirect("/")
+
+
+@auth_bp.route("/dashboard/discord/unlink", methods=["POST"])
+def unlink_discord_dashboard():
+    """Unlink Discord account from dashboard (user-facing, no API key required)."""
+    if "user_email" not in session:
+        return jsonify({"success": False, "error": "Not logged in"}), 401
+
+    try:
+        user_email = session["user_email"]
+        user = get_user_by_email(user_email)
+
+        if not user:
+            return jsonify({"success": False, "error": "User not found"}), 404
+
+        if not user.get("discord_id"):
+            return (
+                jsonify({"success": False, "error": "No Discord account linked"}),
+                400,
+            )
+
+        # Remove Discord ID from user record
+        update_user(user["id"], discord_id=None)
+
+        return (
+            jsonify(
+                {"success": True, "message": "Discord account successfully unlinked"}
+            ),
+            200,
+        )
+
+    except Exception as e:
+        if DEBUG_MODE:
+            print(f"Error in unlink_discord_dashboard: {e}")
+        return jsonify({"success": False, "error": "Internal server error"}), 500

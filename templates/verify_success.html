@@ -3,163 +3,203 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Verification Successful - Hack ID</title>
+        <title>Discord Verification Successful - hack.sv</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=VT323&display=swap"
+            rel="stylesheet"
+        />
+        <link
+            rel="stylesheet"
+            href="{{ url_for('static', filename='css/auth.css') }}"
+        />
         <style>
-            body {
-                font-family: Arial, sans-serif;
-                max-width: 600px;
-                margin: 0 auto;
-                padding: 2rem;
-                background-color: #f5f5f5;
-                min-height: 100vh;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-            .success-card {
+            /* Success page specific styles - extends auth.css */
+            .success-container {
                 background: white;
-                border-radius: 16px;
-                padding: 3rem;
+                border: 4px solid black;
+                border-radius: 6px;
+                width: 596px;
+                min-height: 596px;
+                padding: 20px 50px 60px 50px;
+                position: relative;
+                box-sizing: border-box;
                 text-align: center;
-                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-                border: 1px solid #e9ecef;
-                width: 100%;
+                margin: 20px auto;
             }
+
             .success-icon {
-                font-size: 4rem;
-                margin-bottom: 1rem;
+                font-size: 3rem;
+                margin-bottom: 15px;
+                display: block;
             }
-            h1 {
+
+            .success-title {
+                font-family: "Barlow Condensed", sans-serif;
+                font-size: 28px;
+                font-weight: 500;
                 color: #28a745;
-                margin: 0 0 2rem 0;
-                font-size: 2.5rem;
-                font-weight: 700;
+                margin-bottom: 25px;
+                line-height: 1.2;
             }
+
+            .success-section {
+                margin-bottom: 25px;
+                text-align: left;
+            }
+
+            .section-title {
+                font-family: "Barlow Condensed", sans-serif;
+                font-size: 18px;
+                font-weight: 500;
+                color: black;
+                margin-bottom: 12px;
+                text-align: center;
+                border-bottom: 2px solid #f0f0f0;
+                padding-bottom: 8px;
+            }
+
             .success-info {
                 background: #d4edda;
-                border: 1px solid #c3e6cb;
-                border-radius: 8px;
-                padding: 1.5rem;
-                margin-bottom: 2rem;
-            }
-            .success-info p {
-                margin: 0.5rem 0;
-                font-size: 1.1rem;
+                border: 2px solid #c3e6cb;
+                border-radius: 4px;
+                padding: 15px;
+                margin-bottom: 15px;
+                font-family: "Barlow Condensed", sans-serif;
+                font-size: 16px;
                 color: #155724;
+                text-align: center;
             }
-            .events-info {
-                margin-bottom: 2rem;
+
+            .success-info p {
+                margin: 8px 0;
+                line-height: 1.4;
             }
-            .events-info h3 {
-                color: #333;
-                margin-bottom: 1rem;
-                font-size: 1.3rem;
-            }
+
             .events-list {
                 display: flex;
                 flex-wrap: wrap;
-                gap: 0.5rem;
+                gap: 8px;
                 justify-content: center;
+                margin-bottom: 15px;
             }
+
             .event-badge {
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                color: white;
-                padding: 0.5rem 1rem;
-                border-radius: 20px;
-                font-weight: 600;
-                font-size: 0.9rem;
-                text-transform: uppercase;
-                letter-spacing: 0.5px;
+                background: #f8f9fa;
+                border: 2px solid black;
+                border-radius: 4px;
+                padding: 8px 16px;
+                font-family: "Barlow Condensed", sans-serif;
+                font-size: 16px;
+                font-weight: 500;
+                color: black;
+                text-transform: capitalize;
             }
+
             .next-steps {
                 background: #f8f9fa;
-                border-radius: 8px;
-                padding: 1.5rem;
-                margin-bottom: 2rem;
-                text-align: left;
+                border: 2px solid black;
+                border-radius: 4px;
+                padding: 15px;
+                margin-bottom: 15px;
             }
+
             .next-steps h3 {
-                color: #333;
-                margin: 0 0 1rem 0;
+                font-family: "Barlow Condensed", sans-serif;
+                font-size: 18px;
+                font-weight: 500;
+                color: black;
+                margin: 0 0 12px 0;
                 text-align: center;
-                font-size: 1.3rem;
             }
+
             .next-steps ul {
                 margin: 0;
-                padding-left: 1.5rem;
+                padding-left: 20px;
+                font-family: "Barlow Condensed", sans-serif;
+                font-size: 16px;
+                color: black;
             }
+
             .next-steps li {
-                margin: 0.5rem 0;
-                color: #555;
-                font-size: 1rem;
+                margin: 8px 0;
+                line-height: 1.4;
             }
-            .actions {
-                display: flex;
-                gap: 1rem;
-                justify-content: center;
-                flex-wrap: wrap;
+
+            .help-text {
+                font-family: "Barlow Condensed", sans-serif;
+                font-size: 14px;
+                color: #666;
+                line-height: 1.4;
+                text-align: center;
+                margin-top: 20px;
+                padding: 15px;
+                background: #f8f9fa;
+                border-radius: 4px;
             }
-            .btn {
-                display: inline-block;
-                padding: 12px 24px;
-                border-radius: 8px;
+
+            .help-text a {
+                color: #00ccff;
                 text-decoration: none;
-                font-weight: 600;
-                font-size: 1rem;
-                transition: all 0.3s ease;
-                border: none;
-                cursor: pointer;
-                min-width: 140px;
             }
-            .btn-primary {
-                background: #007bff;
-                color: white;
+
+            .help-text a:hover {
+                text-decoration: underline;
             }
-            .btn-primary:hover {
-                background: #0056b3;
-                transform: translateY(-2px);
-                box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
-            }
+
+            /* Mobile responsiveness */
             @media (max-width: 768px) {
-                body {
-                    padding: 1rem;
+                .success-container {
+                    width: 90vw;
+                    padding: 20px;
+                    margin: 10px auto;
                 }
-                .success-card {
-                    padding: 2rem;
+
+                .success-title {
+                    font-size: 24px;
                 }
-                h1 {
-                    font-size: 2rem;
-                }
+
                 .success-icon {
-                    font-size: 3rem;
+                    font-size: 2.5rem;
                 }
-                .actions {
+
+                .events-list {
                     flex-direction: column;
                     align-items: center;
                 }
-                .btn {
+
+                .event-badge {
                     width: 100%;
                     max-width: 200px;
+                    text-align: center;
                 }
             }
         </style>
     </head>
     <body>
-        <div class="success-card">
+        <div class="success-container">
+            <img
+                src="{{ url_for('static', filename='logo-big.svg') }}"
+                alt="HACK.SV"
+                class="hack-logo"
+            />
+
             <div class="success-icon">✅</div>
+            <div class="success-title">Discord Verification Successful!</div>
 
-            <h1>Verification Successful!</h1>
-
-            <div class="success-info">
-                <p>Welcome <strong>{{ preferred_name }}</strong>!</p>
-                <p>
-                    Your Discord account has been successfully linked to
-                    <strong>{{ email }}</strong>
-                </p>
+            <div class="success-section">
+                <div class="success-info">
+                    <p>Welcome <strong>{{ preferred_name }}</strong>!</p>
+                    <p>
+                        Your Discord account has been successfully linked to
+                        <strong>{{ email }}</strong>
+                    </p>
+                </div>
             </div>
 
-            <div class="events-info">
-                <h3>Events you have attended:</h3>
+            <div class="success-section">
+                <div class="section-title">Events you have attended</div>
                 <div class="events-list">
                     {% for event in events %}
                     <span class="event-badge">{{ event.title() }}</span>
@@ -167,19 +207,29 @@
                 </div>
             </div>
 
-            <div class="next-steps">
-                <h3>🚀 What's Next?</h3>
-                <ul>
-                    <li>You should have recieved roles for the above events</li>
-                    <li>You will now be able to chat in the Discord server</li>
-                    <li>If something looks off, email adam@hack.sv</li>
-                </ul>
+            <div class="success-section">
+                <div class="next-steps">
+                    <h3>🚀 What's Next?</h3>
+                    <ul>
+                        <li>
+                            You should have received roles for the above events
+                        </li>
+                        <li>
+                            You will now be able to chat in the Discord server
+                        </li>
+                        <li>If something looks off, email adam@hack.sv</li>
+                    </ul>
+                </div>
             </div>
 
-            <p>
+            <div class="help-text">
                 If you have any questions, email
                 <a href="mailto:adam@hack.sv">adam@hack.sv</a>
-            </p>
+            </div>
+
+            <a href="https://hack.sv/privacy" class="privacy-link"
+                >Privacy Policy</a
+            >
         </div>
     </body>
 </html>

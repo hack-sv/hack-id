@@ -5,8 +5,8 @@ Discord bot for handling verification commands and role assignment.
 
 import os
 import json
-import sqlite3
 import asyncio
+import requests
 from datetime import datetime, timedelta
 import pytz
 import discord
@@ -29,7 +29,14 @@ else:
 # Configuration
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 DISCORD_GUILD_ID = int(os.getenv("DISCORD_GUILD_ID", "0"))
-DATABASE = "users.db"
+API_KEY = os.getenv("API_KEY")
+
+# Debug environment variables
+print(f"DEBUG: DISCORD_BOT_TOKEN set: {bool(DISCORD_BOT_TOKEN)}")
+print(f"DEBUG: API_KEY set: {bool(API_KEY)}")
+print(
+    f"DEBUG: API_KEY value: {API_KEY[:20]}..." if API_KEY else "DEBUG: API_KEY is None"
+)
 
 # Countdown configuration
 COUNTDOWN_CHANNEL_ID = 1398862467341352990
@@ -47,11 +54,7 @@ event_name_mapping = {
 }
 
 
-def get_db_connection():
-    """Get a database connection."""
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row
-    return conn
+# Removed database connection - Discord bot should use API only
 
 
 def generate_verification_token(length=32):
@@ -63,34 +66,53 @@ def generate_verification_token(length=32):
 
 
 def save_verification_token(discord_id, discord_username, message_id=None):
-    """Save verification token to database with expiration time (10 minutes)."""
-    conn = get_db_connection()
-    token = generate_verification_token()
-    expires_at = datetime.now() + timedelta(minutes=10)
+    """Save verification token via API."""
+    try:
+        if not API_KEY:
+            print("ERROR: API_KEY is not set!")
+            return None
+        headers = {
+            "Authorization": f"Bearer {API_KEY}",
+            "Content-Type": "application/json",
+        }
+        data = {
+            "discord_id": str(discord_id),
+            "discord_username": discord_username,
+            "message_id": message_id,
+        }
 
-    # Delete any existing tokens for this discord user
-    conn.execute(
-        "DELETE FROM verification_tokens WHERE discord_id = ?", (str(discord_id),)
-    )
+        response = requests.post(
+            f"{BASE_URL}/api/discord/verification-token", headers=headers, json=data
+        )
 
-    # Insert new token
-    conn.execute(
-        "INSERT INTO verification_tokens (token, discord_id, discord_username, message_id, expires_at) VALUES (?, ?, ?, ?, ?)",
-        (token, str(discord_id), discord_username, message_id, expires_at),
-    )
-    conn.commit()
-    conn.close()
-    return token
+        if response.status_code == 200:
+            result = response.json()
+            return result.get("token")
+        else:
+            print(f"Failed to create verification token: {response.status_code}")
+            print(f"Response: {response.text}")
+            return None
+    except Exception as e:
+        print(f"Error creating verification token: {e}")
+        return None
 
 
 def get_user_by_discord_id(discord_id):
-    """Get user from database by Discord ID."""
-    conn = get_db_connection()
-    user = conn.execute(
-        "SELECT * FROM users WHERE discord_id = ?", (str(discord_id),)
-    ).fetchone()
-    conn.close()
-    return user
+    """Get user by Discord ID via API."""
+    try:
+        headers = {"Authorization": f"Bearer {API_KEY}"}
+        response = requests.get(
+            f"{BASE_URL}/api/discord/user/{discord_id}", headers=headers
+        )
+
+        if response.status_code == 200:
+            data = response.json()
+            return data.get("user") if data.get("success") else None
+        else:
+            return None
+    except Exception as e:
+        print(f"Error fetching user by Discord ID: {e}")
+        return None
 
 
 def assign_roles_to_user(member, events):
@@ -151,8 +173,8 @@ async def verify(ctx):
     if user:
         preferred_name = user["preferred_name"] or user["legal_name"] or "User"
 
-        # Parse events and create bullet list
-        events = json.loads(user["events"])
+        # Get events list (already parsed from API)
+        events = user["events"] if user["events"] else []
         events_list = ""
         if events:
             events_list = "\n\n**Your events:**\n" + "\n".join(
@@ -194,6 +216,177 @@ async def ping(ctx):
     await ctx.respond(f"<@{user_id}>", ephemeral=True)
 
 
+@bot.slash_command(
+    guild_ids=[DISCORD_GUILD_ID], description="Unlink your Discord account from hack.sv"
+)
+async def unlink(ctx):
+    """Handle /unlink slash command to unlink Discord account."""
+    try:
+        discord_id = str(ctx.author.id)
+
+        # Check if user has a linked account first
+        user = get_user_by_discord_id(discord_id)
+        if not user:
+            await ctx.respond(
+                "❌ Your Discord account is not linked to any hack.sv account.",
+                ephemeral=True,
+            )
+            return
+
+        # Call API to unlink the account
+        headers = {
+            "Authorization": f"Bearer {API_KEY}",
+            "Content-Type": "application/json",
+        }
+        data = {"discord_id": discord_id}
+
+        response = requests.post(
+            f"{BASE_URL}/api/discord/unlink", headers=headers, json=data
+        )
+
+        if response.status_code == 200:
+            result = response.json()
+            await ctx.respond(
+                f"✅ **Discord Account Unlinked Successfully!**\n\n"
+                f"Your Discord account has been unlinked from **{result.get('user_email', 'your hack.sv account')}**.\n\n"
+                f"• You will no longer have access to event-specific channels\n"
+                f"• Your event roles may be removed\n"
+                f"• You can re-link your account anytime using `/verify`",
+                ephemeral=True,
+            )
+        else:
+            error_data = (
+                response.json()
+                if response.headers.get("content-type") == "application/json"
+                else {}
+            )
+            error_message = error_data.get("error", "Unknown error occurred")
+            await ctx.respond(
+                f"❌ **Failed to unlink Discord account**\n\n"
+                f"Error: {error_message}\n\n"
+                f"If this problem persists, please contact adam@hack.sv",
+                ephemeral=True,
+            )
+
+    except Exception as e:
+        print(f"Error in unlink command: {e}")
+        await ctx.respond(
+            "❌ **An error occurred while unlinking your account**\n\n"
+            "Please try again later or contact adam@hack.sv if the problem persists.",
+            ephemeral=True,
+        )
+
+
+async def is_admin_check(ctx):
+    """Check if the user is an admin."""
+    try:
+        # Get user from database by Discord ID
+        user = get_user_by_discord_id(str(ctx.author.id))
+        if not user:
+            return False
+
+        # The API already includes is_admin field
+        return user.get("is_admin", False)
+    except Exception as e:
+        print(f"Error checking admin status: {e}")
+        return False
+
+
+@bot.user_command(guild_ids=[DISCORD_GUILD_ID], name="View User Info")
+async def user_info(ctx, user):
+    """Admin-only command to view user information."""
+    # Check if command invoker is admin
+    if not await is_admin_check(ctx):
+        await ctx.respond(
+            "❌ This command is only available to administrators.", ephemeral=True
+        )
+        return
+
+    try:
+        # Get user data from database
+        target_user = get_user_by_discord_id(str(user.id))
+
+        if not target_user:
+            await ctx.respond(
+                f"❌ User {user.mention} is not registered in the system.",
+                ephemeral=True,
+            )
+            return
+
+        # The API already includes is_admin field
+        target_is_admin = target_user.get("is_admin", False)
+
+        # Format events list - handle API response
+        events_list = target_user["events"] if target_user["events"] else []
+        # API returns events as a list, no need to parse JSON
+        events_str = ", ".join(events_list) if events_list else "None"
+
+        # Create embed with user information
+        embed = discord.Embed(
+            title=f"👤 User Information: {user.display_name}",
+            color=discord.Color.blue(),
+            timestamp=datetime.now(),
+        )
+
+        embed.add_field(
+            name="📧 Email", value=target_user["email"] or "N/A", inline=True
+        )
+
+        embed.add_field(
+            name="📝 Legal Name",
+            value=target_user["legal_name"] or "N/A",
+            inline=True,
+        )
+
+        embed.add_field(
+            name="✨ Preferred Name",
+            value=target_user["preferred_name"] or "N/A",
+            inline=True,
+        )
+
+        embed.add_field(
+            name="🏷️ Pronouns", value=target_user["pronouns"] or "N/A", inline=True
+        )
+
+        embed.add_field(
+            name="🎂 Date of Birth",
+            value=target_user.get("date_of_birth") or "N/A",
+            inline=True,
+        )
+
+        embed.add_field(
+            name="🎮 Discord ID",
+            value=target_user["discord_id"] or "N/A",
+            inline=True,
+        )
+
+        embed.add_field(name="🎪 Events", value=events_str, inline=False)
+
+        embed.add_field(
+            name="👑 Admin Status",
+            value="✅ Yes" if target_is_admin else "❌ No",
+            inline=True,
+        )
+
+        embed.add_field(
+            name="🆔 User ID", value=str(target_user["id"]) or "N/A", inline=True
+        )
+
+        embed.add_field(name="✅ Verified", value="Yes (Discord linked)", inline=True)
+
+        embed.set_footer(text=f"Requested by {ctx.author.display_name}")
+        embed.set_thumbnail(url=user.display_avatar.url)
+
+        await ctx.respond(embed=embed, ephemeral=True)
+
+    except Exception as e:
+        print(f"Error in user_info command: {e}")
+        await ctx.respond(
+            f"❌ An error occurred while fetching user information: {str(e)}",
+            ephemeral=True,
+        )
+
+
 class VerificationView(discord.ui.View):
     """View containing the verification link button."""
 
@@ -213,56 +406,19 @@ class VerificationView(discord.ui.View):
 
 @tasks.loop(minutes=5)
 async def cleanup_expired_tokens():
-    """Clean up expired verification tokens."""
-    conn = get_db_connection()
-    conn.execute(
-        "DELETE FROM verification_tokens WHERE expires_at < ?", (datetime.now(),)
-    )
-    conn.commit()
-    conn.close()
+    """Clean up expired verification tokens via API."""
+    # This should be handled by the Flask app, not the Discord bot
+    # The Discord bot shouldn't manage database cleanup
+    pass
 
 
 @tasks.loop(seconds=30)
 async def check_for_new_verifications():
     """Check for newly verified users and assign roles."""
     try:
-        conn = get_db_connection()
-        # Find users who have discord_id but haven't been processed for roles yet
-        # We'll use a simple approach: check all users with discord_id
-        users = conn.execute(
-            """
-            SELECT discord_id, events FROM users
-            WHERE discord_id IS NOT NULL AND discord_id != ''
-        """
-        ).fetchall()
-        conn.close()
-
-        guild = bot.get_guild(DISCORD_GUILD_ID)
-        if not guild:
-            return
-
-        for user in users:
-            discord_id = user["discord_id"]
-            events = json.loads(user["events"])
-
-            member = guild.get_member(int(discord_id))
-            if not member:
-                continue
-
-            # Check if user already has event roles
-            roles_to_assign = assign_roles_to_user(member, events)
-            current_role_ids = [role.id for role in member.roles]
-
-            # Only assign roles that the user doesn't already have
-            new_roles = [
-                role for role in roles_to_assign if role.id not in current_role_ids
-            ]
-
-            if new_roles:
-                await member.add_roles(
-                    *new_roles, reason="Discord verification completed"
-                )
-                print(f"Assigned {len(new_roles)} new roles to {member}")
+        # This functionality should be handled by the Flask app or triggered by webhooks
+        # The Discord bot shouldn't poll the database for role assignments
+        return
 
     except Exception as e:
         print(f"Error in check_for_new_verifications: {e}")

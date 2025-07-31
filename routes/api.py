@@ -12,7 +12,12 @@ from utils.error_handling import handle_api_error, handle_validation_error
 from utils.rate_limiter import rate_limit_api_key
 from models.api_key import get_key_permissions, log_api_key_usage
 from models.oauth_token import verify_oauth_token
-from models.user import get_user_by_email, get_user_by_discord_id, get_all_users
+from models.user import (
+    get_user_by_email,
+    get_user_by_discord_id,
+    update_user,
+    get_all_users,
+)
 from models.auth import save_verification_token, get_verification_token, mark_token_used
 from models.admin import is_admin
 from config import DEBUG_MODE
@@ -328,6 +333,11 @@ def api_discord_user(discord_id):
         if not user:
             return jsonify({"success": False, "error": "User not found"}), 404
 
+        # Check if user is admin
+        from models.admin import is_admin
+
+        user_is_admin = is_admin(user["email"])
+
         # Return user data with events
         return (
             jsonify(
@@ -339,9 +349,11 @@ def api_discord_user(discord_id):
                         "legal_name": user["legal_name"],
                         "preferred_name": user["preferred_name"],
                         "pronouns": user["pronouns"],
+                        "date_of_birth": user.get("date_of_birth"),
                         "discord_id": user["discord_id"],
                         "events": user["events"],
                         "verified": True,  # If user exists with discord_id, they're verified
+                        "is_admin": user_is_admin,
                     },
                 }
             ),
@@ -675,3 +687,78 @@ def api_discord_remove_roles():
 
     except Exception as e:
         return handle_api_error(e, "api_discord_remove_roles")
+
+
+@api_bp.route("/api/discord/unlink", methods=["POST"])
+@require_api_key(["discord.manage"])
+@rate_limit_api_key
+def api_discord_unlink():
+    """Unlink Discord account from user."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "error": "JSON data required"}), 400
+
+        # Support both discord_id and user_email
+        discord_id = data.get("discord_id")
+        user_email = data.get("user_email")
+
+        if not discord_id and not user_email:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": "Either discord_id or user_email is required",
+                    }
+                ),
+                400,
+            )
+
+        user = None
+
+        # Get user by discord_id or user_email
+        if discord_id:
+            user = get_user_by_discord_id(str(discord_id))
+            if not user:
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "error": "No user found with that Discord ID",
+                        }
+                    ),
+                    404,
+                )
+        elif user_email:
+            user = get_user_by_email(user_email)
+            if not user:
+                return jsonify({"success": False, "error": "User not found"}), 404
+
+            if not user.get("discord_id"):
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "error": "User has no Discord account linked",
+                        }
+                    ),
+                    400,
+                )
+
+        # Remove Discord ID from user record
+        update_user(user["id"], discord_id=None)
+
+        return (
+            jsonify(
+                {
+                    "success": True,
+                    "message": "Discord account successfully unlinked",
+                    "user_email": user["email"],
+                    "previous_discord_id": user.get("discord_id"),
+                }
+            ),
+            200,
+        )
+
+    except Exception as e:
+        return handle_api_error(e, "api_discord_unlink")

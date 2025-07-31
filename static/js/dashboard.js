@@ -82,6 +82,152 @@ if (deleteCheckbox && deleteBtn) {
     });
 }
 
+// Discord unlink functionality
+const unlinkBtn = document.querySelector(".unlink-btn");
+if (unlinkBtn) {
+    unlinkBtn.addEventListener("click", async function () {
+        if (
+            confirm(
+                "Are you sure you want to unlink your Discord account?\n\n" +
+                    "This will:\n" +
+                    "• Remove your access to event-specific Discord channels\n" +
+                    "• Remove your event roles\n" +
+                    "• You can re-link anytime using /verify in Discord"
+            )
+        ) {
+            try {
+                // Show loading state
+                const originalText = this.textContent;
+                this.textContent = "Unlinking...";
+                this.disabled = true;
+
+                const response = await fetch("/dashboard/discord/unlink", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": getCSRFToken(),
+                    },
+                    body: JSON.stringify({
+                        user_email: getCurrentUserEmail(),
+                    }),
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    // Update UI to show unlinked state
+                    const discordSection = this.closest(".dashboard-section");
+                    const discordInfo =
+                        discordSection.querySelector(".discord-info");
+
+                    discordInfo.innerHTML = `
+                        <span class="not-connected">Not connected</span>
+                        <a href="https://discord.com/invite/32BsffvEf4" target="_blank" class="join-discord-btn">Join Discord</a>
+                    `;
+
+                    // Show success message
+                    showNotification(
+                        "✅ Discord account unlinked successfully!",
+                        "success"
+                    );
+                } else {
+                    // Show error message
+                    const errorMsg =
+                        result.error || "Failed to unlink Discord account";
+                    showNotification(`❌ ${errorMsg}`, "error");
+
+                    // Restore button state
+                    this.textContent = originalText;
+                    this.disabled = false;
+                }
+            } catch (error) {
+                console.error("Error unlinking Discord account:", error);
+                showNotification(
+                    "❌ An error occurred while unlinking your Discord account",
+                    "error"
+                );
+
+                // Restore button state
+                this.textContent = originalText;
+                this.disabled = false;
+            }
+        }
+    });
+}
+
+// Helper function to get CSRF token
+function getCSRFToken() {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]');
+    return csrfToken ? csrfToken.getAttribute("content") : "";
+}
+
+// Helper function to get current user email (from dashboard data)
+function getCurrentUserEmail() {
+    // Try to extract from profile section
+    const emailElement = document.querySelector(
+        '.info-value[data-type="email"]'
+    );
+    if (emailElement) {
+        return (
+            emailElement.getAttribute("data-full") || emailElement.textContent
+        );
+    }
+    return null;
+}
+
+// Helper function to show notifications
+function showNotification(message, type = "info") {
+    // Create notification element
+    const notification = document.createElement("div");
+    notification.className = `notification notification-${type}`;
+    notification.textContent = message;
+
+    // Style the notification
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${
+            type === "success"
+                ? "#d4edda"
+                : type === "error"
+                ? "#f8d7da"
+                : "#d1ecf1"
+        };
+        color: ${
+            type === "success"
+                ? "#155724"
+                : type === "error"
+                ? "#721c24"
+                : "#0c5460"
+        };
+        border: 1px solid ${
+            type === "success"
+                ? "#c3e6cb"
+                : type === "error"
+                ? "#f5c6cb"
+                : "#bee5eb"
+        };
+        border-radius: 8px;
+        padding: 12px 20px;
+        font-weight: 500;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 1000;
+        max-width: 400px;
+        word-wrap: break-word;
+    `;
+
+    // Add to page
+    document.body.appendChild(notification);
+
+    // Remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 5000);
+}
+
 // Censoring function
 function censorData(data, type) {
     if (!data) return "";

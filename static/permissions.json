@@ -68,7 +68,8 @@
                 "/api/discord/user-roles/<discord_id>",
                 "/api/discord/verified-users",
                 "/api/discord/complete-verification",
-                "/api/discord/remove-roles"
+                "/api/discord/remove-roles",
+                "/api/discord/unlink"
             ],
             "risk_level": "medium"
         },
