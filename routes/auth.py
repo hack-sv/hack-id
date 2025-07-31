@@ -229,7 +229,10 @@ def verify_code_route():
         else:
             # User doesn't exist, redirect to registration
             session.permanent = True
-            session["pending_email"] = email
+            session["user_email"] = email  # Set user_email for registration flow
+            session["pending_registration"] = (
+                True  # Flag to indicate this is a new registration
+            )
             if request.is_json:
                 return jsonify({"success": True, "redirect": "/register"})
             else:
@@ -330,7 +333,7 @@ def register():
 
     # Check if user already has complete registration
     user = get_user_by_email(user_email)
-    if user and user.get("legal_name"):
+    if user and user.get("legal_name") and not session.get("pending_registration"):
         return redirect("/")
 
     if request.method == "GET":
@@ -393,6 +396,9 @@ def register():
             pronouns=pronouns,
             dob=dob,
         )
+
+    # Clear pending registration flag
+    session.pop("pending_registration", None)
 
     # Check if this is part of Discord verification flow
     if "verification_token" in session:

@@ -43,7 +43,7 @@ MAIL_HOST = os.getenv("MAIL_HOST", "email-smtp.us-west-1.amazonaws.com")
 MAIL_PORT = int(os.getenv("MAIL_PORT", "587"))
 MAIL_USERNAME = os.getenv("MAIL_USERNAME")
 MAIL_PASSWORD = os.getenv("MAIL_PASSWORD")
-EMAIL_SENDER = os.getenv("EMAIL_SENDER", "adam@scrapyard.dev")
+EMAIL_SENDER = os.getenv("EMAIL_SENDER", "adam@hack.sv")
 EMAIL_SENDER_NAME = os.getenv("EMAIL_SENDER_NAME", "Adam Xu")
 
 # Discord configuration
