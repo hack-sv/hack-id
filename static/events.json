@@ -1,4 +1,8 @@
 {
+    "_config": {
+        "hacker-role-id": 1234567890123456789,
+        "description": "Configuration for Discord roles - hacker-role-id is assigned to all verified users for basic chat access"
+    },
     "counterspell": {
         "name": "Counterspell",
         "discord-role-id": 1308587592715079700,

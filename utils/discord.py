@@ -68,7 +68,7 @@ def remove_discord_role(discord_id, role_id):
 
 
 def remove_all_event_roles(discord_id):
-    """Remove all event-related Discord roles from a user."""
+    """Remove all event-related Discord roles and Hacker role from a user."""
     if not DISCORD_BOT_TOKEN:
         if DEBUG_MODE:
             print("WARNING: Discord bot token not configured. Roles not removed.")
@@ -80,14 +80,40 @@ def remove_all_event_roles(discord_id):
 
     try:
         # Load events configuration to get role IDs
-        from utils.events import get_all_events
+        from utils.events import get_all_events, get_hacker_role_id
 
         events = get_all_events()
 
         removed_roles = []
         failed_roles = []
 
+        # Remove Hacker role first
+        hacker_role_id = get_hacker_role_id()
+        if hacker_role_id:
+            success = remove_discord_role(discord_id, hacker_role_id)
+            if success:
+                removed_roles.append(
+                    {
+                        "event_id": "_hacker",
+                        "event_name": "Hacker",
+                        "role_id": hacker_role_id,
+                    }
+                )
+            else:
+                failed_roles.append(
+                    {
+                        "event_id": "_hacker",
+                        "event_name": "Hacker",
+                        "role_id": hacker_role_id,
+                    }
+                )
+
+        # Remove all event roles (both legacy and non-legacy)
         for event_id, event_data in events.items():
+            # Skip the _config entry
+            if event_id.startswith("_"):
+                continue
+
             role_id = event_data.get("discord-role-id")
             if role_id:
                 success = remove_discord_role(discord_id, role_id)

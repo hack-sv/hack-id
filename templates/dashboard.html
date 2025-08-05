@@ -1,239 +1,212 @@
-<!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Dashboard - hack.sv</title>
-        <meta name="csrf-token" content="{{ csrf_token() }}" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-        <link
-            href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=VT323&display=swap"
-            rel="stylesheet"
-        />
-        <link
-            rel="stylesheet"
-            href="{{ url_for('static', filename='css/auth.css') }}"
-        />
-        <link
-            rel="stylesheet"
-            href="{{ url_for('static', filename='css/dashboard.css') }}"
-        />
-    </head>
-    <body>
-        <div class="dashboard-container">
-            <img
-                src="{{ url_for('static', filename='logo-big.svg') }}"
-                alt="HACK.SV"
-                class="hack-logo"
-            />
-            <div class="title">Dashboard</div>
-            <div class="subtitle">
-                Hello, {{ dashboard.user.preferred_name or
-                dashboard.user.legal_name }}.
-            </div>
+{% extends "base.html" %} {% block title %}Dashboard - hack.sv{% endblock %} {%
+block css %}
+<link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='css/dashboard.css') }}"
+/>
+{% endblock %} {% block body %}
+<div class="dashboard-container">
+    <img
+        src="{{ url_for('static', filename='logo-big.svg') }}"
+        alt="HACK.SV"
+        class="hack-logo"
+    />
+    <div class="title">Dashboard</div>
+    <div class="subtitle">
+        Hello, {{ dashboard.user.preferred_name or dashboard.user.legal_name }}.
+    </div>
 
-            <!-- Your Events Section -->
-            <div class="dashboard-section">
-                <div class="section-title">Your Events</div>
-                {% if dashboard.enrolled_events %} {% for event in
-                dashboard.enrolled_events %}
-                <div class="event-item">{{ event.name }}</div>
-                {% endfor %} {% else %}
-                <div class="no-events">No events registered</div>
-                {% endif %}
-            </div>
+    <!-- Your Events Section -->
+    <div class="dashboard-section">
+        <div class="section-title">Your Events</div>
+        {% if dashboard.enrolled_events %} {% for event in
+        dashboard.enrolled_events %}
+        <div class="event-item">{{ event.name }}</div>
+        {% endfor %} {% else %}
+        <div class="no-events">No events registered</div>
+        {% endif %}
+    </div>
 
-            <!-- Your Discord Section -->
-            <div class="dashboard-section">
-                <div class="section-title">Your Discord</div>
-                {% if dashboard.discord.linked %}
-                <div class="discord-info">
-                    <span class="discord-username"
-                        >@{{ dashboard.discord.username }}</span
-                    >
-                    <div class="action-button">
-                        <button class="unlink-btn">Unlink</button>
-                    </div>
-                </div>
-                {% else %}
-                <div class="discord-info">
-                    <span class="not-connected">Not connected</span>
-                    <a
-                        href="https://discord.com/invite/32BsffvEf4"
-                        target="_blank"
-                        class="join-discord-btn"
-                        >Join Discord</a
-                    >
-                </div>
-                {% endif %}
+    <!-- Your Discord Section -->
+    <div class="dashboard-section">
+        <div class="section-title">Your Discord</div>
+        {% if dashboard.discord.linked %}
+        <div class="discord-info">
+            <span class="discord-username"
+                >@{{ dashboard.discord.username }}</span
+            >
+            <div class="action-button">
+                <button class="unlink-btn">Unlink</button>
             </div>
-            <!-- Profile Section -->
-            <div class="dashboard-section">
-                <div class="section-title">Profile</div>
-                <div class="profile-info">
-                    <div class="info-line">
-                        <span class="info-label">Email:</span>
-                        <span
-                            class="info-value"
-                            data-type="email"
-                            data-full="{{ dashboard.user.email }}"
-                            >{{ dashboard.user.email | censor_email }}</span
-                        >
-                    </div>
-                    <div class="info-line">
-                        <span class="info-label">Legal Name:</span>
-                        <span
-                            class="info-value"
-                            data-type="name"
-                            data-full="{{ dashboard.user.legal_name }}"
-                            >{{ dashboard.user.legal_name | censor_name }}</span
-                        >
-                    </div>
-                    <div class="info-line">
-                        <span class="info-label">Preferred Name:</span>
-                        <span
-                            class="info-value"
-                            data-type="name"
-                            data-full="{{ dashboard.user.preferred_name }}"
-                            >{{ dashboard.user.preferred_name | censor_name
-                            }}</span
-                        >
-                    </div>
-                    <div class="info-line">
-                        <span class="info-label">Pronouns:</span>
-                        <span class="info-value"
-                            >{{ dashboard.user.pronouns }}</span
-                        >
-                    </div>
-                    <div class="info-line">
-                        <span class="info-label">Date of Birth:</span>
-                        <span
-                            class="info-value"
-                            data-type="date"
-                            data-full="{{ dashboard.user.dob }}"
-                            >{{ dashboard.user.dob | censor_date }}</span
-                        >
-                    </div>
-                </div>
-                <div class="action-button">
-                    <button class="reveal-btn" data-target="profile">
-                        Reveal
-                    </button>
-                </div>
-            </div>
-
-            <!-- Per-event Info Section -->
-            <div class="dashboard-section">
-                {% if dashboard.temporary_info %}
-                <div class="section-title">Per-event Info</div>
-                <div class="per-event-info">
-                    <div class="info-line">
-                        <span class="info-label">Phone #:</span>
-                        <span
-                            class="info-value"
-                            data-type="phone"
-                            data-full="{{ dashboard.temporary_info.phone_number }}"
-                            >{{ dashboard.temporary_info.phone_number |
-                            censor_phone }}</span
-                        >
-                    </div>
-                    <div class="info-line">
-                        <span class="info-label">Address:</span>
-                        <span
-                            class="info-value"
-                            data-type="address"
-                            data-full="{{ dashboard.temporary_info.address }}"
-                            >{{ dashboard.temporary_info.address |
-                            censor_address }}</span
-                        >
-                    </div>
-                    <div class="info-line">
-                        <span class="info-label">Emergency Contact:</span>
-                        <span
-                            class="info-value"
-                            data-type="emergency"
-                            data-full="{{ dashboard.temporary_info.emergency_contact }}"
-                            >{{ dashboard.temporary_info.emergency_contact |
-                            censor_emergency }}</span
-                        >
-                    </div>
-                    <div class="info-line">
-                        <span class="info-label">Dietary Restrictions:</span>
-                        <span class="info-value"
-                            >{{ dashboard.temporary_info.dietary_restrictions
-                            }}</span
-                        >
-                    </div>
-                    <div class="info-line">
-                        <span class="info-label">T-Shirt Size:</span>
-                        <span class="info-value"
-                            >{{ dashboard.temporary_info.tshirt_size }}</span
-                        >
-                    </div>
-                </div>
-                <div class="action-button">
-                    <button class="reveal-btn" data-target="per-event">
-                        Reveal
-                    </button>
-                </div>
-                {% else %}
-                <div class="section-title">Per-event Info</div>
-                <div class="no-per-event-info">
-                    <p>
-                        No per-event information available. Register for an
-                        event to provide additional details.
-                    </p>
-                </div>
-                {% endif %}
-            </div>
-
-            <!-- Delete My Data Section -->
-            <div class="dashboard-section">
-                <div class="section-title">Delete My Data</div>
-                <div class="delete-content">
-                    <div class="delete-warning">
-                        <input
-                            type="checkbox"
-                            id="delete-confirm"
-                            class="delete-checkbox"
-                        />
-                        <label for="delete-confirm" class="delete-label"
-                            >I understand that deleting my data is permanent and
-                            cannot be undone</label
-                        >
-                    </div>
-                    <div class="delete-info">
-                        We will delete all copies of your data within 48 hours.
-                        The button will not work if you are enrolled into a
-                        current event. To unenroll from [current event], see
-                        your event dashboard. See our
-                        <a href="/privacy" class="privacy-link"
-                            >privacy policy</a
-                        >
-                        for more information. If you need any help, email
-                        team@hack.sv.
-                    </div>
-                    <div class="action-button">
-                        <button id="delete-btn" class="delete-btn">
-                            Delete my data
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Logout Section -->
-            <div class="dashboard-section">
-                <div class="action-button">
-                    <a href="/logout" class="logout-btn">Logout</a>
-                </div>
-            </div>
-
-            <a href="https://hack.sv/privacy" class="privacy-link"
-                >Privacy Policy</a
+        </div>
+        {% else %}
+        <div class="discord-info">
+            <span class="not-connected">Not connected</span>
+            <a
+                href="https://discord.com/invite/32BsffvEf4"
+                target="_blank"
+                class="join-discord-btn"
+                data-text="Join Discord"
+                >Join Discord</a
             >
         </div>
+        {% endif %}
+    </div>
+    <!-- Profile Section -->
+    <div class="dashboard-section">
+        <div class="section-title">Profile</div>
+        <div class="profile-info">
+            <div class="info-line">
+                <span class="info-label">Email:</span>
+                <span
+                    class="info-value"
+                    data-type="email"
+                    data-full="{{ dashboard.user.email }}"
+                    >{{ dashboard.user.email | censor_email }}</span
+                >
+            </div>
+            <div class="info-line">
+                <span class="info-label">Legal Name:</span>
+                <span
+                    class="info-value"
+                    data-type="name"
+                    data-full="{{ dashboard.user.legal_name }}"
+                    >{{ dashboard.user.legal_name | censor_name }}</span
+                >
+            </div>
+            <div class="info-line">
+                <span class="info-label">Preferred Name:</span>
+                <span
+                    class="info-value"
+                    data-type="name"
+                    data-full="{{ dashboard.user.preferred_name }}"
+                    >{{ dashboard.user.preferred_name | censor_name }}</span
+                >
+            </div>
+            <div class="info-line">
+                <span class="info-label">Pronouns:</span>
+                <span class="info-value">{{ dashboard.user.pronouns }}</span>
+            </div>
+            <div class="info-line">
+                <span class="info-label">Date of Birth:</span>
+                <span
+                    class="info-value"
+                    data-type="date"
+                    data-full="{{ dashboard.user.dob }}"
+                    >{{ dashboard.user.dob | censor_date }}</span
+                >
+            </div>
+        </div>
+        <div class="action-button">
+            <button class="reveal-btn" data-target="profile">Reveal</button>
+        </div>
+    </div>
 
-        <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
-    </body>
-</html>
+    <!-- Per-event Info Section -->
+    <div class="dashboard-section">
+        {% if dashboard.temporary_info %}
+        <div class="section-title">Per-event Info</div>
+        <div class="per-event-info">
+            <div class="info-line">
+                <span class="info-label">Phone #:</span>
+                <span
+                    class="info-value"
+                    data-type="phone"
+                    data-full="{{ dashboard.temporary_info.phone_number }}"
+                    >{{ dashboard.temporary_info.phone_number | censor_phone
+                    }}</span
+                >
+            </div>
+            <div class="info-line">
+                <span class="info-label">Address:</span>
+                <span
+                    class="info-value"
+                    data-type="address"
+                    data-full="{{ dashboard.temporary_info.address }}"
+                    >{{ dashboard.temporary_info.address | censor_address
+                    }}</span
+                >
+            </div>
+            <div class="info-line">
+                <span class="info-label">Emergency Contact:</span>
+                <span
+                    class="info-value"
+                    data-type="emergency"
+                    data-full="{{ dashboard.temporary_info.emergency_contact }}"
+                    >{{ dashboard.temporary_info.emergency_contact |
+                    censor_emergency }}</span
+                >
+            </div>
+            <div class="info-line">
+                <span class="info-label">Dietary Restrictions:</span>
+                <span class="info-value"
+                    >{{ dashboard.temporary_info.dietary_restrictions }}</span
+                >
+            </div>
+            <div class="info-line">
+                <span class="info-label">T-Shirt Size:</span>
+                <span class="info-value"
+                    >{{ dashboard.temporary_info.tshirt_size }}</span
+                >
+            </div>
+        </div>
+        <div class="action-button">
+            <button class="reveal-btn" data-target="per-event">Reveal</button>
+        </div>
+        {% else %}
+        <div class="section-title">Per-event Info</div>
+        <div class="no-per-event-info">
+            <p>
+                No per-event information available. Register for an event to
+                provide additional details.
+            </p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Delete My Data Section -->
+    <div class="dashboard-section">
+        <div class="section-title">Delete My Data</div>
+        <div class="delete-content">
+            <div class="delete-warning">
+                <input
+                    type="checkbox"
+                    id="delete-confirm"
+                    class="delete-checkbox"
+                />
+                <label for="delete-confirm" class="delete-label"
+                    >I understand that deleting my data is permanent and cannot
+                    be undone</label
+                >
+            </div>
+            <div class="delete-info">
+                We will delete all copies of your data within 48 hours. The
+                button will not work if you are enrolled into a current event.
+                To unenroll from [current event], see your event dashboard. See
+                our
+                <a href="/privacy" data-text="privacy policy">privacy policy</a>
+                for more information. If you need any help, email team@hack.sv.
+            </div>
+            <div class="action-button">
+                <button id="delete-btn" class="delete-btn">
+                    Delete my data
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logout Section -->
+    <div class="dashboard-section">
+        <div class="action-button">
+            <a href="/logout" class="logout-btn">Logout</a>
+        </div>
+    </div>
+
+    <a href="https://hack.sv/privacy" data-text="Privacy Policy"
+        >Privacy Policy</a
+    >
+</div>
+
+{% endblock %} {% block scripts %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

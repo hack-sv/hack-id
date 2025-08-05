@@ -65,6 +65,21 @@ def get_event_discord_role_id(event_id):
     return None
 
 
+def get_hacker_role_id():
+    """Get the Hacker role ID for all verified users."""
+    events = load_events()
+    config = events.get("_config", {})
+    return config.get("hacker-role-id")
+
+
+def is_legacy_event(event_id):
+    """Check if an event is a legacy event (should get event-specific roles)."""
+    event_info = get_event_info(event_id)
+    if event_info:
+        return event_info.get("legacy", False)
+    return False
+
+
 def get_event_name(event_id):
     """Get the display name for an event."""
     event_info = get_event_info(event_id)

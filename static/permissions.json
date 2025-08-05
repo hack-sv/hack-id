@@ -2,16 +2,9 @@
     "permissions": {
         "events.register": {
             "name": "Register Users for Events",
-            "description": "Allow registering users for events via API",
+            "description": "Allow registering users for events and submitting temporary event information (address, emergency contacts, etc.) via API",
             "category": "Events",
             "endpoints": ["/api/register-event"],
-            "risk_level": "medium"
-        },
-        "events.submit_info": {
-            "name": "Submit Temporary Info",
-            "description": "Allow submitting temporary event information (address, emergency contacts, etc.)",
-            "category": "Events",
-            "endpoints": ["/api/submit-temporary-info"],
             "risk_level": "high"
         },
         "events.read": {

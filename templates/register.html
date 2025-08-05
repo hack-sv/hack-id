@@ -1,25 +1,15 @@
-<!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Complete Registration - hack.sv</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-        <link
-            href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=VT323&display=swap"
-            rel="stylesheet"
-        />
-        <link
-            rel="stylesheet"
-            href="{{ url_for('static', filename='css/auth.css') }}"
-        />
-        <link
-            rel="stylesheet"
-            href="{{ url_for('static', filename='css/register.css') }}"
-        />
-    </head>
-    <body>
+{% extends "base.html" %}
+
+{% block title %}Complete Registration - hack.sv{% endblock %}
+
+{% block css %}
+<link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='css/register.css') }}"
+/>
+{% endblock %}
+
+{% block body %}
         <div class="register-container">
             <img
                 src="{{ url_for('static', filename='logo-big.svg') }}"
@@ -108,9 +98,8 @@
                 <p>
                     Your information is used only for event management and communication.
                     You can delete all your data at any time from your dashboard.
-                    <a href="/privacy">Read our full privacy policy</a>.
+                    <a href="/privacy" data-text="Read our full privacy policy">Read our full privacy policy</a>.
                 </p>
             </div>
         </div>
-    </body>
-</html>
+{% endblock %}

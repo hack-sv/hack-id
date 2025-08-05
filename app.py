@@ -5,7 +5,16 @@ from flask import Flask, request, jsonify
 from flask_wtf.csrf import CSRFProtect
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from config import SECRET_KEY, DEBUG_MODE, PROD, print_debug_info, validate_config
+from config import (
+    SECRET_KEY,
+    DEBUG_MODE,
+    PROD,
+    print_debug_info,
+    validate_config,
+    POSTHOG_API_KEY,
+    POSTHOG_HOST,
+    POSTHOG_ENABLED,
+)
 from utils.db_init import init_db, check_table_exists, list_all_tables
 from utils.rate_limiter import rate_limit_api_key, start_cleanup_thread
 from utils.censoring import register_censoring_filters
@@ -31,6 +40,34 @@ register_censoring_filters(app)
 
 # Initialize CSRF protection
 csrf = CSRFProtect(app)
+
+
+# PostHog context processor
+@app.context_processor
+def inject_posthog():
+    """Inject PostHog configuration and user data into all templates."""
+    from flask import session
+    from models.user import get_user_by_email
+
+    context = {
+        'posthog_enabled': POSTHOG_ENABLED,
+        'posthog_api_key': POSTHOG_API_KEY,
+        'posthog_host': POSTHOG_HOST,
+        'user_logged_in': 'user_email' in session,
+    }
+
+    # Add user data if logged in
+    if 'user_email' in session:
+        user = get_user_by_email(session['user_email'])
+        if user:
+            context.update({
+                'user_email': user['email'],
+                'user_preferred_name': user.get('preferred_name') or user.get('legal_name'),
+                'user_events': user.get('events', []),
+                'user_discord_id': user.get('discord_id'),
+            })
+
+    return context
 
 # Initialize rate limiter (disabled in development)
 if not DEBUG_MODE:
@@ -75,11 +112,11 @@ def add_security_headers(response):
     # Content Security Policy
     csp = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://us-assets.i.posthog.com; "
         "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
         "img-src 'self' data: https:; "
         "font-src 'self'; "
-        "connect-src 'self'; "
+        "connect-src 'self' https://us.i.posthog.com; "
         "frame-ancestors 'none';"
     )
     response.headers["Content-Security-Policy"] = csp

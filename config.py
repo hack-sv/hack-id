@@ -50,6 +50,11 @@ EMAIL_SENDER_NAME = os.getenv("EMAIL_SENDER_NAME", "Adam Xu")
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 DISCORD_GUILD_ID = int(os.getenv("DISCORD_GUILD_ID", "0"))
 
+# PostHog Configuration
+POSTHOG_API_KEY = os.getenv("POSTHOG_API_KEY", "***REMOVED***")
+POSTHOG_HOST = os.getenv("POSTHOG_HOST", "https://us.i.posthog.com")
+POSTHOG_ENABLED = os.getenv("POSTHOG_ENABLED", "true").lower() == "true"
+
 # Database configuration
 DATABASE = "users.db"
 

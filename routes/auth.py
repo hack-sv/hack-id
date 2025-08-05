@@ -18,6 +18,7 @@ from services.auth_service import (
     create_discord_verification_token,
     verify_discord_token,
     complete_discord_verification,
+    unlink_discord_account,
 )
 from models.user import get_user_by_email, create_user, update_user
 from models.user import get_user_by_email
@@ -317,6 +318,10 @@ def verify_complete():
             email=user["email"],
             events=user.get("events", []),
             discord_username=result["discord_username"],
+            roles_assigned=result.get("roles_assigned", []),
+            roles_failed=result.get("roles_failed", []),
+            total_roles_assigned=result.get("total_roles_assigned", 0),
+            total_roles_failed=result.get("total_roles_failed", 0),
         )
     else:
         return render_template("auth.html", state="error", error=result["error"])
@@ -423,26 +428,27 @@ def unlink_discord_dashboard():
 
     try:
         user_email = session["user_email"]
-        user = get_user_by_email(user_email)
 
-        if not user:
-            return jsonify({"success": False, "error": "User not found"}), 404
+        # Use the service function that handles role removal
+        result = unlink_discord_account(user_email)
 
-        if not user.get("discord_id"):
+        if result["success"]:
             return (
-                jsonify({"success": False, "error": "No Discord account linked"}),
-                400,
+                jsonify(
+                    {
+                        "success": True,
+                        "message": "Discord account successfully unlinked",
+                        "roles_removed": result.get("total_roles_removed", 0),
+                        "roles_failed": result.get("total_roles_failed", 0),
+                        "role_removal_success": result.get(
+                            "role_removal_success", False
+                        ),
+                    }
+                ),
+                200,
             )
-
-        # Remove Discord ID from user record
-        update_user(user["id"], discord_id=None)
-
-        return (
-            jsonify(
-                {"success": True, "message": "Discord account successfully unlinked"}
-            ),
-            200,
-        )
+        else:
+            return jsonify({"success": False, "error": result["error"]}), 400
 
     except Exception as e:
         if DEBUG_MODE:

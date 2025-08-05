@@ -246,11 +246,26 @@ async def unlink(ctx):
 
         if response.status_code == 200:
             result = response.json()
+
+            # Build role removal message
+            role_message = ""
+            total_removed = result.get("total_roles_removed", 0)
+            total_failed = result.get("total_roles_failed", 0)
+
+            if total_removed > 0:
+                role_message += f"• ✅ Removed {total_removed} event role{'s' if total_removed != 1 else ''}\n"
+
+            if total_failed > 0:
+                role_message += f"• ⚠️ Failed to remove {total_failed} role{'s' if total_failed != 1 else ''}\n"
+
+            if not role_message:
+                role_message = "• No event roles to remove\n"
+
             await ctx.respond(
                 f"✅ **Discord Account Unlinked Successfully!**\n\n"
                 f"Your Discord account has been unlinked from **{result.get('user_email', 'your hack.sv account')}**.\n\n"
+                f"{role_message}"
                 f"• You will no longer have access to event-specific channels\n"
-                f"• Your event roles may be removed\n"
                 f"• You can re-link your account anytime using `/verify`",
                 ephemeral=True,
             )

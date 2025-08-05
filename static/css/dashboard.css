@@ -232,15 +232,6 @@
     padding: 12px;
 }
 
-.delete-info a {
-    color: #00ccff;
-    text-decoration: none;
-}
-
-.delete-info a:hover {
-    text-decoration: underline;
-}
-
 .no-per-event-info {
     background: #f8f9fa;
     border: 2px solid black;
@@ -295,4 +286,9 @@
         align-items: flex-start;
         gap: 10px;
     }
+}
+
+input[type="checkbox"] {
+    accent-color: #00ccff;
+    cursor: pointer;
 }

@@ -8,3 +8,4 @@ __pycache__
 test_opt_out.csv
 counterspell-checkin.txt
 scrapyard-checkin.tsv
+.crush/

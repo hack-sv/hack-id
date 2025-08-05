@@ -1,230 +1,207 @@
-<!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Data Deleted Successfully - hack.sv</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-        <link
-            href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=VT323&display=swap"
-            rel="stylesheet"
-        />
-        <link
-            rel="stylesheet"
-            href="{{ url_for('static', filename='css/auth.css') }}"
-        />
-        <link
-            rel="stylesheet"
-            href="{{ url_for('static', filename='css/opt_out.css') }}"
-        />
-        <style>
-            h1 {
-                color: #2e7d32;
-                margin-bottom: 20px;
-                font-size: 24px;
-            }
-            .success {
-                background: #d4edda;
-                border: 1px solid #c3e6cb;
-                border-radius: 4px;
-                padding: 15px;
-                margin: 20px 0;
-                color: #155724;
-            }
-            .warning {
-                background: #fff3cd;
-                border: 1px solid #ffeaa7;
-                border-radius: 4px;
-                padding: 15px;
-                margin: 20px 0;
-            }
-            .deletion-summary {
-                background: #f8f9fa;
-                border-radius: 4px;
-                padding: 15px;
-                margin: 15px 0;
-            }
-            .deletion-summary ul {
-                margin: 10px 0;
-                padding-left: 20px;
-            }
-            .deletion-summary li {
-                margin: 5px 0;
-            }
-            .stats {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-                gap: 15px;
-                margin: 20px 0;
-            }
-            .stat-card {
-                background: #e3f2fd;
-                padding: 15px;
-                border-radius: 4px;
-                text-align: center;
-            }
-            .stat-number {
-                font-size: 24px;
-                font-weight: bold;
-                color: #1976d2;
-            }
-            .stat-label {
-                font-size: 12px;
-                color: #666;
-                text-transform: uppercase;
-            }
-            .discord-info {
-                background: #e8f5e8;
-                border: 1px solid #c3e6c3;
-                border-radius: 4px;
-                padding: 15px;
-                margin: 15px 0;
-            }
-            .error-info {
-                background: #f8d7da;
-                border: 1px solid #f5c6cb;
-                border-radius: 4px;
-                padding: 15px;
-                margin: 15px 0;
-                color: #721c24;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="opt-out-container">
-            <div class="title">Data Deletion Complete</div>
-            <div class="subtitle">
-                ✅ Success! All data has been permanently deleted.
-            </div>
+{% extends "base.html" %} {% block title %}Data Deleted Successfully - hack.sv{%
+endblock %} {% block css %}
+<link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='css/opt_out.css') }}"
+/>
+<style>
+    h1 {
+        color: #2e7d32;
+        margin-bottom: 20px;
+        font-size: 24px;
+    }
+    .success {
+        background: #d4edda;
+        border: 1px solid #c3e6cb;
+        border-radius: 4px;
+        padding: 15px;
+        margin: 20px 0;
+        color: #155724;
+    }
+    .warning {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 4px;
+        padding: 15px;
+        margin: 20px 0;
+    }
+    .deletion-summary {
+        background: #f8f9fa;
+        border-radius: 4px;
+        padding: 15px;
+        margin: 15px 0;
+    }
+    .deletion-summary ul {
+        margin: 10px 0;
+        padding-left: 20px;
+    }
+    .deletion-summary li {
+        margin: 5px 0;
+    }
+    .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+        margin: 20px 0;
+    }
+    .stat-card {
+        background: #e3f2fd;
+        padding: 15px;
+        border-radius: 4px;
+        text-align: center;
+    }
+    .stat-number {
+        font-size: 24px;
+        font-weight: bold;
+        color: #1976d2;
+    }
+    .stat-label {
+        font-size: 12px;
+        color: #666;
+        text-transform: uppercase;
+    }
+    .discord-info {
+        background: #e8f5e8;
+        border: 1px solid #c3e6c3;
+        border-radius: 4px;
+        padding: 15px;
+        margin: 15px 0;
+    }
+    .error-info {
+        background: #f8d7da;
+        border: 1px solid #f5c6cb;
+        border-radius: 4px;
+        padding: 15px;
+        margin: 15px 0;
+        color: #721c24;
+    }
+</style>
+{% endblock %} {% block body %}
+<div class="opt-out-container">
+    <div class="title">Data Deletion Complete</div>
+    <div class="subtitle">
+        ✅ Success! All data has been permanently deleted.
+    </div>
 
-            <div class="success">
-                <strong>Success!</strong> All data for {{ user_email }} has been
-                permanently deleted from our systems.
-            </div>
+    <div class="success">
+        <strong>Success!</strong> All data for {{ user_email }} has been
+        permanently deleted from our systems.
+    </div>
 
-            {% if deletion_result.success %}
-            <h3>Deletion Summary:</h3>
-            <div class="deletion-summary">
-                <p>
-                    <strong>Total records deleted:</strong> {{
-                    deletion_result.total_records_deleted }}
-                </p>
+    {% if deletion_result.success %}
+    <h3>Deletion Summary:</h3>
+    <div class="deletion-summary">
+        <p>
+            <strong>Total records deleted:</strong> {{
+            deletion_result.total_records_deleted }}
+        </p>
 
-                {% if deletion_result.deleted_from_tables %}
-                <p><strong>Data removed from:</strong></p>
-                <ul>
-                    {% for table in deletion_result.deleted_from_tables %}
-                    <li>
-                        {{ table|replace('_', ' ')|title }} {% if
-                        deletion_result.deletion_counts[table] %} ({{
-                        deletion_result.deletion_counts[table] }} records) {%
-                        endif %}
-                    </li>
-                    {% endfor %}
-                </ul>
-                {% endif %}
-            </div>
+        {% if deletion_result.deleted_from_tables %}
+        <p><strong>Data removed from:</strong></p>
+        <ul>
+            {% for table in deletion_result.deleted_from_tables %}
+            <li>
+                {{ table|replace('_', ' ')|title }} {% if
+                deletion_result.deletion_counts[table] %} ({{
+                deletion_result.deletion_counts[table] }} records) {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
 
-            <div class="stats">
-                <div class="stat-card">
-                    <div class="stat-number">
-                        {{ deletion_result.total_records_deleted }}
-                    </div>
-                    <div class="stat-label">Records Deleted</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number">
-                        {{ deletion_result.deleted_from_tables|length }}
-                    </div>
-                    <div class="stat-label">Tables Cleaned</div>
-                </div>
-                {% if deletion_result.discord_result and
-                deletion_result.discord_result.roles_removed %}
-                <div class="stat-card">
-                    <div class="stat-number">
-                        {{ deletion_result.discord_result.roles_removed|length
-                        }}
-                    </div>
-                    <div class="stat-label">Discord Roles Removed</div>
-                </div>
-                {% endif %}
+    <div class="stats">
+        <div class="stat-card">
+            <div class="stat-number">
+                {{ deletion_result.total_records_deleted }}
             </div>
-
-            {% if deletion_result.discord_result %}
-            <div class="discord-info">
-                <strong>🤖 Discord Status:</strong>
-                {% if deletion_result.discord_result.success %} Successfully
-                removed Discord roles: {{
-                deletion_result.discord_result.roles_removed|join(', ') }} {%
-                elif deletion_result.discord_result.error == "No Discord account
-                linked" %} No Discord account was linked to your account. {%
-                else %} {{ deletion_result.discord_result.error }} {% endif %}
-            </div>
-            {% endif %} {% if verification.completely_deleted %}
-            <div class="success">
-                <strong>✅ Verification Complete:</strong> No traces of your
-                data remain in our systems.
-            </div>
-            {% else %}
-            <div class="warning">
-                <strong>⚠️ Verification Notice:</strong> Some data may still be
-                present in the following tables:
-                <ul>
-                    {% for table, count in verification.remaining_data.items()
-                    %}
-                    <li>
-                        {{ table|replace('_', ' ')|title }}: {{ count }} records
-                    </li>
-                    {% endfor %}
-                </ul>
-                This may be due to system delays or technical issues. Please
-                contact support if this persists.
-            </div>
-            {% endif %} {% else %}
-            <div class="error-info">
-                <strong>Deletion Issues:</strong>
-                <ul>
-                    {% for error in deletion_result.errors %}
-                    <li>{{ error }}</li>
-                    {% endfor %}
-                </ul>
-                <p>Please contact support for assistance.</p>
-            </div>
-            {% endif %}
-
-            <hr style="margin: 30px 0" />
-
-            <h3>What happens next?</h3>
-            <ul>
-                <li>
-                    <strong>Immediate:</strong> Your account and all associated
-                    data has been removed
-                </li>
-                <li>
-                    <strong>Email:</strong> You will no longer receive any
-                    communications from us
-                </li>
-                <li>
-                    <strong>Discord:</strong> Your verification status has been
-                    revoked
-                </li>
-                <li>
-                    <strong>Future Events:</strong> You'll need to create a new
-                    account to participate
-                </li>
-            </ul>
-
-            <div class="warning">
-                <strong>Important:</strong> This deletion is permanent and
-                cannot be undone. If you want to participate in future events,
-                you will need to register with a new account.
-            </div>
-
-            <p style="font-size: 14px; color: #666; margin-top: 30px">
-                Thank you for using Hack ID. We respect your privacy choices and
-                hope to see you at future events if you choose to return.
-            </p>
+            <div class="stat-label">Records Deleted</div>
         </div>
-    </body>
-</html>
+        <div class="stat-card">
+            <div class="stat-number">
+                {{ deletion_result.deleted_from_tables|length }}
+            </div>
+            <div class="stat-label">Tables Cleaned</div>
+        </div>
+        {% if deletion_result.discord_result and
+        deletion_result.discord_result.roles_removed %}
+        <div class="stat-card">
+            <div class="stat-number">
+                {{ deletion_result.discord_result.roles_removed|length }}
+            </div>
+            <div class="stat-label">Discord Roles Removed</div>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if deletion_result.discord_result %}
+    <div class="discord-info">
+        <strong>🤖 Discord Status:</strong>
+        {% if deletion_result.discord_result.success %} Successfully removed
+        Discord roles: {{ deletion_result.discord_result.roles_removed|join(',
+        ') }} {% elif deletion_result.discord_result.error == "No Discord
+        account linked" %} No Discord account was linked to your account. {%
+        else %} {{ deletion_result.discord_result.error }} {% endif %}
+    </div>
+    {% endif %} {% if verification.completely_deleted %}
+    <div class="success">
+        <strong>✅ Verification Complete:</strong> No traces of your data remain
+        in our systems.
+    </div>
+    {% else %}
+    <div class="warning">
+        <strong>⚠️ Verification Notice:</strong> Some data may still be present
+        in the following tables:
+        <ul>
+            {% for table, count in verification.remaining_data.items() %}
+            <li>{{ table|replace('_', ' ')|title }}: {{ count }} records</li>
+            {% endfor %}
+        </ul>
+        This may be due to system delays or technical issues. Please contact
+        support if this persists.
+    </div>
+    {% endif %} {% else %}
+    <div class="error-info">
+        <strong>Deletion Issues:</strong>
+        <ul>
+            {% for error in deletion_result.errors %}
+            <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+        <p>Please contact support for assistance.</p>
+    </div>
+    {% endif %}
+
+    <hr style="margin: 30px 0" />
+
+    <h3>What happens next?</h3>
+    <ul>
+        <li>
+            <strong>Immediate:</strong> Your account and all associated data has
+            been removed
+        </li>
+        <li>
+            <strong>Email:</strong> You will no longer receive any
+            communications from us
+        </li>
+        <li>
+            <strong>Discord:</strong> Your verification status has been revoked
+        </li>
+        <li>
+            <strong>Future Events:</strong> You'll need to create a new account
+            to participate
+        </li>
+    </ul>
+
+    <div class="warning">
+        <strong>Important:</strong> This deletion is permanent and cannot be
+        undone. If you want to participate in future events, you will need to
+        register with a new account.
+    </div>
+
+    <p style="font-size: 14px; color: #666; margin-top: 30px">
+        Thank you for using Hack ID. We respect your privacy choices and hope to
+        see you at future events if you choose to return.
+    </p>
+</div>
+{% endblock %}

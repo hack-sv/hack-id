@@ -179,18 +179,12 @@ def update_user_route():
             "legal_name",
             "preferred_name",
             "pronouns",
-            "date_of_birth",
+            "dob",
             "discord_id",
         ]
 
         for field in text_fields:
-            # Map form field names to database field names
-            form_field_map = {
-                "date_of_birth": "dob",
-            }
-
-            form_field = form_field_map.get(field, field)
-            value = request.form.get(form_field)
+            value = request.form.get(field)
 
             if value is not None:  # Allow empty strings
                 update_fields.append(f"{field} = ?")

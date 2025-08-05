@@ -3,7 +3,6 @@
 from flask import Blueprint, request, jsonify
 from services.event_service import (
     register_user_for_event,
-    submit_temporary_info,
     get_user_event_status,
 )
 from utils.events import get_current_event, get_event_info, get_all_events
@@ -141,74 +140,32 @@ def api_all_events():
 @require_api_key(["events.register"])
 @rate_limit_api_key
 def api_register_event():
-    """Register user for an event."""
+    """Register user for an event and optionally submit temporary info."""
     try:
         data = request.get_json()
         if not data:
             return jsonify({"success": False, "error": "JSON data required"}), 400
 
-        # Validate input data
+        # Validate input data - only user_email is required
         validation_result = validate_api_request(data, ["user_email"])
         if not validation_result["valid"]:
             return handle_validation_error(validation_result)
 
         validated_data = validation_result["data"]
         user_email = validated_data["user_email"]
-        event_id = validated_data.get("event_id")  # Optional, defaults to current event
 
-        # Register user for event
-        result = register_user_for_event(user_email, event_id)
-
-        if result["success"]:
-            return jsonify(result), 200
-        else:
-            return jsonify(result), 400
-
-    except Exception as e:
-        return handle_api_error(e, "api_register_event")
-
-
-@api_bp.route("/api/submit-temporary-info", methods=["POST"])
-@require_api_key(["events.submit_info"])
-@rate_limit_api_key
-def api_submit_temporary_info():
-    """Submit temporary info for an event."""
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({"success": False, "error": "JSON data required"}), 400
-
-        # Validate input data
-        required_fields = [
-            "user_email",
-            "event_id",
-            "phone_number",
-            "address",
-            "emergency_contact_name",
-            "emergency_contact_email",
-            "emergency_contact_phone",
-        ]
-        validation_result = validate_api_request(data, required_fields)
-        if not validation_result["valid"]:
-            return handle_validation_error(validation_result)
-
-        validated_data = validation_result["data"]
-
-        # Extract validated fields
-        user_email = validated_data["user_email"]
-        event_id = validated_data["event_id"]
-        phone_number = validated_data["phone_number"]
-        address = validated_data["address"]
-        emergency_contact_name = validated_data["emergency_contact_name"]
-        emergency_contact_email = validated_data["emergency_contact_email"]
-        emergency_contact_phone = validated_data["emergency_contact_phone"]
-
-        # Extract optional fields
-        dietary_restrictions = data.get("dietary_restrictions", [])
+        # Optional fields
+        event_id = validated_data.get("event_id")  # Defaults to current event
+        phone_number = validated_data.get("phone_number")
+        address = validated_data.get("address")
+        emergency_contact_name = validated_data.get("emergency_contact_name")
+        emergency_contact_email = validated_data.get("emergency_contact_email")
+        emergency_contact_phone = validated_data.get("emergency_contact_phone")
+        dietary_restrictions = validated_data.get("dietary_restrictions")
         tshirt_size = validated_data.get("tshirt_size")
 
-        # Submit temporary info
-        result = submit_temporary_info(
+        # Register user for event (with optional temporary info)
+        result = register_user_for_event(
             user_email=user_email,
             event_id=event_id,
             phone_number=phone_number,
@@ -226,7 +183,7 @@ def api_submit_temporary_info():
             return jsonify(result), 400
 
     except Exception as e:
-        return handle_api_error(e, "api_submit_temporary_info")
+        return handle_api_error(e, "api_register_event")
 
 
 @api_bp.route("/api/user-status", methods=["GET"])
@@ -745,20 +702,32 @@ def api_discord_unlink():
                     400,
                 )
 
-        # Remove Discord ID from user record
-        update_user(user["id"], discord_id=None)
+        # Use the service function that handles role removal
+        from services.auth_service import unlink_discord_account
 
-        return (
-            jsonify(
-                {
-                    "success": True,
-                    "message": "Discord account successfully unlinked",
-                    "user_email": user["email"],
-                    "previous_discord_id": user.get("discord_id"),
-                }
-            ),
-            200,
-        )
+        result = unlink_discord_account(user["email"])
+
+        if result["success"]:
+            return (
+                jsonify(
+                    {
+                        "success": True,
+                        "message": "Discord account successfully unlinked",
+                        "user_email": result["user_email"],
+                        "previous_discord_id": result["previous_discord_id"],
+                        "roles_removed": result.get("roles_removed", []),
+                        "roles_failed": result.get("roles_failed", []),
+                        "total_roles_removed": result.get("total_roles_removed", 0),
+                        "total_roles_failed": result.get("total_roles_failed", 0),
+                        "role_removal_success": result.get(
+                            "role_removal_success", False
+                        ),
+                    }
+                ),
+                200,
+            )
+        else:
+            return jsonify({"success": False, "error": result["error"]}), 400
 
     except Exception as e:
         return handle_api_error(e, "api_discord_unlink")

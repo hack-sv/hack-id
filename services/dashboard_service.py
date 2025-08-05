@@ -42,13 +42,13 @@ def get_user_dashboard_data(user_email: str) -> Dict[str, Any]:
         "preferred_name": user.get("preferred_name"),
         "display_name": user.get("preferred_name") or user.get("legal_name") or "User",
         "pronouns": user.get("pronouns"),
-        "dob": user.get("date_of_birth"),
+        "dob": user.get("dob"),
         "discord_id": user.get("discord_id"),
     }
 
     # Check if profile is complete
     dashboard_data["profile_complete"] = bool(
-        user.get("legal_name") and user.get("pronouns") and user.get("date_of_birth")
+        user.get("legal_name") and user.get("pronouns") and user.get("dob")
     )
 
     # Get enrolled events

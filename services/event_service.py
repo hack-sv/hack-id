@@ -15,23 +15,35 @@ from utils.events import (
     is_valid_event,
     get_event_discord_role_id,
     calculate_data_expiration,
+    is_legacy_event,
 )
 from utils.discord import assign_discord_role
 from utils.database import get_db_connection
 from config import DEBUG_MODE
 
 
-def register_user_for_event(user_email, event_id=None):
+def register_user_for_event(
+    user_email,
+    event_id=None,
+    phone_number=None,
+    address=None,
+    emergency_contact_name=None,
+    emergency_contact_email=None,
+    emergency_contact_phone=None,
+    dietary_restrictions=None,
+    tshirt_size=None,
+):
     """
-    Register a user for an event.
+    Register a user for an event and optionally submit temporary info.
     If event_id is not provided, uses the current event.
+    If temporary info fields are provided, saves them as well.
     """
     # Use current event if not specified
     if not event_id:
-        event_id = get_current_event()
-
-    if not event_id:
-        return {"success": False, "error": "No current event available"}
+        current_event_data = get_current_event()
+        if not current_event_data:
+            return {"success": False, "error": "No current event available"}
+        event_id = current_event_data["id"]
 
     # Validate event exists
     if not is_valid_event(event_id):
@@ -43,33 +55,143 @@ def register_user_for_event(user_email, event_id=None):
         return {"success": False, "error": "User not found"}
 
     # Check if already registered
-    if event_id in user["events"]:
-        return {"success": False, "error": f"User already registered for {event_id}"}
+    already_registered = event_id in user["events"]
 
-    # Add user to event
-    success = add_user_to_event(user["id"], event_id)
-    if not success:
-        return {"success": False, "error": "Failed to register user for event"}
+    # Add user to event if not already registered
+    if not already_registered:
+        success = add_user_to_event(user["id"], event_id)
+        if not success:
+            return {"success": False, "error": "Failed to register user for event"}
 
-    # Assign Discord role if user has Discord ID
+    # Assign Discord role if user has Discord ID (only for legacy events and new registrations)
     discord_role_assigned = False
-    if user.get("discord_id"):
-        discord_role_id = get_event_discord_role_id(event_id)
-        if discord_role_id:
-            discord_role_assigned = assign_discord_role(
-                user["discord_id"], discord_role_id
-            )
+    if user.get("discord_id") and not already_registered:
+        # Only assign event-specific roles for legacy events
+        if is_legacy_event(event_id):
+            discord_role_id = get_event_discord_role_id(event_id)
+            if discord_role_id:
+                discord_role_assigned = assign_discord_role(
+                    user["discord_id"], discord_role_id
+                )
+                if DEBUG_MODE:
+                    print(
+                        f"Discord role assignment for legacy event {event_id} to {user_email}: {'Success' if discord_role_assigned else 'Failed'}"
+                    )
+        else:
             if DEBUG_MODE:
                 print(
-                    f"Discord role assignment for {user_email}: {'Success' if discord_role_assigned else 'Failed'}"
+                    f"Skipping Discord role assignment for non-legacy event {event_id} - user should already have Hacker role for basic access"
                 )
 
+    # Handle temporary info submission if provided
+    temp_info_action = None
+    temp_info_success = True
+    temp_info_error = None
+
+    # Check if any temporary info fields are provided
+    temp_info_provided = any(
+        [
+            phone_number,
+            address,
+            emergency_contact_name,
+            emergency_contact_email,
+            emergency_contact_phone,
+            dietary_restrictions,
+            tshirt_size,
+        ]
+    )
+
+    if temp_info_provided:
+        # Validate required temporary info fields
+        required_temp_fields = {
+            "phone_number": phone_number,
+            "address": address,
+            "emergency_contact_name": emergency_contact_name,
+            "emergency_contact_email": emergency_contact_email,
+            "emergency_contact_phone": emergency_contact_phone,
+        }
+
+        for field_name, value in required_temp_fields.items():
+            if not value or not value.strip():
+                return {
+                    "success": False,
+                    "error": f"{field_name.replace('_', ' ').title()} is required when submitting temporary info",
+                }
+
+        # Validate t-shirt size if provided
+        valid_sizes = ["XS", "S", "M", "L", "XL", "XXL", "XXXL"]
+        if tshirt_size and tshirt_size not in valid_sizes:
+            return {
+                "success": False,
+                "error": f"Invalid t-shirt size. Must be one of: {', '.join(valid_sizes)}",
+            }
+
+        # Check if temporary info already exists
+        existing_info = get_temporary_info(user["id"], event_id)
+
+        if existing_info:
+            # Update existing record
+            update_data = {
+                "phone_number": phone_number.strip(),
+                "address": address.strip(),
+                "emergency_contact_name": emergency_contact_name.strip(),
+                "emergency_contact_email": emergency_contact_email.strip(),
+                "emergency_contact_phone": emergency_contact_phone.strip(),
+                "dietary_restrictions": dietary_restrictions or [],
+                "tshirt_size": tshirt_size,
+            }
+
+            update_temporary_info(user["id"], event_id, **update_data)
+            temp_info_action = "updated"
+        else:
+            # Create new record
+            temp_info_id = create_temporary_info(
+                user_id=user["id"],
+                event_id=event_id,
+                phone_number=phone_number.strip(),
+                address=address.strip(),
+                emergency_contact_name=emergency_contact_name.strip(),
+                emergency_contact_email=emergency_contact_email.strip(),
+                emergency_contact_phone=emergency_contact_phone.strip(),
+                dietary_restrictions=dietary_restrictions or [],
+                tshirt_size=tshirt_size,
+            )
+
+            if not temp_info_id:
+                temp_info_success = False
+                temp_info_error = "Failed to save temporary info"
+            else:
+                temp_info_action = "created"
+
+    # Build response message
+    if already_registered and temp_info_provided:
+        if temp_info_success:
+            message = f"Already registered for {event_id}. Temporary info {temp_info_action} successfully."
+        else:
+            message = (
+                f"Already registered for {event_id}, but failed to save temporary info."
+            )
+    elif already_registered:
+        message = f"Already registered for {event_id}"
+    elif temp_info_provided and temp_info_success:
+        message = f"Successfully registered for {event_id} and {temp_info_action} temporary info"
+    elif temp_info_provided and not temp_info_success:
+        message = (
+            f"Successfully registered for {event_id}, but failed to save temporary info"
+        )
+    else:
+        message = f"Successfully registered for {event_id}"
+
     return {
-        "success": True,
+        "success": temp_info_success,
         "event_id": event_id,
         "user_email": user_email,
+        "already_registered": already_registered,
         "discord_role_assigned": discord_role_assigned,
-        "message": f"Successfully registered for {event_id}",
+        "temporary_info_provided": temp_info_provided,
+        "temporary_info_action": temp_info_action,
+        "message": message,
+        "error": temp_info_error if not temp_info_success else None,
     }
 
 

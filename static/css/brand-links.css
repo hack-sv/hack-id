@@ -1,0 +1,188 @@
+/* Brand Link Styling - Animated cyan highlight effect for all <a> elements */
+
+/* Global link styling with animated cyan highlight effect */
+a {
+    position: relative;
+    color: black;
+    font-weight: 600; /* Semi-bold */
+    text-decoration: none;
+    font-family: "Barlow Condensed", sans-serif;
+    z-index: 1;
+    overflow: hidden;
+}
+
+a::before {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background-color: #00ccff;
+    transition: height 0.3s ease;
+    z-index: -1;
+}
+
+/* Alternative approach for multi-line links using background gradient with masking */
+a.multiline {
+    position: relative;
+    background-image: linear-gradient(to right, #00ccff 0%, #00ccff 100%);
+    background-repeat: repeat-x;
+    background-position: 0 100%;
+    background-size: 100% 2px;
+    transition: background-size 0.3s ease;
+}
+
+a.multiline::before {
+    display: none;
+}
+
+/* Keep the masking effect for multiline links */
+a.multiline::after {
+    content: attr(data-text);
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    color: white;
+    background-color: #00ccff;
+    display: flex;
+    align-items: center;
+    justify-content: inherit;
+    padding: inherit;
+    clip-path: inset(100% 0 0 0);
+    transition: clip-path 0.3s ease;
+    z-index: 2;
+    pointer-events: none;
+}
+
+a.multiline:hover {
+    background-size: 100% 100%;
+}
+
+a.multiline:hover::after {
+    clip-path: inset(0 0 0 0);
+}
+
+/* Create the masking effect with a duplicate text layer */
+a::after {
+    content: attr(data-text);
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    color: white;
+    background-color: #00ccff;
+    display: flex;
+    align-items: center;
+    justify-content: inherit;
+    padding: inherit;
+    clip-path: inset(100% 0 0 0);
+    transition: clip-path 0.3s ease;
+    z-index: 2;
+    pointer-events: none;
+}
+
+a:hover::before {
+    height: 100%;
+}
+
+a:hover::after {
+    clip-path: inset(0 0 0 0);
+}
+
+/* Special styling for header links (white text on cyan background) */
+header a {
+    color: white;
+    font-weight: 600; /* Semi-bold */
+}
+
+header a::before {
+    background-color: white;
+    height: 0;
+}
+
+header a::after {
+    color: #00ccff;
+    background-color: white;
+}
+
+header a:hover::before {
+    height: 100%;
+}
+
+/* Footer styling (same as header - white text on cyan background) */
+footer a {
+    color: white;
+    font-weight: 600; /* Semi-bold */
+}
+
+footer a::before {
+    background-color: white;
+    height: 1px;
+}
+
+footer a::after {
+    color: #00ccff;
+    background-color: white;
+}
+
+/* Exempt elements with no-link-style class from global link styling */
+a.no-link-style {
+    color: inherit;
+    font-weight: inherit;
+    font-family: inherit;
+    overflow: visible;
+}
+
+a.no-link-style::before,
+a.no-link-style::after {
+    display: none;
+}
+
+/* Special handling for links that need the data-text attribute for the masking effect */
+a[data-text]::after {
+    content: attr(data-text);
+}
+
+/* For links without data-text attribute, we'll use JavaScript to populate it */
+/* This is a fallback - the ::after will be populated by JS */
+a:not([data-text])::after {
+    content: "";
+}
+
+/* Override for simple links that don't need the masking effect */
+a.simple-hover::after {
+    display: none;
+}
+
+a.simple-hover:hover {
+    color: #00ccff;
+}
+
+/* Disable the effect for buttons styled as links */
+a.btn,
+a.button,
+a[class*="btn"] {
+    position: static;
+    overflow: visible;
+}
+
+a.btn::before,
+a.button::before,
+a[class*="btn"]::before,
+a.btn::after,
+a.button::after,
+a[class*="btn"]::after {
+    display: none;
+}
+
+/* Move privacy policy to the bottom of [insert container] without any flexbox */
+.privacy-policy {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+}

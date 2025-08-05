@@ -25,7 +25,7 @@ def create_user(
     events_json = json.dumps(events or [])
 
     cursor = conn.execute(
-        """INSERT INTO users (email, legal_name, preferred_name, pronouns, date_of_birth, discord_id, events)
+        """INSERT INTO users (email, legal_name, preferred_name, pronouns, dob, discord_id, events)
            VALUES (?, ?, ?, ?, ?, ?, ?)""",
         (email, legal_name, preferred_name, pronouns, dob, discord_id, events_json),
     )
@@ -88,7 +88,7 @@ def update_user(user_id, **kwargs):
         "legal_name",
         "preferred_name",
         "pronouns",
-        "date_of_birth",
+        "dob",
         "discord_id",
         "events",
     }
