@@ -160,7 +160,24 @@ function createTextEditor(cell, currentValue, field) {
     const input = document.createElement("input");
     input.type = field === "dob" ? "date" : "text";
     input.className = "edit-input";
-    input.value = currentValue === "N/A" ? "" : currentValue;
+
+    // Handle date field conversion from MM/DD/YYYY to YYYY-MM-DD for HTML date input
+    if (field === "dob" && currentValue && currentValue !== "N/A") {
+        // Convert MM/DD/YYYY to YYYY-MM-DD
+        const dateParts = currentValue.split("/");
+        if (dateParts.length === 3) {
+            const [month, day, year] = dateParts;
+            input.value = `${year}-${month.padStart(2, "0")}-${day.padStart(
+                2,
+                "0"
+            )}`;
+        } else {
+            input.value = "";
+        }
+    } else {
+        input.value = currentValue === "N/A" ? "" : currentValue;
+    }
+
     input.dataset.originalContent = originalContent;
 
     cell.innerHTML = "";
@@ -252,7 +269,21 @@ function saveUser(userEmail) {
         const cell = row.querySelector(`[data-field="${field}"]`);
         const input = cell?.querySelector(".edit-input");
         if (input) {
-            formData.append(field, input.value);
+            let value = input.value;
+
+            // Handle date field conversion from YYYY-MM-DD back to MM/DD/YYYY for storage
+            if (field === "dob" && value) {
+                const dateParts = value.split("-");
+                if (dateParts.length === 3) {
+                    const [year, month, day] = dateParts;
+                    value = `${month.padStart(2, "0")}/${day.padStart(
+                        2,
+                        "0"
+                    )}/${year}`;
+                }
+            }
+
+            formData.append(field, value);
         }
     });
 

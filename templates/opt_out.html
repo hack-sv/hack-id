@@ -67,6 +67,7 @@
                         </div>
 
                         <form method="post">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                             <div class="delete-warning">
                                 <input type="checkbox" id="confirm_deletion" name="confirm_deletion" value="yes" required class="delete-checkbox" />
                                 <label for="confirm_deletion" class="delete-label">
