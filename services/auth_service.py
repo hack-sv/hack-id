@@ -124,7 +124,10 @@ def complete_discord_verification(token, user_email):
         return {"success": False, "error": "User not found"}
 
     # Update user with Discord ID
-    update_user(user["id"], discord_id=token_info["discord_id"])
+    try:
+        update_user(user["id"], discord_id=token_info["discord_id"])
+    except ValueError as e:
+        return {"success": False, "error": str(e)}
 
     # Mark token as used
     mark_token_used(token)
@@ -205,7 +208,10 @@ def unlink_discord_account(user_email):
     role_removal_result = remove_all_event_roles(discord_id)
 
     # Update user record to remove Discord ID
-    update_user(user["id"], discord_id=None)
+    try:
+        update_user(user["id"], discord_id=None)
+    except ValueError as e:
+        return {"success": False, "error": str(e)}
 
     return {
         "success": True,

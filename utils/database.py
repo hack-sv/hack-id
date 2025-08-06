@@ -61,28 +61,6 @@ def get_all_users():
     return users_data
 
 
-def update_user(user_id, **kwargs):
-    """Update user with given fields."""
-    conn = get_db_connection()
-
-    # Build update query dynamically
-    update_fields = []
-    update_values = []
-
-    for field, value in kwargs.items():
-        if field == "events" and isinstance(value, list):
-            value = json.dumps(value)
-        update_fields.append(f"{field} = ?")
-        update_values.append(value)
-
-    if update_fields:
-        update_values.append(user_id)
-        query = f"UPDATE users SET {', '.join(update_fields)} WHERE id = ?"
-        conn.execute(query, update_values)
-        conn.commit()
-
-    conn.close()
-
 
 def delete_user(user_id):
     """Delete user by ID."""

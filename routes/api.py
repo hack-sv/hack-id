@@ -549,7 +549,10 @@ def api_discord_complete_verification():
         # Update user with Discord ID
         from models.user import update_user
 
-        update_user(user["id"], discord_id=discord_id)
+        try:
+            update_user(user["id"], discord_id=discord_id)
+        except ValueError as e:
+            return jsonify({"success": False, "error": str(e)}), 400
 
         return (
             jsonify(

@@ -21,7 +21,6 @@ from services.auth_service import (
     unlink_discord_account,
 )
 from models.user import get_user_by_email, create_user, update_user
-from models.user import get_user_by_email
 from models.oauth_token import create_oauth_token
 from config import DEBUG_MODE
 from urllib.parse import unquote
@@ -395,13 +394,25 @@ def register():
     # Create or update user
     if user:
         # Update existing user
-        update_user(
-            user["id"],
-            legal_name=legal_name,
-            preferred_name=preferred_name or None,
-            pronouns=pronouns,
-            dob=dob,
-        )
+        try:
+            update_user(
+                user["id"],
+                legal_name=legal_name,
+                preferred_name=preferred_name or None,
+                pronouns=pronouns,
+                dob=dob,
+            )
+        except ValueError as e:
+            return render_template(
+                "register.html",
+                user_email=user_email,
+                user_name=user_name,
+                errors=[str(e)],
+                legal_name=legal_name,
+                preferred_name=preferred_name,
+                pronouns=pronouns,
+                dob=dob,
+            )
     else:
         # Create new user
         create_user(
