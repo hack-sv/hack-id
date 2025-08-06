@@ -7,7 +7,6 @@ from flask import (
     redirect,
     request,
     session,
-    url_for,
     jsonify,
 )
 
@@ -50,18 +49,15 @@ def require_admin(f):
 
 
 @admin_bp.route("/admin/")
+@require_admin
 def admin_redirect():
     return redirect("/admin")
 
 
 @admin_bp.route("/admin")
+@require_admin
 def admin_dashboard():
     """Admin dashboard - accessible to all admins."""
-    if "user_email" not in session:
-        return redirect(url_for("auth.auth_google"))
-
-    if not is_admin(session["user_email"]):
-        return redirect("/")
 
     # Get basic statistics
     conn = get_db_connection()
@@ -113,13 +109,9 @@ def admin_dashboard():
 
 
 @admin_bp.route("/admin/users")
+@require_admin
 def admin_users():
     """Admin users page - accessible to all admins."""
-    if "user_email" not in session:
-        return redirect(url_for("auth.auth_google"))
-
-    if not is_admin(session["user_email"]):
-        return redirect("/")
 
     # Get all users from database
     users_data = get_all_users()
@@ -143,26 +135,16 @@ def admin_users():
 
 
 @admin_bp.route("/admin/keys")
+@require_admin
 def admin_keys():
     """Admin API keys page - accessible to all admins."""
-    if "user_email" not in session:
-        return redirect(url_for("auth.auth_google"))
-
-    if not is_admin(session["user_email"]):
-        return redirect("/")
-
     return render_template("admin/keys.html")
 
 
 @admin_bp.route("/admin/update-user", methods=["POST"])
+@require_admin
 def update_user_route():
     """Update user data - accessible to all admins."""
-    if "user_email" not in session:
-        return jsonify({"success": False, "error": "Not authenticated"}), 401
-
-    if not is_admin(session["user_email"]):
-        return jsonify({"success": False, "error": "Unauthorized"}), 403
-
     try:
         email = request.form.get("email")
         if not email:
