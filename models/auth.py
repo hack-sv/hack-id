@@ -1,6 +1,6 @@
 """Authentication models and utilities."""
 
-import random
+import secrets
 import string
 import sqlite3
 from datetime import datetime, timedelta
@@ -8,11 +8,12 @@ from utils.database import get_db_connection
 
 def generate_verification_code(length=6):
     """Generate a random verification code."""
-    return "".join(random.choices(string.digits, k=length))
+    return "".join(secrets.choice(string.digits) for _ in range(length))
 
 def generate_verification_token(length=32):
     """Generate a random verification token for Discord verification."""
-    return "".join(random.choices(string.ascii_letters + string.digits, k=length))
+    alphabet = string.ascii_letters + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(length))
 
 def save_verification_token(discord_id, discord_username, message_id=None):
     """Save verification token to database with expiration time (10 minutes)."""
