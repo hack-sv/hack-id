@@ -536,7 +536,7 @@
         <script src="/static/scripts/admin/core.js"></script>
 
         <!-- Populate events data from server -->
-        <script>
+        <script nonce="{{ g.csp_nonce }}">
             // Populate eventsData from server-side data
             eventsData = {{ events | tojson }};
 
@@ -569,7 +569,7 @@
         <script src="/static/scripts/admin/edit.js"></script>
 
         <!-- Date formatting and age calculation -->
-        <script>
+        <script nonce="{{ g.csp_nonce }}">
             document.addEventListener("DOMContentLoaded", function () {
                 // Format dates and calculate ages
                 document

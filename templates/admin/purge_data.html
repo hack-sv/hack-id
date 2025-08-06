@@ -140,7 +140,7 @@
         </div>
     </div>
 
-    <script>
+    <script nonce="{{ g.csp_nonce }}">
         let currentEventId = '';
         let currentEventName = '';
         let currentRecordCount = 0;
@@ -236,7 +236,7 @@
         }
     </script>
 
-    <style>
+    <style nonce="{{ g.csp_nonce }}">
         .warning-banner {
             background: #fff5f5;
             border: 2px solid #fed7d7;

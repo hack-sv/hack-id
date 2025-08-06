@@ -153,7 +153,7 @@
         </div>
     </div>
 
-    <script>
+    <script nonce="{{ g.csp_nonce }}">
         function toggleDetails(userId) {
             const detailsRow = document.getElementById(`details-${userId}`);
             if (detailsRow.style.display === 'none') {
@@ -164,7 +164,7 @@
         }
     </script>
 
-    <style>
+    <style nonce="{{ g.csp_nonce }}">
         .header-content {
             display: flex;
             justify-content: space-between;

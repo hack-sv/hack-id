@@ -14,7 +14,7 @@
         <!-- SweetAlert2 for modals -->
         <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-        <style>
+        <style nonce="{{ g.csp_nonce }}">
             .create-key-btn {
                 position: fixed;
                 top: 8px;
@@ -199,7 +199,7 @@
 
         <!-- Scripts -->
         <script src="/static/scripts/admin/core.js"></script>
-        <script>
+        <script nonce="{{ g.csp_nonce }}">
             let allKeys = [];
 
             // Load API keys on page load
