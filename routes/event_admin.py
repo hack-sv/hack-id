@@ -3,10 +3,8 @@
 from flask import (
     Blueprint,
     render_template,
-    redirect,
     request,
     session,
-    url_for,
     jsonify,
 )
 from models.admin import is_admin
@@ -34,11 +32,6 @@ def require_admin(f):
 @require_admin
 def admin_events_list():
     """Admin page to list all events."""
-    if "user_email" not in session:
-        return redirect(url_for("auth.auth_google"))
-
-    if not is_admin(session["user_email"]):
-        return redirect("/")
 
     # Get all events
     events = get_all_events()
@@ -68,11 +61,6 @@ def admin_events_list():
 @require_admin
 def admin_event_detail(event_id):
     """Admin page to view registrations for a specific event."""
-    if "user_email" not in session:
-        return redirect(url_for("auth.auth_google"))
-
-    if not is_admin(session["user_email"]):
-        return redirect("/")
 
     # Validate event exists
     if not is_valid_event(event_id):
@@ -105,11 +93,6 @@ def admin_event_detail(event_id):
 @require_admin
 def admin_purge_data_page():
     """Admin page for purging temporary data."""
-    if "user_email" not in session:
-        return redirect(url_for("auth.auth_google"))
-
-    if not is_admin(session["user_email"]):
-        return redirect("/")
 
     # Get all events with temporary data
     events = get_all_events()
@@ -220,8 +203,6 @@ def admin_purge_data_execute():
 @require_admin
 def admin_export_event_data(event_id):
     """Export event registration data as JSON."""
-    if "user_email" not in session or not is_admin(session["user_email"]):
-        return jsonify({"success": False, "error": "Unauthorized"}), 403
 
     # Validate event exists
     if not is_valid_event(event_id):
