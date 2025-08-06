@@ -1,7 +1,9 @@
 """Authentication service with business logic."""
 
+import secrets
 import requests
 from urllib.parse import urlencode
+from flask import session
 from models.auth import (
     generate_verification_code,
     save_verification_code,
@@ -219,11 +221,14 @@ def unlink_discord_account(user_email):
 
 def get_google_auth_url():
     """Get Google OAuth authorization URL."""
+    state = secrets.token_urlsafe()
+    session["oauth_state"] = state
     return "https://accounts.google.com/o/oauth2/auth?" + urlencode(
         {
             "client_id": GOOGLE_CLIENT_ID,
             "redirect_uri": REDIRECT_URI,
             "response_type": "code",
             "scope": "email profile",
+            "state": state,
         }
     )
