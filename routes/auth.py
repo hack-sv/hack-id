@@ -65,6 +65,13 @@ def auth_google():
 @auth_bp.route("/auth/google/callback")
 def auth_google_callback():
     """Handle Google OAuth callback."""
+    state = request.args.get("state")
+    if state != session.get("oauth_state"):
+        return render_template(
+            "auth.html", state="error", error="Invalid OAuth state."
+        )
+    session.pop("oauth_state", None)
+
     code = request.args.get("code")
     if not code:
         return render_template(
