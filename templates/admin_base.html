@@ -14,7 +14,7 @@
 
         <!-- Admin-specific styles -->
         {% block css %}
-        <style>
+        <style nonce="{{ g.csp_nonce }}">
             * {
                 margin: 0;
                 padding: 0;

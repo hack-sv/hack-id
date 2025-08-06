@@ -1,6 +1,6 @@
 {% extends "base.html" %} {% block title %}Discord Verification Successful -
 hack.sv{% endblock %} {% block css %}
-<style>
+<style nonce="{{ g.csp_nonce }}">
     /* Success page specific styles - extends auth.css */
     .success-container {
         background: white;

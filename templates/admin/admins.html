@@ -73,7 +73,7 @@
             </div>
         </div>
 
-        <script>
+        <script nonce="{{ g.csp_nonce }}">
             let allAdmins = [];
 
             // Load admins on page load
@@ -328,7 +328,7 @@
             }
         </script>
 
-        <style>
+        <style nonce="{{ g.csp_nonce }}">
             .status-badge {
                 padding: 4px 8px;
                 border-radius: 12px;

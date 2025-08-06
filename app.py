@@ -1,7 +1,8 @@
 """Main Flask application - refactored and modular."""
 
 import os
-from flask import Flask, request, jsonify
+import secrets
+from flask import Flask, request, jsonify, g
 from flask_wtf.csrf import CSRFProtect
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -40,6 +41,12 @@ register_censoring_filters(app)
 
 # Initialize CSRF protection
 csrf = CSRFProtect(app)
+
+
+# Generate a unique nonce for each request for CSP
+@app.before_request
+def set_csp_nonce():
+    g.csp_nonce = secrets.token_urlsafe(16)
 
 
 # PostHog context processor
@@ -110,10 +117,11 @@ app.register_blueprint(event_admin_bp)
 def add_security_headers(response):
     """Add security headers to all responses."""
     # Content Security Policy
+    nonce = g.get("csp_nonce", "")
     csp = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://us-assets.i.posthog.com; "
-        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        f"script-src 'self' https://cdn.jsdelivr.net https://us-assets.i.posthog.com 'nonce-{nonce}'; "
+        f"style-src 'self' https://cdn.jsdelivr.net 'nonce-{nonce}'; "
         "img-src 'self' data: https:; "
         "font-src 'self'; "
         "connect-src 'self' https://us.i.posthog.com; "

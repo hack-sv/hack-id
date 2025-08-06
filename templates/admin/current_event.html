@@ -84,7 +84,7 @@
             </div>
         </div>
 
-        <script>
+        <script nonce="{{ g.csp_nonce }}">
             let allAttendees = [];
             let eventData = null;
 
@@ -399,7 +399,7 @@
             }
         </script>
 
-        <style>
+        <style nonce="{{ g.csp_nonce }}">
             .event-info {
                 background: white;
                 padding: 20px;
