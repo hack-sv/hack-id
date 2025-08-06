@@ -55,6 +55,11 @@ POSTHOG_API_KEY = os.getenv("POSTHOG_API_KEY")
 POSTHOG_HOST = os.getenv("POSTHOG_HOST", "https://us.i.posthog.com")
 POSTHOG_ENABLED = os.getenv("POSTHOG_ENABLED", "true").lower() == "true"
 
+# Listmonk Configuration
+LISTMONK_URL = os.getenv("LISTMONK_URL", "https://mail.hack.sv")
+LISTMONK_API_KEY = os.getenv("LISTMONK_API_KEY")
+LISTMONK_ENABLED = os.getenv("LISTMONK_ENABLED", "true").lower() == "true" and LISTMONK_API_KEY is not None
+
 # Database configuration
 DATABASE = "users.db"
 

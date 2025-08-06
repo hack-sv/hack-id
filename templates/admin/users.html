@@ -386,7 +386,7 @@
                         data-legal-name="{{ user.legal_name or '' }}"
                         data-preferred-name="{{ user.preferred_name or '' }}"
                         data-pronouns="{{ user.pronouns or '' }}"
-                        data-dob="{{ user.date_of_birth or '' }}"
+                        data-dob="{{ user.dob or '' }}"
                         data-discord="{{ user.discord_id or '' }}"
                     >
                         <td data-field="id">
@@ -450,13 +450,13 @@
                         </td>
 
                         <td data-field="dob">
-                            {% if user.date_of_birth %}
+                            {% if user.dob %}
                             <div>
                                 <span
                                     class="dob-formatted"
-                                    data-dob="{{ user.date_of_birth }}"
+                                    data-dob="{{ user.dob }}"
                                 >
-                                    {{ user.date_of_birth }}
+                                    {{ user.dob }}
                                 </span>
                                 <small
                                     class="age-display"
@@ -464,7 +464,7 @@
                                 >
                                     <span
                                         class="age-calc"
-                                        data-dob="{{ user.date_of_birth }}"
+                                        data-dob="{{ user.dob }}"
                                     ></span>
                                 </small>
                             </div>

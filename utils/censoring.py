@@ -152,7 +152,7 @@ def censor_date(date_str):
     return '**/**/20**'
 
 
-def censor_date_of_birth(dob):
+def censor_dob(dob):
     """Censor date of birth, keeping it generic.
     
     Example: 1995-03-15 -> **/**/20**
@@ -168,4 +168,4 @@ def register_censoring_filters(app):
     app.jinja_env.filters['censor_phone'] = censor_phone
     app.jinja_env.filters['censor_address'] = censor_address
     app.jinja_env.filters['censor_emergency'] = censor_emergency_contact
-    app.jinja_env.filters['censor_date'] = censor_date_of_birth
+    app.jinja_env.filters['censor_date'] = censor_dob

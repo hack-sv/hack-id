@@ -247,8 +247,7 @@ def oauth_user_info():
                 "legal_name": user.get("legal_name"),
                 "preferred_name": user.get("preferred_name"),
                 "pronouns": user.get("pronouns"),
-                "date_of_birth": user.get("date_of_birth")
-                or user.get("dob"),  # Handle both field names
+                "dob": user.get("dob"),
                 "is_admin": is_admin(user["email"]),
             },
         }
@@ -306,7 +305,7 @@ def api_discord_user(discord_id):
                         "legal_name": user["legal_name"],
                         "preferred_name": user["preferred_name"],
                         "pronouns": user["pronouns"],
-                        "date_of_birth": user.get("date_of_birth"),
+                        "dob": user.get("dob"),
                         "discord_id": user["discord_id"],
                         "events": user["events"],
                         "verified": True,  # If user exists with discord_id, they're verified

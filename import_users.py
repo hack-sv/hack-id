@@ -20,12 +20,68 @@ import ollama
 DATABASE = "users.db"
 
 
+def convert_date_to_standard_format(date_str: str) -> Optional[str]:
+    """
+    Convert various date formats to MM/DD/YYYY format.
+    Handles formats from different import sources:
+    - YYYY-MM-DD (ISO format)
+    - MM/DD/YYYY (already correct)
+    - DD/MM/YYYY (European format)
+    - MM-DD-YYYY (dash format)
+    - DD-MM-YYYY (European dash format)
+    """
+    if not date_str or not isinstance(date_str, str):
+        return None
+
+    date_str = date_str.strip()
+    if not date_str:
+        return None
+
+    # List of possible date formats to try
+    date_formats = [
+        "%m/%d/%Y",        # MM/DD/YYYY (already correct)
+        "%Y-%m-%d",        # YYYY-MM-DD (ISO format)
+        "%m-%d-%Y",        # MM-DD-YYYY (dash format)
+        "%d/%m/%Y",        # DD/MM/YYYY (European format)
+        "%d-%m-%Y",        # DD-MM-YYYY (European dash format)
+        "%Y/%m/%d",        # YYYY/MM/DD (alternative ISO)
+        "%B %d, %Y",       # March 22, 2010 (full month name)
+        "%b %d, %Y",       # Mar 22, 2010 (abbreviated month name)
+        "%d-%b-%y",        # 15-Mar-09 (day-month-year with 2-digit year)
+        "%d-%b-%Y",        # 15-Mar-2009 (day-month-year with 4-digit year)
+        "%d-%B-%y",        # 15-March-09 (day-full month-year with 2-digit year)
+        "%d-%B-%Y",        # 15-March-2009 (day-full month-year with 4-digit year)
+        "%b-%d-%y",        # Mar-15-09 (month-day-year with 2-digit year)
+        "%b-%d-%Y",        # Mar-15-2009 (month-day-year with 4-digit year)
+        "%B-%d-%y",        # March-15-09 (full month-day-year with 2-digit year)
+        "%B-%d-%Y",        # March-15-2009 (full month-day-year with 4-digit year)
+        "%d-%m-%y",        # 15-03-09 (European with 2-digit year)
+        "%m-%d-%y",        # 03-15-09 (US with 2-digit year)
+        "%d %B %Y",        # 15 March 2009 (day month year with spaces)
+        "%d %b %Y",        # 15 Mar 2009 (day abbreviated month year with spaces)
+        "%B %d %Y",        # March 15 2009 (month day year with spaces, no comma)
+        "%b %d %Y",        # Mar 15 2009 (abbreviated month day year with spaces, no comma)
+    ]
+
+    for fmt in date_formats:
+        try:
+            date_obj = datetime.strptime(date_str, fmt)
+            # Convert to MM/DD/YYYY format
+            return date_obj.strftime("%m/%d/%Y")
+        except ValueError:
+            continue
+
+    # If no format matches, return None
+    print(f"Warning: Could not parse date format: {date_str}")
+    return None
+
+
 def init_db():
     """Initialize the database with all required tables."""
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
 
-    # Users table (updated to match the main schema)
+    # Users table
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS users (
@@ -34,7 +90,7 @@ def init_db():
             legal_name TEXT,
             preferred_name TEXT,
             pronouns TEXT,
-            date_of_birth TEXT,
+            dob TEXT,
             discord_id TEXT,
             events TEXT DEFAULT '[]'
         )
@@ -315,7 +371,7 @@ def generate_fake_users(count: int) -> List[Dict]:
                 first_name if random.random() < 0.8 else f"{first_name[:2]}"
             ),  # 80% use first name, 20% use nickname
             "pronouns": random.choice(pronouns_list),
-            "date_of_birth": birth_date,
+            "dob": birth_date,
             "discord_id": (
                 f"{random.randint(100000000000000000, 999999999999999999)}"
                 if random.random() < 0.4
@@ -353,7 +409,7 @@ def parse_counterspell_csv(filename: str) -> List[Dict]:
                     "legal_name": row.get("Legal Name", "").strip(),
                     "preferred_name": row.get("Preferred Name", "").strip(),
                     "pronouns": row.get("Pronouns", "").strip(),
-                    "date_of_birth": row.get("DOB", "").strip(),
+                    "dob": row.get("DOB", "").strip(),
                     "discord_id": row.get("Discord", "").strip(),
                     "events": ["counterspell"],
                 }
@@ -391,7 +447,7 @@ def parse_scrapyard_json(filename: str) -> List[Dict]:
                     "legal_name": item.get("fullName", "").strip(),
                     "preferred_name": item.get("preferredName", "").strip(),
                     "pronouns": item.get("pronouns", "").strip(),
-                    "date_of_birth": item.get("dateOfBirth", "").strip(),
+                    "dob": item.get("dateOfBirth", "").strip(),
                     "discord_id": discord_id,
                     "events": ["scrapyard"],
                 }
@@ -513,7 +569,7 @@ def insert_users_to_db(users: Dict[str, Dict], is_fake_data=False):
     for user in users.values():
         events_json = json.dumps(user["events"])
 
-        date_of_birth_field = user.get("date_of_birth") or user.get("date_of_birth")
+        dob_field = convert_date_to_standard_format(user.get("dob"))
 
         try:
             # Try to insert new user
@@ -521,7 +577,7 @@ def insert_users_to_db(users: Dict[str, Dict], is_fake_data=False):
                 """
                 INSERT INTO users (
                     email, legal_name, preferred_name, pronouns,
-                    date_of_birth, discord_id, events
+                    dob, discord_id, events
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
@@ -530,7 +586,7 @@ def insert_users_to_db(users: Dict[str, Dict], is_fake_data=False):
                     user.get("legal_name") or None,
                     user.get("preferred_name") or None,
                     user.get("pronouns") or None,
-                    date_of_birth_field or None,
+                    dob_field or None,
                     user.get("discord_id") or None,
                     events_json,
                 ),
@@ -545,7 +601,7 @@ def insert_users_to_db(users: Dict[str, Dict], is_fake_data=False):
                 SET legal_name = COALESCE(?, legal_name),
                     preferred_name = COALESCE(?, preferred_name),
                     pronouns = COALESCE(?, pronouns),
-                    date_of_birth = COALESCE(?, date_of_birth),
+                    dob = COALESCE(?, dob),
                     discord_id = COALESCE(?, discord_id),
                     events = ?
                 WHERE email = ?
@@ -554,7 +610,7 @@ def insert_users_to_db(users: Dict[str, Dict], is_fake_data=False):
                     user.get("legal_name") or None,
                     user.get("preferred_name") or None,
                     user.get("pronouns") or None,
-                    date_of_birth_field or None,
+                    dob_field or None,
                     user.get("discord_id") or None,
                     events_json,
                     user["email"],

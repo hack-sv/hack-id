@@ -5,6 +5,7 @@ from typing import Dict, List, Any, Optional
 from utils.database import get_db_connection
 from models.user import get_user_by_email
 from config import DEBUG_MODE
+from services.listmonk_service import delete_subscriber_by_email
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -122,13 +123,14 @@ def remove_discord_roles(user_email: str) -> Dict[str, Any]:
     return result
 
 
-def delete_user_data(user_email: str, include_discord: bool = True) -> Dict[str, Any]:
+def delete_user_data(user_email: str, include_discord: bool = True, include_listmonk: bool = True) -> Dict[str, Any]:
     """
-    Permanently delete all user data from all tables.
+    Permanently delete all user data from all tables and external services.
 
     Args:
         user_email: Email of user to delete
         include_discord: Whether to remove Discord roles
+        include_listmonk: Whether to delete from Listmonk mailing list
 
     Returns:
         Dict with deletion results and summary
@@ -139,6 +141,7 @@ def delete_user_data(user_email: str, include_discord: bool = True) -> Dict[str,
         "deleted_from_tables": [],
         "deletion_counts": {},
         "discord_result": None,
+        "listmonk_result": None,
         "errors": [],
         "total_records_deleted": 0,
     }
@@ -161,6 +164,16 @@ def delete_user_data(user_email: str, include_discord: bool = True) -> Dict[str,
                 and discord_result["error"] != "No Discord account linked"
             ):
                 result["errors"].append(f"Discord: {discord_result['error']}")
+
+        # Delete from Listmonk mailing list
+        if include_listmonk:
+            listmonk_result = delete_subscriber_by_email(user_email)
+            result["listmonk_result"] = listmonk_result
+
+            if not listmonk_result["success"] and not listmonk_result.get("skipped", False):
+                result["errors"].append(f"Listmonk: {listmonk_result['error']}")
+            elif listmonk_result["success"]:
+                logger.info(f"Successfully deleted {user_email} from Listmonk mailing list")
 
         conn = get_db_connection()
         total_deleted = 0

@@ -71,19 +71,23 @@ def validate_pronouns(pronouns: str) -> bool:
     return bool(re.match(pattern, pronouns.strip()))
 
 
-def validate_date_of_birth(dob: str) -> bool:
-    """Validate date of birth format (YYYY-MM-DD)."""
+def validate_dob(dob: str) -> bool:
+    """Validate date of birth format (MM/DD/YYYY)."""
     if not isinstance(dob, str):
         return False
-    
-    # Basic date format validation
-    pattern = r'^\d{4}-\d{2}-\d{2}$'
+
+    # Basic date format validation for MM/DD/YYYY
+    pattern = r'^\d{2}/\d{2}/\d{4}$'
     if not re.match(pattern, dob.strip()):
         return False
-    
-    # Additional validation could include checking if it's a valid date
-    # and if the person is old enough, but keeping it simple for now
-    return True
+
+    # Additional validation - check if it's a valid date
+    try:
+        from datetime import datetime
+        datetime.strptime(dob.strip(), "%m/%d/%Y")
+        return True
+    except ValueError:
+        return False
 
 
 def validate_event_id(event_id: str) -> bool:
@@ -142,7 +146,7 @@ def validate_user_input(data: Dict[str, Any]) -> Dict[str, Union[str, List[str]]
     # Date of birth validation
     if 'dob' in data:
         dob = data['dob']
-        if dob and not validate_date_of_birth(dob):
+        if dob and not validate_dob(dob):
             errors.append("Invalid date of birth format (use YYYY-MM-DD)")
         else:
             sanitized_data['dob'] = dob.strip() if dob else None

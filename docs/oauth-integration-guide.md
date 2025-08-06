@@ -180,7 +180,7 @@ The API returns the following user information:
         "legal_name": "John Doe",
         "preferred_name": "John",
         "pronouns": "he/him/his",
-        "date_of_birth": "1990-01-01",
+        "dob": "01/01/1990",
         "is_admin": false
     }
 }

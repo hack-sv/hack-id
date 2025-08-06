@@ -361,12 +361,15 @@ def register():
     if not pronouns:
         errors.append("Pronouns are required")
 
-    # Validate date format (YYYY-MM-DD)
+    # Validate and convert date format from YYYY-MM-DD to MM/DD/YYYY
     if dob:
         try:
             from datetime import datetime
 
-            datetime.strptime(dob, "%Y-%m-%d")
+            # Parse the HTML date input format (YYYY-MM-DD)
+            date_obj = datetime.strptime(dob, "%Y-%m-%d")
+            # Convert to MM/DD/YYYY format for storage
+            dob = date_obj.strftime("%m/%d/%Y")
         except ValueError:
             errors.append("Invalid date format")
 

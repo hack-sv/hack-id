@@ -365,7 +365,7 @@ async def user_info(ctx, user):
 
         embed.add_field(
             name="🎂 Date of Birth",
-            value=target_user.get("date_of_birth") or "N/A",
+            value=target_user.get("dob") or "N/A",
             inline=True,
         )
 

@@ -95,7 +95,10 @@ Verification{% elif state == 'email_verify' %}Verify Email{% elif state ==
             <button type="submit" class="verify-btn">Verify</button>
         </form>
 
-        <a href="{{ url_for('auth.index') }}" class="back-link"
+        <a
+            href="{{ url_for('auth.index') }}"
+            class="privacy-policy"
+            style="bottom: 60px"
             >Use a different email</a
         >
     </div>
