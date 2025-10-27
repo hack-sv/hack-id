@@ -1,4 +1,4 @@
-# hack.sv ID - Identity Management System
+# [hack.sv](https://hack.sv) ID - Identity Management System
 
 A comprehensive identity management system for hackathon events, built with Flask. Features secure authentication, user registration, Discord integration, and privacy-first data management.
 
