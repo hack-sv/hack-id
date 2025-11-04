@@ -1,6 +1,6 @@
-# hack.sv ID - Identity Management System
+# Hack ID by [hack.sv](https://hack.sv)
 
-A comprehensive identity management system for hackathon events, built with Flask. Features secure authentication, user registration, Discord integration, and privacy-first data management.
+A comprehensive identity management system for [hack.sv](https://hack.sv) events, built with Flask.
 
 ## 🚀 Features
 
@@ -32,11 +32,14 @@ A comprehensive identity management system for hackathon events, built with Flas
 -   **Data Minimization** - Collect only necessary information
 -   **Automatic Cleanup** - Temporary event data auto-deletion
 
-### Discord Bot Integration
+### Security Features
 
--   **Role Management** - Automatic Discord role assignment
--   **Verification System** - Link Discord accounts to event registration
--   **Username Fetching** - Display Discord usernames on dashboard
+-   **CSRF Protection** - All forms protected against CSRF attacks
+-   **Session Security** - Secure session cookies with httpOnly flag
+-   **Input Validation** - All user inputs validated and sanitized
+-   **SQL Injection Prevention** - Parameterized queries throughout
+-   **Rate Limiting** - API endpoints protected against abuse (disabled in development)
+-   **Privacy by Design** - Minimal data collection and automatic cleanup
 
 ## 🛠️ Quick Start
 
