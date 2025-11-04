@@ -162,7 +162,7 @@ def init_db():
     cursor.execute(
         """
         INSERT OR IGNORE INTO admins (email, added_by, added_at)
-        VALUES ('admin@example.com', 'system', CURRENT_TIMESTAMP)
+        VALUES ('admin@hack.sv', 'system', CURRENT_TIMESTAMP)
         """
     )
 
