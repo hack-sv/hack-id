@@ -21,7 +21,7 @@
 }
 
 .section-title {
-    font-family: "Barlow Condensed", sans-serif;
+    font-family: "Nunito Sans", sans-serif;
     font-size: 18px;
     font-weight: 500;
     color: black;
@@ -38,7 +38,7 @@
     border-radius: 4px;
     padding: 15px;
     margin-bottom: 20px;
-    font-family: "Barlow Condensed", sans-serif;
+    font-family: "Nunito Sans", sans-serif;
     font-size: 16px;
     color: #856404;
     text-align: left;
@@ -50,7 +50,7 @@
     border-radius: 4px;
     padding: 15px;
     margin-bottom: 20px;
-    font-family: "Barlow Condensed", sans-serif;
+    font-family: "Nunito Sans", sans-serif;
     font-size: 16px;
     color: #721c24;
     text-align: left;
@@ -68,7 +68,7 @@
 .deletion-list ul {
     margin: 0;
     padding-left: 20px;
-    font-family: "Barlow Condensed", sans-serif;
+    font-family: "Nunito Sans", sans-serif;
     font-size: 16px;
     color: black;
 }
@@ -90,7 +90,7 @@
 .info-list ul {
     margin: 0;
     padding-left: 20px;
-    font-family: "Barlow Condensed", sans-serif;
+    font-family: "Nunito Sans", sans-serif;
     font-size: 16px;
     color: black;
 }
@@ -107,7 +107,7 @@
     border-radius: 4px;
     padding: 15px;
     margin-bottom: 15px;
-    font-family: "Barlow Condensed", sans-serif;
+    font-family: "Nunito Sans", sans-serif;
     font-size: 16px;
     color: #155724;
     text-align: left;
@@ -133,7 +133,7 @@
 }
 
 .delete-label {
-    font-family: "Barlow Condensed", sans-serif;
+    font-family: "Nunito Sans", sans-serif;
     font-size: 14px;
     color: black;
     line-height: 1.4;
@@ -152,7 +152,7 @@
     border: 2px solid black;
     border-radius: 4px;
     padding: 12px 24px;
-    font-family: "Barlow Condensed", sans-serif;
+    font-family: "Nunito Sans", sans-serif;
     font-size: 18px;
     font-weight: 500;
     color: white;
@@ -167,7 +167,7 @@
 
 /* Help text */
 .help-text {
-    font-family: "Barlow Condensed", sans-serif;
+    font-family: "Nunito Sans", sans-serif;
     font-size: 14px;
     color: #666;
     line-height: 1.4;
@@ -184,7 +184,7 @@
     bottom: 20px;
     left: 50%;
     transform: translateX(-50%);
-    font-family: "Barlow Condensed", sans-serif;
+    font-family: "Nunito Sans", sans-serif;
     font-size: 14px;
     color: #666;
     text-decoration: none;

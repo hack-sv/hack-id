@@ -25,7 +25,7 @@
 }
 
 .section-title {
-    font-family: "Barlow Condensed", sans-serif;
+    font-family: "Nunito Sans", sans-serif;
     font-size: 18px;
     font-weight: 500;
     color: black;
@@ -42,13 +42,13 @@
     border-radius: 4px;
     padding: 10px 15px;
     margin-bottom: 10px;
-    font-family: "Barlow Condensed", sans-serif;
+    font-family: "Nunito Sans", sans-serif;
     font-size: 16px;
     color: black;
 }
 
 .no-events {
-    font-family: "Barlow Condensed", sans-serif;
+    font-family: "Nunito Sans", sans-serif;
     font-size: 16px;
     color: #666;
     text-align: center;
@@ -68,14 +68,14 @@
 }
 
 .discord-username {
-    font-family: "Barlow Condensed", sans-serif;
+    font-family: "Nunito Sans", sans-serif;
     font-size: 16px;
     font-weight: 500;
     color: black;
 }
 
 .not-connected {
-    font-family: "Barlow Condensed", sans-serif;
+    font-family: "Nunito Sans", sans-serif;
     font-size: 16px;
     color: #666;
     font-style: italic;
@@ -86,7 +86,7 @@
     border: 2px solid black;
     border-radius: 4px;
     padding: 8px 16px;
-    font-family: "Barlow Condensed", sans-serif;
+    font-family: "Nunito Sans", sans-serif;
     font-size: 14px;
     font-weight: 500;
     color: black;
@@ -120,14 +120,14 @@
 }
 
 .info-label {
-    font-family: "Barlow Condensed", sans-serif;
+    font-family: "Nunito Sans", sans-serif;
     font-size: 16px;
     font-weight: 500;
     color: black;
 }
 
 .info-value {
-    font-family: "Barlow Condensed", sans-serif;
+    font-family: "Nunito Sans", sans-serif;
     font-size: 16px;
     color: #666;
 }
@@ -145,7 +145,7 @@
     border: 2px solid black;
     border-radius: 4px;
     padding: 10px 20px;
-    font-family: "Barlow Condensed", sans-serif;
+    font-family: "Nunito Sans", sans-serif;
     font-size: 16px;
     font-weight: 500;
     color: black;
@@ -173,7 +173,7 @@
     border: 2px solid black;
     border-radius: 4px;
     padding: 12px 24px;
-    font-family: "Barlow Condensed", sans-serif;
+    font-family: "Nunito Sans", sans-serif;
     font-size: 18px;
     font-weight: 500;
     color: black;
@@ -211,7 +211,7 @@
 }
 
 .delete-label {
-    font-family: "Barlow Condensed", sans-serif;
+    font-family: "Nunito Sans", sans-serif;
     font-size: 14px;
     color: black;
     line-height: 1.4;
@@ -220,7 +220,7 @@
 }
 
 .delete-info {
-    font-family: "Barlow Condensed", sans-serif;
+    font-family: "Nunito Sans", sans-serif;
     font-size: 14px;
     color: #666;
     line-height: 1.4;
@@ -241,7 +241,7 @@
 }
 
 .no-per-event-info p {
-    font-family: "Barlow Condensed", sans-serif;
+    font-family: "Nunito Sans", sans-serif;
     font-size: 16px;
     color: #666;
     margin: 0;
@@ -254,7 +254,7 @@
     bottom: 20px;
     left: 50%;
     transform: translateX(-50%);
-    font-family: "Barlow Condensed", sans-serif;
+    font-family: "Nunito Sans", sans-serif;
     font-size: 14px;
     color: #666;
     text-decoration: none;
