@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Management - Hack ID</title>
+    <style nonce="{{ g.csp_nonce }}">
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f8f9fa;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            color: #666;
+        }
+
+        .nav-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: #0066cc;
+            text-decoration: none;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .nav-link:hover {
+            text-decoration: underline;
+        }
+
+        .section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .db-info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .info-item {
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+
+        .info-item label {
+            display: block;
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .info-item .value {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .danger-zone {
+            background: #fff5f5;
+            border: 2px solid #ff4444;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .danger-zone h2 {
+            color: #cc0000;
+            margin-bottom: 10px;
+        }
+
+        .warning-text {
+            color: #cc0000;
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+
+        .warning-list {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .warning-list li {
+            margin-bottom: 8px;
+            color: #666;
+        }
+
+        .upload-form {
+            background: white;
+            padding: 20px;
+            border-radius: 6px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .file-input {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            border: 2px dashed #ccc;
+            border-radius: 6px;
+            cursor: pointer;
+            text-align: center;
+            background: #f8f9fa;
+        }
+
+        .file-input:hover {
+            border-color: #0066cc;
+            background: #f0f7ff;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            margin-top: 4px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .checkbox-group label {
+            flex: 1;
+            cursor: pointer;
+            color: #333;
+        }
+
+        .text-input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .text-input:focus {
+            outline: none;
+            border-color: #0066cc;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-danger {
+            background: #ff4444;
+            color: white;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: #cc0000;
+        }
+
+        .btn-danger:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+        }
+
+        .toast.success {
+            background: #00cc66;
+            color: white;
+        }
+
+        .toast.error {
+            background: #ff4444;
+            color: white;
+        }
+
+        .toast.warning {
+            background: #ff9900;
+            color: white;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .backups-list {
+            margin-top: 20px;
+        }
+
+        .backup-item {
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .backup-info {
+            flex: 1;
+        }
+
+        .backup-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .backup-meta {
+            font-size: 12px;
+            color: #666;
+        }
+
+        #uploadProgress {
+            display: none;
+            margin-top: 15px;
+            padding: 15px;
+            background: #f0f7ff;
+            border-radius: 6px;
+            text-align: center;
+            color: #0066cc;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/admin" class="nav-link">← Back to Admin Dashboard</a>
+
+        <div class="header">
+            <h1>🗄️ Database Management</h1>
+            <p>View database information and perform hot-swap operations</p>
+        </div>
+
+        <!-- Current Database Info -->
+        <div class="section">
+            <h2>Current Database Information</h2>
+            {% if current_db_info.exists and not current_db_info.error %}
+            <div class="db-info-grid">
+                <div class="info-item">
+                    <label>Total Users</label>
+                    <div class="value">{{ current_db_info.user_count }}</div>
+                </div>
+                <div class="info-item">
+                    <label>Active Admins</label>
+                    <div class="value">{{ current_db_info.admin_count }}</div>
+                </div>
+                <div class="info-item">
+                    <label>API Keys</label>
+                    <div class="value">{{ current_db_info.api_key_count }}</div>
+                </div>
+                <div class="info-item">
+                    <label>File Size</label>
+                    <div class="value">{{ current_db_info.file_size_mb }} MB</div>
+                </div>
+                <div class="info-item">
+                    <label>Tables</label>
+                    <div class="value">{{ current_db_info.table_count }}</div>
+                </div>
+                <div class="info-item">
+                    <label>Last Modified</label>
+                    <div class="value" style="font-size: 12px;">{{ current_db_info.modified_time[:10] }}</div>
+                </div>
+            </div>
+            {% else %}
+            <p style="color: #cc0000;">Error: {{ current_db_info.error }}</p>
+            {% endif %}
+        </div>
+
+        <!-- Database Backups -->
+        {% if backups %}
+        <div class="section">
+            <h2>Recent Backups</h2>
+            <div class="backups-list">
+                {% for backup in backups[:5] %}
+                <div class="backup-item">
+                    <div class="backup-info">
+                        <div class="backup-name">{{ backup.filename }}</div>
+                        <div class="backup-meta">{{ backup.file_size_mb }} MB • Created {{ backup.created_time[:19] }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Danger Zone: Database Upload -->
+        <div class="section danger-zone">
+            <h2>⚠️ DANGER ZONE: Database Hot-Swap</h2>
+            <p class="warning-text">
+                <strong>WARNING:</strong> Uploading a new database will immediately replace the current database.
+                This action is extremely dangerous and can result in data loss if not done correctly.
+            </p>
+
+            <div class="warning-list">
+                <strong>Before proceeding, ensure:</strong>
+                <ul>
+                    <li>✓ The new database file is a valid SQLite database</li>
+                    <li>✓ The database contains all required tables (users, admins, etc.)</li>
+                    <li>✓ There is at least one active admin user in the new database</li>
+                    <li>✓ You have a backup of the current database</li>
+                    <li>✓ You understand this will log out all current users</li>
+                    <li>✓ You are prepared to lose access if your admin account is not in the new database</li>
+                </ul>
+            </div>
+
+            <div class="upload-form">
+                <form id="uploadForm" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="database_file">Select Database File (.db)</label>
+                        <input type="file" id="database_file" name="database_file" accept=".db" required class="file-input">
+                    </div>
+
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="confirmation1" name="confirmation1" required>
+                        <label for="confirmation1">
+                            I understand that this will immediately replace the current database and may result in data loss.
+                        </label>
+                    </div>
+
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="confirmation2" name="confirmation2" required>
+                        <label for="confirmation2">
+                            I have verified that the new database file is valid and contains all required data.
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="confirmation_text">
+                            Type "I understand the consequences" to confirm:
+                        </label>
+                        <input 
+                            type="text" 
+                            id="confirmation_text" 
+                            name="confirmation_text" 
+                            class="text-input"
+                            placeholder="Type exactly: I understand the consequences"
+                            autocomplete="off"
+                            required
+                        >
+                    </div>
+
+                    <button type="submit" id="submitBtn" class="btn btn-danger" disabled>
+                        🔥 Upload and Swap Database
+                    </button>
+
+                    <div id="uploadProgress">
+                        <strong>Processing database swap...</strong><br>
+                        Please wait, do not close this page.
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script nonce="{{ g.csp_nonce }}">
+        const form = document.getElementById('uploadForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const confirmation1 = document.getElementById('confirmation1');
+        const confirmation2 = document.getElementById('confirmation2');
+        const confirmationText = document.getElementById('confirmation_text');
+        const uploadProgress = document.getElementById('uploadProgress');
+
+        // Enable submit button only when all confirmations are complete
+        function checkConfirmations() {
+            const allChecked = confirmation1.checked && confirmation2.checked;
+            const textCorrect = confirmationText.value.trim() === 'I understand the consequences';
+            submitBtn.disabled = !(allChecked && textCorrect);
+        }
+
+        confirmation1.addEventListener('change', checkConfirmations);
+        confirmation2.addEventListener('change', checkConfirmations);
+        confirmationText.addEventListener('input', checkConfirmations);
+
+        // Handle form submission
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!confirm('This is your FINAL WARNING. Are you absolutely sure you want to swap the database?')) {
+                return;
+            }
+
+            const formData = new FormData(form);
+            submitBtn.disabled = true;
+            uploadProgress.style.display = 'block';
+
+            try {
+                const response = await fetch('/admin/database/upload', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast('success', data.message);
+                    if (data.warning) {
+                        setTimeout(() => showToast('warning', data.warning), 2000);
+                    }
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 3000);
+                } else {
+                    showToast('error', data.error || 'Failed to swap database');
+                    submitBtn.disabled = false;
+                    uploadProgress.style.display = 'none';
+                }
+            } catch (error) {
+                showToast('error', 'Network error: ' + error.message);
+                submitBtn.disabled = false;
+                uploadProgress.style.display = 'none';
+            }
+        });
+
+        function showToast(type, message) {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.remove();
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
+

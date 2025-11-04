@@ -22,6 +22,7 @@ from utils.rate_limiter import rate_limit_api_key, start_cleanup_thread
 from utils.censoring import register_censoring_filters
 from routes.auth import auth_bp
 from routes.admin import admin_bp
+from routes.admin_database import admin_database_bp
 from routes.opt_out import opt_out_bp
 from models.api_key import get_key_permissions, log_api_key_usage
 
@@ -95,6 +96,7 @@ else:
 # Register blueprints
 app.register_blueprint(auth_bp)
 app.register_blueprint(admin_bp)
+app.register_blueprint(admin_database_bp)
 app.register_blueprint(opt_out_bp)
 
 # Admin routes keep CSRF protection for security
