@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Database Management - Hack ID</title>
     <style nonce="{{ g.csp_nonce }}">
         * {
@@ -441,6 +442,12 @@
         confirmation2.addEventListener('change', checkConfirmations);
         confirmationText.addEventListener('input', checkConfirmations);
 
+        // Get CSRF token
+        function getCSRFToken() {
+            const metaTag = document.querySelector('meta[name="csrf-token"]');
+            return metaTag ? metaTag.getAttribute('content') : '';
+        }
+
         // Handle form submission
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -456,6 +463,9 @@
             try {
                 const response = await fetch('/admin/database/upload', {
                     method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCSRFToken(),
+                    },
                     body: formData,
                 });
 
