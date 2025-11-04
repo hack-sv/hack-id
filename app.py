@@ -17,6 +17,7 @@ from config import (
     POSTHOG_ENABLED,
 )
 from utils.db_init import init_db, check_table_exists, list_all_tables
+from utils.database import get_db_connection
 from utils.rate_limiter import rate_limit_api_key, start_cleanup_thread
 from utils.censoring import register_censoring_filters
 from routes.auth import auth_bp
@@ -188,6 +189,28 @@ def require_api_key(required_permissions=None):
         return wrapper
 
     return decorator
+
+
+# Health check endpoint (for Docker/Kubernetes)
+@app.route("/health", methods=["GET"])
+def health_check():
+    """Health check endpoint for container orchestration."""
+    try:
+        # Check database connectivity
+        conn = get_db_connection()
+        conn.execute("SELECT 1").fetchone()
+        conn.close()
+
+        return jsonify({
+            "status": "healthy",
+            "service": "hack-id",
+            "database": "connected"
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "status": "unhealthy",
+            "error": str(e)
+        }), 503
 
 
 # Test API endpoint

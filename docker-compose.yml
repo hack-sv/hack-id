@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  # Flask Web Application
+  web:
+    build: .
+    container_name: hack-id-web
+    ports:
+      - "3000:3000"
+    environment:
+      # Production mode
+      - PROD=TRUE
+      
+      # Flask Configuration (set these in .env or pass via environment)
+      - SECRET_KEY=${SECRET_KEY}
+      
+      # Google OAuth
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - REDIRECT_URI=${REDIRECT_URI:-https://id.hack.sv/auth/google/callback}
+      
+      # Email Configuration (optional)
+      - MAIL_HOST=${MAIL_HOST:-email-smtp.us-west-1.amazonaws.com}
+      - MAIL_PORT=${MAIL_PORT:-587}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - EMAIL_SENDER=${EMAIL_SENDER:-adam@hack.sv}
+      - EMAIL_SENDER_NAME=${EMAIL_SENDER_NAME:-Adam Xu}
+      
+      # PostHog Analytics (optional)
+      - POSTHOG_API_KEY=${POSTHOG_API_KEY}
+      - POSTHOG_HOST=${POSTHOG_HOST:-https://us.i.posthog.com}
+      - POSTHOG_ENABLED=${POSTHOG_ENABLED:-true}
+      
+      # Listmonk Integration (optional)
+      - LISTMONK_URL=${LISTMONK_URL:-https://mail.hack.sv}
+      - LISTMONK_API_KEY=${LISTMONK_API_KEY}
+      - LISTMONK_ENABLED=${LISTMONK_ENABLED:-true}
+      
+      # Discord Configuration (optional, for web app Discord linking)
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
+      - DISCORD_GUILD_ID=${DISCORD_GUILD_ID}
+    
+    volumes:
+      # Persist database
+      - ./data:/app/data
+      # Mount database to app directory for compatibility
+      - ./data/users.db:/app/users.db
+    
+    restart: unless-stopped
+    
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:3000/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Discord Bot (optional - comment out if not needed)
+  discord-bot:
+    build: .
+    container_name: hack-id-discord-bot
+    command: ["python", "discord_bot.py"]
+    environment:
+      # Production mode
+      - PROD=TRUE
+      
+      # Discord Bot Configuration
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
+      - DISCORD_GUILD_ID=${DISCORD_GUILD_ID}
+      
+      # API Configuration (bot needs to communicate with web app)
+      - SECRET_KEY=${SECRET_KEY}
+    
+    volumes:
+      # Share database with web app
+      - ./data:/app/data
+      - ./data/users.db:/app/users.db
+    
+    restart: unless-stopped
+    
+    depends_on:
+      web:
+        condition: service_healthy
+
+volumes:
+  data:
+    driver: local
+

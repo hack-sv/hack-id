@@ -182,6 +182,164 @@ For production deployment:
 4. Set up monitoring and logging
 5. Review security settings in `config.py`
 
+## 🚀 Deployment
+
+### Deploying to Coolify
+
+[Coolify](https://coolify.io/) is a self-hosted platform-as-a-service that makes deployment easy. This project includes Docker configuration for seamless Coolify deployment.
+
+#### Prerequisites
+
+- A Coolify instance (self-hosted or managed)
+- A GitHub/GitLab repository with this code
+- Domain name (optional, but recommended for production)
+
+#### Deployment Steps
+
+1. **Create a New Resource in Coolify**
+   - Log into your Coolify dashboard
+   - Click "New Resource" → "Application"
+   - Select your Git repository
+
+2. **Configure Build Settings**
+   - **Build Pack**: Select "Dockerfile" (recommended) or "Nixpacks"
+   - **Dockerfile Path**: `Dockerfile` (default)
+   - **Port**: `3000`
+
+3. **Set Environment Variables**
+
+   In Coolify's environment variables section, add the following:
+
+   ```env
+   # Required - Flask Configuration
+   SECRET_KEY=your-super-secret-key-here
+   PROD=TRUE
+
+   # Required - Google OAuth
+   GOOGLE_CLIENT_ID=your-google-client-id
+   GOOGLE_CLIENT_SECRET=your-google-client-secret
+   REDIRECT_URI=https://yourdomain.com/auth/google/callback
+
+   # Optional - Discord Integration
+   DISCORD_BOT_TOKEN=your-discord-bot-token
+   DISCORD_GUILD_ID=your-discord-server-id
+
+   # Optional - Email Notifications (AWS SES)
+   MAIL_HOST=email-smtp.us-west-1.amazonaws.com
+   MAIL_PORT=587
+   MAIL_USERNAME=your-aws-ses-smtp-username
+   MAIL_PASSWORD=your-aws-ses-smtp-password
+   EMAIL_SENDER=your-email@domain.com
+   EMAIL_SENDER_NAME=Your Name
+
+   # Optional - PostHog Analytics
+   POSTHOG_API_KEY=your-posthog-api-key
+   POSTHOG_HOST=https://us.i.posthog.com
+   POSTHOG_ENABLED=true
+
+   # Optional - Listmonk Integration
+   LISTMONK_URL=https://mail.yourdomain.com
+   LISTMONK_API_KEY=your-listmonk-api-key
+   LISTMONK_ENABLED=true
+   ```
+
+4. **Configure Persistent Storage**
+
+   Add a persistent volume for the SQLite database:
+   - **Source Path**: `/app/users.db`
+   - **Destination Path**: `/data/users.db`
+   - This ensures your database persists across deployments
+
+5. **Set Up Health Checks**
+
+   Coolify will automatically use the health check defined in the Dockerfile:
+   - **Health Check URL**: `/health`
+   - **Interval**: 30 seconds
+
+6. **Deploy**
+   - Click "Deploy" to start the deployment
+   - Coolify will build the Docker image and start the container
+   - Monitor the build logs for any errors
+
+7. **Configure Domain (Optional)**
+   - In Coolify, go to "Domains" section
+   - Add your custom domain
+   - Coolify will automatically handle SSL certificates via Let's Encrypt
+
+#### Deploying Discord Bot (Optional)
+
+If you want to run the Discord bot alongside the web app:
+
+1. **Option 1: Separate Service in Coolify**
+   - Create a new application in Coolify
+   - Use the same repository
+   - Set **Start Command**: `python discord_bot.py`
+   - Add the same environment variables (especially `DISCORD_BOT_TOKEN` and `DISCORD_GUILD_ID`)
+   - Mount the same database volume to share data with the web app
+
+2. **Option 2: Docker Compose (Advanced)**
+   - Use the included `docker-compose.yml` file
+   - In Coolify, select "Docker Compose" as the build pack
+   - This will run both the web app and Discord bot in the same deployment
+
+### Docker Deployment (Other Platforms)
+
+For deploying to other platforms (Railway, Render, Fly.io, etc.):
+
+#### Using Dockerfile
+
+```bash
+# Build the image
+docker build -t hack-id .
+
+# Run the container
+docker run -d \
+  -p 3000:3000 \
+  -e SECRET_KEY=your-secret-key \
+  -e PROD=TRUE \
+  -e GOOGLE_CLIENT_ID=your-client-id \
+  -e GOOGLE_CLIENT_SECRET=your-client-secret \
+  -v $(pwd)/data:/app/data \
+  hack-id
+```
+
+#### Using Docker Compose
+
+```bash
+# Create a .env file with your environment variables
+cp .env.example .env
+# Edit .env with your values
+
+# Start all services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
+### Database Persistence
+
+**Important**: The SQLite database (`users.db`) must be persisted across deployments:
+
+- **Coolify**: Use persistent volumes (configured in step 4 above)
+- **Docker**: Mount a volume to `/app/users.db` or `/app/data`
+- **Docker Compose**: The included `docker-compose.yml` already configures this
+
+### Post-Deployment Checklist
+
+After deploying:
+
+- [ ] Verify the health check endpoint: `https://yourdomain.com/health`
+- [ ] Test Google OAuth login flow
+- [ ] Set up your first admin user (see Admin Setup section)
+- [ ] Configure database backups
+- [ ] Test Discord integration (if enabled)
+- [ ] Review application logs for any errors
+- [ ] Set up monitoring and alerts
+
 ## 🔐 Security Features
 
 -   **CSRF Protection** - All forms protected against CSRF attacks
