@@ -250,6 +250,8 @@ For production deployment:
    - **Destination Path**: `/data/users.db`
    - This ensures your database persists across deployments
 
+   **Note**: The database and all tables will be automatically created on first startup. If you have an existing database, see the "Uploading an Existing Database" section below.
+
 5. **Set Up Health Checks**
 
    Coolify will automatically use the health check defined in the Dockerfile:
@@ -327,6 +329,48 @@ docker-compose down
 - **Coolify**: Use persistent volumes (configured in step 4 above)
 - **Docker**: Mount a volume to `/app/users.db` or `/app/data`
 - **Docker Compose**: The included `docker-compose.yml` already configures this
+
+#### Uploading an Existing Database to Coolify
+
+If you have an existing `users.db` file with configured users and admins, you can upload it to Coolify:
+
+**Method 1: Using Coolify's File Manager (Easiest)**
+
+1. In Coolify, go to your application
+2. Navigate to "Storages" or "Volumes" section
+3. Find the persistent volume for the database
+4. Use the file manager to upload your `users.db` file
+5. Restart the application
+
+**Method 2: Using SSH/SCP**
+
+1. Find your Coolify server's SSH details
+2. Locate the volume path (usually something like `/var/lib/docker/volumes/...`)
+3. Upload the database file:
+   ```bash
+   # From your local machine
+   scp users.db user@your-server:/path/to/volume/users.db
+   ```
+4. Restart the application in Coolify
+
+**Method 3: Using Docker Commands on Server**
+
+1. SSH into your Coolify server
+2. Find your container:
+   ```bash
+   docker ps | grep hack-id
+   ```
+3. Copy the database into the container:
+   ```bash
+   docker cp users.db <container-id>:/app/users.db
+   ```
+4. Restart the container in Coolify
+
+**Important Notes:**
+- Make sure to backup your existing database before uploading
+- The database file should have proper permissions (readable by the container)
+- After uploading, verify the database is working by checking the health endpoint
+- The application will automatically create tables if they don't exist, but won't overwrite existing data
 
 ### Post-Deployment Checklist
 

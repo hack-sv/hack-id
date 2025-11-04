@@ -28,6 +28,9 @@ COPY . .
 # Create directory for database
 RUN mkdir -p /app/data
 
+# Make entrypoint script executable
+RUN chmod +x /app/docker-entrypoint.sh
+
 # Expose port
 EXPOSE 3000
 
@@ -35,6 +38,6 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD python -c "import requests; requests.get('http://localhost:3000/health', timeout=5)" || exit 1
 
-# Run with Gunicorn
-CMD ["gunicorn", "--workers", "4", "--bind", "0.0.0.0:3000", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "app:app"]
+# Use entrypoint script to initialize DB before starting Gunicorn
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 
