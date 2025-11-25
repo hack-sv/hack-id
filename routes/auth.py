@@ -22,6 +22,8 @@ from services.auth_service import (
 )
 from models.user import get_user_by_email, create_user, update_user
 from models.oauth_token import create_oauth_token
+from models.app import validate_app_redirect, has_app_permission
+from models.admin import is_admin
 from config import DEBUG_MODE
 from urllib.parse import unquote
 
@@ -99,10 +101,48 @@ def auth_google_callback():
         return redirect(url_for("auth.verify_complete"))
 
     # Check if this is part of OAuth flow
-    if "oauth_redirect" in session:
+    if "oauth_redirect" in session and "oauth_app_id" in session:
+        user_email = result["user"]["email"]
+        app_id = session.get("oauth_app_id")
+        redirect_url = session.get("oauth_redirect")
+
+        # Get app info to check permissions
+        from models.app import get_app_by_id
+        app = get_app_by_id(app_id)
+
+        if not app or not app['is_active']:
+            session.pop("oauth_redirect", None)
+            session.pop("oauth_app_id", None)
+            return render_template(
+                "auth.html",
+                state="error",
+                error="This app is no longer available."
+            )
+
+        # Check if app allows anyone or if user has permission
+        if not app['allow_anyone']:
+            if not is_admin(user_email):
+                session.pop("oauth_redirect", None)
+                session.pop("oauth_app_id", None)
+                return render_template(
+                    "auth.html",
+                    state="error",
+                    error="You don't have permission to access this app."
+                )
+
+            if not has_app_permission(user_email, app_id, 'read'):
+                session.pop("oauth_redirect", None)
+                session.pop("oauth_app_id", None)
+                return render_template(
+                    "auth.html",
+                    state="error",
+                    error="You don't have permission to access this app."
+                )
+
         # Generate OAuth token and redirect to external app
-        token = create_oauth_token(result["user"]["email"], expires_in_seconds=120)
-        redirect_url = session.pop("oauth_redirect")
+        token = create_oauth_token(user_email, expires_in_seconds=120)
+        session.pop("oauth_redirect", None)
+        session.pop("oauth_app_id", None)
         separator = "&" if "?" in redirect_url else "?"
         return redirect(f"{redirect_url}{separator}token={token}")
 
@@ -122,17 +162,55 @@ def oauth():
     # Decode the redirect URL if it's URL encoded
     redirect_url = unquote(redirect_url)
 
-    # Store redirect URL in session for after login
+    # Validate redirect URL against registered apps
+    app = validate_app_redirect(redirect_url)
+
+    if not app:
+        return render_template(
+            "auth.html",
+            state="error",
+            error="Invalid redirect URL. This app is not registered with Hack ID."
+        )
+
+    if not app['is_active']:
+        return render_template(
+            "auth.html",
+            state="error",
+            error="This app is currently disabled."
+        )
+
+    # Store app info and redirect URL in session for after login
+    session["oauth_app_id"] = app['id']
     session["oauth_redirect"] = redirect_url
 
-    # If user is already logged in, generate token and redirect
+    # If user is already logged in, check permissions and redirect
     if "user_email" in session:
         user = get_user_by_email(session["user_email"])
         if user and user.get("legal_name"):  # User has completed registration
-            # Generate temporary OAuth token
-            token = create_oauth_token(session["user_email"], expires_in_seconds=120)
+            user_email = session["user_email"]
 
-            # Clear the oauth redirect from session
+            # Check if app allows anyone or if user has permission
+            if not app['allow_anyone']:
+                # App is restricted - check if user is admin with permission
+                if not is_admin(user_email):
+                    return render_template(
+                        "auth.html",
+                        state="error",
+                        error="You don't have permission to access this app. Please contact an administrator."
+                    )
+
+                if not has_app_permission(user_email, app['id'], 'read'):
+                    return render_template(
+                        "auth.html",
+                        state="error",
+                        error="You don't have permission to access this app. Please contact an administrator."
+                    )
+
+            # Generate temporary OAuth token
+            token = create_oauth_token(user_email, expires_in_seconds=120)
+
+            # Clear the oauth data from session
+            session.pop("oauth_app_id", None)
             session.pop("oauth_redirect", None)
 
             # Redirect to the external application with token
@@ -152,7 +230,7 @@ def logout():
 
 @auth_bp.route("/send-code", methods=["POST"])
 def send_code():
-    """Send verification code to email."""
+    """Send magic link to email via WorkOS."""
     # Handle both JSON and form data
     if request.is_json:
         data = request.get_json()
@@ -172,86 +250,117 @@ def send_code():
 
     if success:
         if request.is_json:
-            return jsonify({"success": True, "message": "Verification code sent"})
+            return jsonify({"success": True, "message": "Magic link sent to your email"})
         else:
-            return render_template("auth.html", state="email_verify", email=email)
+            # Show a message that they should check their email for the magic link
+            return render_template(
+                "auth.html",
+                state="email_sent",
+                email=email,
+                message="Check your email for a magic link to sign in"
+            )
     else:
-        error_msg = "Failed to send verification code"
+        error_msg = "Failed to send magic link"
         if request.is_json:
             return jsonify({"success": False, "error": error_msg})
         else:
             return render_template("auth.html", state="email_login", error=error_msg)
 
 
+@auth_bp.route("/auth/email/callback")
+def email_callback():
+    """Handle WorkOS magic link callback."""
+    code = request.args.get("code")
+
+    if not code:
+        return render_template("auth.html", state="email_login", error="No code provided")
+
+    # Verify the code with WorkOS
+    result = verify_email_code(code)
+
+    if not result.get("success"):
+        return render_template(
+            "auth.html",
+            state="email_login",
+            error=result.get("error", "Authentication failed"),
+        )
+
+    email = result["email"]
+    name = result.get("name", "")
+
+    # Check if user exists
+    user = get_user_by_email(email)
+    if user:
+        session.permanent = True
+        session["user_email"] = email
+        session["user_name"] = user.get("preferred_name") or user.get("legal_name") or name
+
+        # Check if this is part of OAuth flow
+        if "oauth_redirect" in session and "oauth_app_id" in session and user.get("legal_name"):
+            user_email = session["user_email"]
+            app_id = session.get("oauth_app_id")
+            redirect_url = session.get("oauth_redirect")
+
+            # Get app info to check permissions
+            from models.app import get_app_by_id
+            app = get_app_by_id(app_id)
+
+            if not app or not app['is_active']:
+                session.pop("oauth_redirect", None)
+                session.pop("oauth_app_id", None)
+                return render_template(
+                    "auth.html",
+                    state="error",
+                    error="This app is no longer available."
+                )
+
+            # Check if app allows anyone or if user has permission
+            if not app['allow_anyone']:
+                if not is_admin(user_email):
+                    session.pop("oauth_redirect", None)
+                    session.pop("oauth_app_id", None)
+                    return render_template(
+                        "auth.html",
+                        state="error",
+                        error="You don't have permission to access this app."
+                    )
+
+                if not has_app_permission(user_email, app_id, 'read'):
+                    session.pop("oauth_redirect", None)
+                    session.pop("oauth_app_id", None)
+                    return render_template(
+                        "auth.html",
+                        state="error",
+                        error="You don't have permission to access this app."
+                    )
+
+            # Generate OAuth token and redirect to external app
+            token = create_oauth_token(user_email, expires_in_seconds=120)
+            session.pop("oauth_redirect", None)
+            session.pop("oauth_app_id", None)
+            separator = "&" if "?" in redirect_url else "?"
+            final_redirect = f"{redirect_url}{separator}token={token}"
+            return redirect(final_redirect)
+
+        return redirect("/")
+    else:
+        # User doesn't exist, redirect to registration
+        session.permanent = True
+        session["user_email"] = email
+        session["user_name"] = name
+        session["pending_registration"] = True
+        return redirect("/register")
+
+
 @auth_bp.route("/verify-code", methods=["POST"])
 def verify_code_route():
-    """Verify email code and log in user."""
-    # Handle both JSON and form data
-    if request.is_json:
-        data = request.get_json()
-        email = data.get("email")
-        code = data.get("code")
-    else:
-        email = request.form.get("email")
-        code = request.form.get("code")
-
-    if not email or not code:
-        error_msg = "Email and code are required"
-        if request.is_json:
-            return jsonify({"success": False, "error": error_msg})
-        else:
-            return render_template(
-                "auth.html", state="email_verify", email=email, error=error_msg
-            )
-
-    if verify_email_code(email, code):
-        # Check if user exists
-        user = get_user_by_email(email)
-        if user:
-            session.permanent = True
-            session["user_email"] = email
-            session["user_name"] = (
-                user.get("preferred_name") or user.get("legal_name") or ""
-            )
-
-            # Check if this is part of OAuth flow
-            if "oauth_redirect" in session and user.get("legal_name"):
-                # Generate OAuth token and redirect to external app
-                token = create_oauth_token(
-                    session["user_email"], expires_in_seconds=120
-                )
-                redirect_url = session.pop("oauth_redirect")
-                separator = "&" if "?" in redirect_url else "?"
-                final_redirect = f"{redirect_url}{separator}token={token}"
-
-                if request.is_json:
-                    return jsonify({"success": True, "redirect": final_redirect})
-                else:
-                    return redirect(final_redirect)
-
-            if request.is_json:
-                return jsonify({"success": True, "redirect": "/"})
-            else:
-                return redirect("/")
-        else:
-            # User doesn't exist, redirect to registration
-            session.permanent = True
-            session["user_email"] = email  # Set user_email for registration flow
-            session["pending_registration"] = (
-                True  # Flag to indicate this is a new registration
-            )
-            if request.is_json:
-                return jsonify({"success": True, "redirect": "/register"})
-            else:
-                return redirect("/register")
-    else:
-        error_msg = "Invalid or expired code"
-        if request.is_json:
-            return jsonify({"success": False, "error": error_msg})
-        else:
-            return render_template(
-                "auth.html", state="email_verify", email=email, error=error_msg
-            )
+    """Legacy route - now just redirects to send magic link."""
+    # This route is kept for backwards compatibility but now uses WorkOS
+    # The actual verification happens in /email/callback
+    return jsonify({
+        "success": False,
+        "error": "Please use the magic link sent to your email instead"
+    })
 
 
 @auth_bp.route("/verify")

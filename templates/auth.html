@@ -1,5 +1,5 @@
 {% extends "base.html" %} {% block title %} {% if state == 'discord' %}Discord
-Verification{% elif state == 'email_verify' %}Verify Email{% elif state ==
+Verification{% elif state == 'email_sent' %}Check Your Email{% elif state ==
 'error' %}Error{% else %}Login{% endif %} - hack.sv {% endblock %} {% block body
 %}
 <div>
@@ -65,40 +65,28 @@ Verification{% elif state == 'email_verify' %}Verify Email{% elif state ==
             </form>
         </div>
     
-        <!-- Email Verification Section -->
+        <!-- Email Sent Section -->
         <div
-            id="email-verify-section"
-            class="auth-section {% if state == 'email_verify' %}active{% endif %}"
+            id="email-sent-section"
+            class="auth-section {% if state == 'email_sent' %}active{% endif %}"
         >
             <div class="subtitle" style="margin-bottom: 20px">
-                We've sent a verification code to
-                <strong>{{ email }}</strong>. <br />Please check your inbox and
-                enter the code below.
+                We've sent a magic link to
+                <strong>{{ email }}</strong>. <br />
+                Please check your inbox and click the link to sign in.
             </div>
-    
-            {% if error and state == 'email_verify' %}
-            <div class="error">
-                <p>{{ error }}</p>
+
+            {% if message %}
+            <div class="success" style="margin-bottom: 20px; padding: 15px; background: #d4edda; color: #155724; border-radius: 8px;">
+                <p>{{ message }}</p>
             </div>
             {% endif %}
-    
-            <form
-                method="post"
-                action="{{ url_for('auth.verify_code_route') }}"
-                class="email-form"
-            >
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                <input type="hidden" name="email" value="{{ email }}" />
-                <input
-                    type="text"
-                    name="code"
-                    placeholder="6-digit code"
-                    required
-                    class="code-input"
-                />
-                <button type="submit" class="verify-btn">Verify</button>
-            </form>
-    
+
+            <div style="margin-top: 30px; text-align: center; color: #666;">
+                <p>The link will expire in 10 minutes.</p>
+                <p style="margin-top: 10px;">Didn't receive the email? Check your spam folder.</p>
+            </div>
+
             <a
                 href="{{ url_for('auth.index') }}"
                 class="privacy-policy"

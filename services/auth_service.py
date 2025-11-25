@@ -1,13 +1,9 @@
 """Authentication service with business logic."""
 
 import secrets
-import requests
-from urllib.parse import urlencode
 from flask import session
+from workos import WorkOSClient
 from models.auth import (
-    generate_verification_code,
-    save_verification_code,
-    verify_code,
     save_verification_token,
     get_verification_token,
     mark_token_used,
@@ -18,87 +14,95 @@ from models.user import (
     update_user,
     get_user_by_discord_id,
 )
-from utils.email import send_verification_email
 from utils.discord import assign_discord_role, remove_all_event_roles
 from utils.events import get_event_discord_role_id, get_hacker_role_id, is_legacy_event
-from config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, REDIRECT_URI, DEBUG_MODE
+from config import (
+    WORKOS_API_KEY,
+    WORKOS_CLIENT_ID,
+    GOOGLE_REDIRECT_URI,
+    EMAIL_REDIRECT_URI,
+    DEBUG_MODE,
+)
+
+# Initialize WorkOS client
+workos_client = WorkOSClient(
+    api_key=WORKOS_API_KEY,
+    client_id=WORKOS_CLIENT_ID,
+)
 
 
 def send_email_verification(email):
-    """Send email verification code to user."""
-    code = generate_verification_code()
-    save_verification_code(email, code)
+    """Send email verification (magic link) via WorkOS Passwordless."""
+    try:
+        # Create passwordless session with WorkOS
+        passwordless_session = workos_client.passwordless.create_session(
+            email=email,
+            type="MagicLink",
+            redirect_uri=EMAIL_REDIRECT_URI,
+        )
 
-    # In debug mode, just print the code
-    if DEBUG_MODE:
-        print(f"\n==== DEBUG EMAIL ====")
-        print(f"To: {email}")
-        print(f"Subject: Your Hack ID Verification Code")
-        print(f"Verification Code: {code}")
-        print(f"This code will expire in 10 minutes.")
-        print(f"====================\n")
+        # In debug mode, print the magic link
+        if DEBUG_MODE:
+            print(f"\n==== DEBUG EMAIL (WorkOS Magic Link) ====")
+            print(f"To: {email}")
+            print(f"Magic Link: {passwordless_session.link}")
+            print(f"Session ID: {passwordless_session.id}")
+            print(f"This link will expire in 10 minutes.")
+            print(f"=========================================\n")
+
+        # WorkOS automatically sends the email
         return True
 
-    return send_verification_email(email, code)
+    except Exception as e:
+        if DEBUG_MODE:
+            print(f"ERROR: Failed to create WorkOS passwordless session: {str(e)}")
+        return False
 
 
-def verify_email_code(email, code):
-    """Verify email verification code."""
-    return verify_code(email, code)
+def verify_email_code(code):
+    """Verify email authentication code from WorkOS callback."""
+    try:
+        # Exchange code for user profile
+        profile_and_token = workos_client.sso.get_profile_and_token(code)
+        profile = profile_and_token.profile
+
+        return {
+            "success": True,
+            "email": profile.email,
+            "name": profile.first_name or profile.email.split("@")[0],
+        }
+
+    except Exception as e:
+        if DEBUG_MODE:
+            print(f"ERROR: Failed to verify WorkOS code: {str(e)}")
+        return {"success": False, "error": str(e)}
 
 
 def handle_google_oauth_callback(auth_code):
-    """Handle Google OAuth callback and return user info."""
+    """Handle Google OAuth callback via WorkOS SSO and return user info."""
     try:
         if DEBUG_MODE:
             print(f"DEBUG: Received code: {auth_code[:20]}...")
-            print(f"DEBUG: Using CLIENT_ID: {GOOGLE_CLIENT_ID}")
-            print(f"DEBUG: Using CLIENT_SECRET: {GOOGLE_CLIENT_SECRET[:10]}...")
-            print(f"DEBUG: Using REDIRECT_URI: {REDIRECT_URI}")
+            print(f"DEBUG: Using WorkOS SSO for Google OAuth")
 
-        token_data = {
-            "client_id": GOOGLE_CLIENT_ID,
-            "client_secret": GOOGLE_CLIENT_SECRET,
-            "grant_type": "authorization_code",
-            "code": auth_code,
-            "redirect_uri": REDIRECT_URI,
-        }
+        # Exchange code for user profile via WorkOS
+        profile_and_token = workos_client.sso.get_profile_and_token(auth_code)
+        profile = profile_and_token.profile
 
         if DEBUG_MODE:
-            print(f"DEBUG: Token request data: {token_data}")
-
-        token_response = requests.post(
-            "https://oauth2.googleapis.com/token",
-            data=token_data,
-        ).json()
-
-        if DEBUG_MODE:
-            print(f"DEBUG: Token response: {token_response}")
-
-        if "error" in token_response or "access_token" not in token_response:
-            error_msg = f"Failed to authenticate with Google. Error: {token_response.get('error', 'Unknown error')} - {token_response.get('error_description', 'No description')}"
-            return {"success": False, "error": error_msg}
-
-        user_response = requests.get(
-            "https://www.googleapis.com/oauth2/v2/userinfo",
-            headers={"Authorization": f"Bearer {token_response['access_token']}"},
-        ).json()
-
-        if "error" in user_response or "email" not in user_response:
-            return {
-                "success": False,
-                "error": "Failed to get user information from Google.",
-            }
+            print(f"DEBUG: WorkOS profile: {profile}")
 
         return {
             "success": True,
             "user": {
-                "email": user_response["email"],
-                "name": user_response.get("name", ""),
+                "email": profile.email,
+                "name": profile.first_name or profile.last_name or profile.email.split("@")[0],
             },
         }
 
     except Exception as e:
+        if DEBUG_MODE:
+            print(f"ERROR: WorkOS authentication error: {str(e)}")
         return {"success": False, "error": f"Authentication error: {str(e)}"}
 
 
@@ -226,15 +230,18 @@ def unlink_discord_account(user_email):
 
 
 def get_google_auth_url():
-    """Get Google OAuth authorization URL."""
+    """Get Google OAuth authorization URL via WorkOS SSO."""
     state = secrets.token_urlsafe()
     session["oauth_state"] = state
-    return "https://accounts.google.com/o/oauth2/auth?" + urlencode(
-        {
-            "client_id": GOOGLE_CLIENT_ID,
-            "redirect_uri": REDIRECT_URI,
-            "response_type": "code",
-            "scope": "email profile",
-            "state": state,
-        }
+
+    # Use WorkOS SSO with Google OAuth provider
+    authorization_url = workos_client.sso.get_authorization_url(
+        redirect_uri=GOOGLE_REDIRECT_URI,
+        provider="GoogleOAuth",
+        state=state,
     )
+
+    if DEBUG_MODE:
+        print(f"DEBUG: WorkOS Google OAuth URL: {authorization_url}")
+
+    return authorization_url
