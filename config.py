@@ -32,11 +32,13 @@ if not SECRET_KEY:
     )
     exit(1)
 
-# Google OAuth configuration
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
-GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-# Use environment REDIRECT_URI if set, otherwise use dynamic URL based on environment
-REDIRECT_URI = os.getenv("REDIRECT_URI") or f"{BASE_URL}/auth/google/callback"
+# WorkOS Configuration
+WORKOS_API_KEY = os.getenv("WORKOS_API_KEY")
+WORKOS_CLIENT_ID = os.getenv("WORKOS_CLIENT_ID")
+
+# OAuth Redirect URIs
+GOOGLE_REDIRECT_URI = f"{BASE_URL}/auth/google/callback"
+EMAIL_REDIRECT_URI = f"{BASE_URL}/auth/email/callback"
 
 # AWS SES SMTP configuration
 MAIL_HOST = os.getenv("MAIL_HOST", "email-smtp.us-west-1.amazonaws.com")
@@ -63,6 +65,16 @@ LISTMONK_ENABLED = os.getenv("LISTMONK_ENABLED", "true").lower() == "true" and L
 # Database configuration
 DATABASE = "users.db"
 
+# Teable configuration
+TEABLE_API_URL = os.getenv('TEABLE_API_URL', 'https://app.teable.ai/api')
+TEABLE_ACCESS_TOKEN = os.getenv('TEABLE_ACCESS_TOKEN')
+TEABLE_BASE_ID = os.getenv('TEABLE_BASE_ID')
+TEABLE_TABLE_USERS = os.getenv('TEABLE_TABLE_USERS')
+TEABLE_TABLE_ADMINS = os.getenv('TEABLE_TABLE_ADMINS')
+TEABLE_TABLE_ADMIN_PERMISSIONS = os.getenv('TEABLE_TABLE_ADMIN_PERMISSIONS')
+TEABLE_TABLE_API_KEYS = os.getenv('TEABLE_TABLE_API_KEYS')
+TEABLE_TABLE_APPS = os.getenv('TEABLE_TABLE_APPS')
+
 
 def print_debug_info():
     """Print debug information about environment variables."""
@@ -71,23 +83,62 @@ def print_debug_info():
         print(f"PROD: {PROD}")
         print(f"DEBUG_MODE: {DEBUG_MODE}")
         print(f"BASE_URL: {BASE_URL}")
-        print(f"GOOGLE_CLIENT_ID: {'[SET]' if GOOGLE_CLIENT_ID else '[NOT SET]'}")
-        print(
-            f"GOOGLE_CLIENT_SECRET: {'[SET]' if GOOGLE_CLIENT_SECRET else '[NOT SET]'}"
-        )
+        print(f"WORKOS_API_KEY: {'[SET]' if WORKOS_API_KEY else '[NOT SET]'}")
+        print(f"WORKOS_CLIENT_ID: {'[SET]' if WORKOS_CLIENT_ID else '[NOT SET]'}")
         print(f"SECRET_KEY: {'[SET]' if SECRET_KEY else '[NOT SET]'}")
         print(f"MAIL_HOST: {MAIL_HOST}")
         print(f"MAIL_PORT: {MAIL_PORT}")
         print(f"MAIL_USERNAME: {'[SET]' if MAIL_USERNAME else '[NOT SET]'}")
         print(f"MAIL_PASSWORD: {'[SET]' if MAIL_PASSWORD else '[NOT SET]'}")
         print(f"DISCORD_BOT_TOKEN: {'[SET]' if DISCORD_BOT_TOKEN else '[NOT SET]'}")
-        print(f"REDIRECT_URI: {REDIRECT_URI}")
+        print(f"GOOGLE_REDIRECT_URI: {GOOGLE_REDIRECT_URI}")
+        print(f"EMAIL_REDIRECT_URI: {EMAIL_REDIRECT_URI}")
+        print(f"TEABLE_ACCESS_TOKEN: {'[SET]' if TEABLE_ACCESS_TOKEN else '[NOT SET]'}")
+        print(f"TEABLE_BASE_ID: {'[SET]' if TEABLE_BASE_ID else '[NOT SET]'}")
+        print(f"TEABLE_TABLE_USERS: {'[SET]' if TEABLE_TABLE_USERS else '[NOT SET]'}")
+        print(f"TEABLE_TABLE_ADMINS: {'[SET]' if TEABLE_TABLE_ADMINS else '[NOT SET]'}")
+        print(f"TEABLE_TABLE_ADMIN_PERMISSIONS: {'[SET]' if TEABLE_TABLE_ADMIN_PERMISSIONS else '[NOT SET]'}")
+        print(f"TEABLE_TABLE_API_KEYS: {'[SET]' if TEABLE_TABLE_API_KEYS else '[NOT SET]'}")
+        print(f"TEABLE_TABLE_APPS: {'[SET]' if TEABLE_TABLE_APPS else '[NOT SET]'}")
         print("===================================")
 
 
 def validate_config():
     """Validate that required configuration is present."""
-    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
-        print("ERROR: Google OAuth credentials not found in environment variables!")
-        print("Make sure your .env file is properly configured.")
+    errors = []
+
+    # Check WorkOS configuration
+    if not WORKOS_API_KEY or not WORKOS_CLIENT_ID:
+        errors.append("WorkOS credentials missing (WORKOS_API_KEY and WORKOS_CLIENT_ID)")
+
+    # Check Teable configuration
+    if not TEABLE_ACCESS_TOKEN:
+        errors.append("TEABLE_ACCESS_TOKEN not set")
+    if not TEABLE_BASE_ID:
+        errors.append("TEABLE_BASE_ID not set")
+
+    # Check all Teable table IDs
+    teable_tables = {
+        'TEABLE_TABLE_USERS': TEABLE_TABLE_USERS,
+        'TEABLE_TABLE_ADMINS': TEABLE_TABLE_ADMINS,
+        'TEABLE_TABLE_ADMIN_PERMISSIONS': TEABLE_TABLE_ADMIN_PERMISSIONS,
+        'TEABLE_TABLE_API_KEYS': TEABLE_TABLE_API_KEYS,
+        'TEABLE_TABLE_APPS': TEABLE_TABLE_APPS,
+    }
+
+    for table_var, table_id in teable_tables.items():
+        if not table_id:
+            errors.append(f"{table_var} not set")
+
+    if errors:
+        print("\n" + "="*60)
+        print("❌ CONFIGURATION ERRORS DETECTED")
+        print("="*60)
+        for error in errors:
+            print(f"  • {error}")
+        print("\nPlease check your .env file and ensure all required variables are set.")
+        print("\nFor Teable setup:")
+        print("  1. Run: python teable_setup.py")
+        print("  2. Add the table IDs it outputs to your .env file")
+        print("="*60 + "\n")
         exit(1)

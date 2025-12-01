@@ -102,68 +102,6 @@ block css %}
         </div>
     </div>
 
-    <!-- Per-event Info Section -->
-    <div class="dashboard-section">
-        {% if dashboard.temporary_info %}
-        <div class="section-title">Per-event Info</div>
-        <div class="per-event-info">
-            <div class="info-line">
-                <span class="info-label">Phone #:</span>
-                <span
-                    class="info-value"
-                    data-type="phone"
-                    data-full="{{ dashboard.temporary_info.phone_number }}"
-                    >{{ dashboard.temporary_info.phone_number | censor_phone
-                    }}</span
-                >
-            </div>
-            <div class="info-line">
-                <span class="info-label">Address:</span>
-                <span
-                    class="info-value"
-                    data-type="address"
-                    data-full="{{ dashboard.temporary_info.address }}"
-                    >{{ dashboard.temporary_info.address | censor_address
-                    }}</span
-                >
-            </div>
-            <div class="info-line">
-                <span class="info-label">Emergency Contact:</span>
-                <span
-                    class="info-value"
-                    data-type="emergency"
-                    data-full="{{ dashboard.temporary_info.emergency_contact }}"
-                    >{{ dashboard.temporary_info.emergency_contact |
-                    censor_emergency }}</span
-                >
-            </div>
-            <div class="info-line">
-                <span class="info-label">Dietary Restrictions:</span>
-                <span class="info-value"
-                    >{{ dashboard.temporary_info.dietary_restrictions }}</span
-                >
-            </div>
-            <div class="info-line">
-                <span class="info-label">T-Shirt Size:</span>
-                <span class="info-value"
-                    >{{ dashboard.temporary_info.tshirt_size }}</span
-                >
-            </div>
-        </div>
-        <div class="action-button">
-            <button class="reveal-btn" data-target="per-event">Reveal</button>
-        </div>
-        {% else %}
-        <div class="section-title">Per-event Info</div>
-        <div class="no-per-event-info">
-            <p>
-                No per-event information available. Register for an event to
-                provide additional details.
-            </p>
-        </div>
-        {% endif %}
-    </div>
-
     <!-- Delete My Data Section -->
     <div class="dashboard-section">
         <div class="section-title">Delete My Data</div>

@@ -1,4 +1,15 @@
-"""Database initialization and schema management."""
+"""Database initialization and schema management for SQLite (ephemeral data only).
+
+IMPORTANT: SQLite is used for ephemeral/temporary data only.
+Persistent data (users, admins, api_keys, apps) is stored in Teable.
+
+Ephemeral tables created here:
+- email_codes: Email verification codes (temporary)
+- verification_tokens: Discord verification tokens (temporary)
+- opt_out_tokens: Privacy deletion tokens (permanent links but not user data)
+- oauth_tokens: OAuth session tokens (temporary)
+- api_key_logs: API usage logs (ephemeral, can be purged)
+"""
 
 import sqlite3
 import sys
@@ -11,32 +22,16 @@ from config import DATABASE
 
 
 def init_db():
-    """Initialize the database with all required tables."""
+    """Initialize SQLite database with ephemeral tables only."""
     try:
         conn = sqlite3.connect(DATABASE)
         cursor = conn.cursor()
-        print(f"Connected to database: {DATABASE}")
+        print(f"📂 Initializing SQLite (ephemeral data): {DATABASE}")
     except Exception as e:
-        print(f"Error connecting to database {DATABASE}: {e}")
+        print(f"❌ Error connecting to SQLite database {DATABASE}: {e}")
         raise
 
-    # Users table
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            email TEXT UNIQUE NOT NULL,
-            legal_name TEXT,
-            preferred_name TEXT,
-            pronouns TEXT,
-            dob TEXT,
-            discord_id TEXT,
-            events TEXT DEFAULT '[]'
-        )
-    """
-    )
-
-    # Email verification codes table
+    # Email verification codes table (EPHEMERAL)
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS email_codes (
@@ -46,8 +41,9 @@ def init_db():
         )
     """
     )
+    print("  ✓ email_codes table")
 
-    # Discord verification tokens table
+    # Discord verification tokens table (EPHEMERAL)
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS verification_tokens (
@@ -60,34 +56,9 @@ def init_db():
         )
     """
     )
+    print("  ✓ verification_tokens table")
 
-    # API keys table
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS api_keys (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            key TEXT UNIQUE NOT NULL,
-            created_by TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            last_used_at TIMESTAMP,
-            permissions TEXT DEFAULT '[]',
-            metadata TEXT DEFAULT '{}',
-            rate_limit_rpm INTEGER DEFAULT 60
-        )
-    """
-    )
-
-    # Add rate_limit_rpm column if it doesn't exist (for existing databases)
-    try:
-        cursor.execute(
-            "ALTER TABLE api_keys ADD COLUMN rate_limit_rpm INTEGER DEFAULT 60"
-        )
-    except sqlite3.OperationalError:
-        # Column already exists
-        pass
-
-    # Opt-out tokens table for permanent secure deletion links
+    # Opt-out tokens table for permanent secure deletion links (EPHEMERAL)
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS opt_out_tokens (
@@ -101,113 +72,105 @@ def init_db():
     """
     )
 
-    # Create index for fast token lookups
+    # Create indexes for fast token lookups
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_opt_out_tokens_token ON opt_out_tokens(token)"
     )
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_opt_out_tokens_email ON opt_out_tokens(user_email)"
     )
+    print("  ✓ opt_out_tokens table")
 
-    # API key usage logs table
+    # API key usage logs table (EPHEMERAL - can be purged periodically)
+    # Note: key_id references Teable record ID (string), not SQLite integer
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS api_key_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            key_id INTEGER NOT NULL,
+            key_id TEXT NOT NULL,
             timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             action TEXT NOT NULL,
-            metadata TEXT DEFAULT '{}',
-            FOREIGN KEY (key_id) REFERENCES api_keys (id) ON DELETE CASCADE
+            metadata TEXT DEFAULT '{}'
         )
     """
     )
+    print("  ✓ api_key_logs table")
 
-    # Temporary info table for event-specific sensitive data
+    # OAuth 2.0 authorization codes table (EPHEMERAL)
     cursor.execute(
         """
-        CREATE TABLE IF NOT EXISTS temporary_info (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            event_id TEXT NOT NULL,
-            phone_number TEXT NOT NULL,
-            address TEXT NOT NULL,
-            emergency_contact_name TEXT NOT NULL,
-            emergency_contact_email TEXT NOT NULL,
-            emergency_contact_phone TEXT NOT NULL,
-            dietary_restrictions TEXT DEFAULT '[]',
-            tshirt_size TEXT,
+        CREATE TABLE IF NOT EXISTS authorization_codes (
+            code TEXT PRIMARY KEY,
+            client_id TEXT NOT NULL,
+            user_email TEXT NOT NULL,
+            redirect_uri TEXT NOT NULL,
+            scope TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             expires_at TIMESTAMP NOT NULL,
-            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
-            UNIQUE(user_id, event_id)
+            used BOOLEAN DEFAULT FALSE
         )
     """
     )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_auth_codes_client ON authorization_codes(client_id)"
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_auth_codes_expires ON authorization_codes(expires_at)"
+    )
+    print("  ✓ authorization_codes table")
 
-    # Admins table for managing admin users
+    # OAuth 2.0 access tokens table (EPHEMERAL)
     cursor.execute(
         """
-        CREATE TABLE IF NOT EXISTS admins (
+        CREATE TABLE IF NOT EXISTS access_tokens (
+            token TEXT PRIMARY KEY,
+            client_id TEXT NOT NULL,
+            user_email TEXT NOT NULL,
+            scope TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            expires_at TIMESTAMP NOT NULL,
+            revoked BOOLEAN DEFAULT FALSE
+        )
+    """
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_access_tokens_client ON access_tokens(client_id)"
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_access_tokens_user ON access_tokens(user_email)"
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_access_tokens_expires ON access_tokens(expires_at)"
+    )
+    print("  ✓ access_tokens table")
+
+    # Legacy OAuth temporary tokens table (EPHEMERAL - for backward compatibility)
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS oauth_tokens (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            email TEXT UNIQUE NOT NULL,
-            added_by TEXT NOT NULL,
-            added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            is_active BOOLEAN DEFAULT TRUE
+            token TEXT UNIQUE NOT NULL,
+            user_email TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            expires_at TIMESTAMP NOT NULL
         )
     """
     )
-
-    # Insert default admin if not exists
-    cursor.execute(
-        """
-        INSERT OR IGNORE INTO admins (email, added_by, added_at)
-        VALUES ('admin@hack.sv', 'system', CURRENT_TIMESTAMP)
-        """
-    )
-
-    # OAuth temporary tokens table
-    try:
-        cursor.execute(
-            """
-            CREATE TABLE IF NOT EXISTS oauth_tokens (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                token TEXT UNIQUE NOT NULL,
-                user_email TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                expires_at TIMESTAMP NOT NULL
-            )
-        """
-        )
-        print("OAuth tokens table created/verified successfully")
-    except Exception as e:
-        print(f"Error creating oauth_tokens table: {e}")
-        raise
-
-    # Create indexes for better performance
-    cursor.execute(
-        "CREATE INDEX IF NOT EXISTS idx_temporary_info_user_event ON temporary_info(user_id, event_id)"
-    )
-    cursor.execute(
-        "CREATE INDEX IF NOT EXISTS idx_temporary_info_event ON temporary_info(event_id)"
-    )
-    cursor.execute(
-        "CREATE INDEX IF NOT EXISTS idx_temporary_info_expires ON temporary_info(expires_at)"
-    )
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_admins_email ON admins(email)")
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_oauth_tokens_token ON oauth_tokens(token)"
     )
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_oauth_tokens_expires ON oauth_tokens(expires_at)"
     )
+    print("  ✓ oauth_tokens table (legacy)")
 
     try:
         conn.commit()
         conn.close()
-        print("Database initialized successfully!")
+        print("✅ SQLite (ephemeral data) initialized successfully!")
+        print("ℹ️  Persistent data (users, admins, api_keys, apps) is in Teable")
     except Exception as e:
-        print(f"Error committing database changes: {e}")
+        print(f"❌ Error committing SQLite database changes: {e}")
         conn.close()
         raise
 

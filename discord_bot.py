@@ -34,9 +34,7 @@ API_KEY = os.getenv("API_KEY")
 # Debug environment variables
 print(f"DEBUG: DISCORD_BOT_TOKEN set: {bool(DISCORD_BOT_TOKEN)}")
 print(f"DEBUG: API_KEY set: {bool(API_KEY)}")
-print(
-    f"DEBUG: API_KEY value: {API_KEY[:20]}..." if API_KEY else "DEBUG: API_KEY is None"
-)
+
 
 # Countdown configuration
 COUNTDOWN_CHANNEL_ID = 1398862467341352990

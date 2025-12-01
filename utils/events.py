@@ -107,11 +107,14 @@ def get_event_discord_name(event_id):
 def calculate_data_expiration(event_id, weeks_after=1):
     """
     Calculate when temporary data should expire for an event.
-    For now, returns 1 week from current time.
-    In the future, this could be based on actual event end dates.
+    If the event has an end date, use that as the base date.
+    Otherwise, use the current date.
     """
-    # TODO: In the future, read actual event dates from events.json
-    # and calculate expiration as weeks_after the event end date
+    event_info = get_event_info(event_id)
+    if event_info:
+        end_date = event_info.get("end-date")
+        if end_date:
+            return datetime.strptime(end_date, "%Y-%m-%d") + timedelta(weeks=weeks_after)
     return datetime.now() + timedelta(weeks=weeks_after)
 
 

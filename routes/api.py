@@ -216,12 +216,78 @@ def api_user_status():
         return jsonify({"success": False, "error": "Internal server error"}), 500
 
 
-# OAuth user info endpoint
+# OAuth 2.0 user info endpoint
+@api_bp.route("/api/oauth/user-info", methods=["GET"])
+def oauth2_user_info():
+    """
+    OAuth 2.0 user info endpoint.
+    Requires Bearer token in Authorization header.
+    Returns user data based on granted scopes.
+    """
+    try:
+        # Get Bearer token from Authorization header
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return jsonify({"error": "invalid_request", "error_description": "Missing or invalid Authorization header"}), 401
+
+        token = auth_header[7:]  # Remove "Bearer " prefix
+
+        # Verify access token
+        from models.oauth import verify_access_token
+        token_data = verify_access_token(token)
+
+        if not token_data:
+            return jsonify({"error": "invalid_token", "error_description": "Token is invalid, expired, or revoked"}), 401
+
+        # Get user information
+        user = get_user_by_email(token_data["user_email"])
+        if not user:
+            return jsonify({"error": "not_found", "error_description": "User not found"}), 404
+
+        # Build response based on scopes
+        scopes = token_data["scope"]
+        user_info = {}
+
+        # profile scope (always included if granted)
+        if "profile" in scopes:
+            user_info["legal_name"] = user.get("legal_name")
+            user_info["preferred_name"] = user.get("preferred_name")
+            user_info["pronouns"] = user.get("pronouns")
+
+        # email scope
+        if "email" in scopes:
+            user_info["email"] = user["email"]
+
+        # dob scope
+        if "dob" in scopes:
+            user_info["dob"] = user.get("dob")
+
+        # events scope
+        if "events" in scopes:
+            user_info["events"] = user.get("events", [])
+
+        # discord scope
+        if "discord" in scopes:
+            user_info["discord_id"] = user.get("discord_id")
+            user_info["discord_username"] = user.get("discord_username")
+
+        # Always include is_admin (not sensitive, needed for authorization)
+        user_info["is_admin"] = is_admin(user.get("email"))
+
+        return jsonify(user_info), 200
+
+    except Exception as e:
+        if DEBUG_MODE:
+            print(f"Error in oauth2_user_info: {e}")
+        return jsonify({"error": "server_error", "error_description": "Internal server error"}), 500
+
+
+# Legacy OAuth user info endpoint (for backward compatibility)
 @api_bp.route("/api/oauth/user-info", methods=["POST"])
 @require_api_key(["oauth"])
 @rate_limit_api_key
-def oauth_user_info():
-    """Get user information using OAuth temporary token."""
+def oauth_user_info_legacy():
+    """LEGACY: Get user information using OAuth temporary token."""
     try:
         data = request.get_json()
         if not data or "token" not in data:
@@ -256,7 +322,7 @@ def oauth_user_info():
 
     except Exception as e:
         if DEBUG_MODE:
-            print(f"Error in oauth_user_info: {e}")
+            print(f"Error in oauth_user_info_legacy: {e}")
         return jsonify({"success": False, "error": "Internal server error"}), 500
 
 

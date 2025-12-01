@@ -3,10 +3,8 @@
 import json
 from typing import Dict, List, Any, Optional
 from models.user import get_user_by_email
-from models.temporary_info import get_temporary_info
 from utils.events import get_all_events, get_current_event
 from utils.discord import get_discord_user_info
-from utils.database import get_db_connection
 
 
 def get_user_dashboard_data(user_email: str) -> Dict[str, Any]:
@@ -26,8 +24,6 @@ def get_user_dashboard_data(user_email: str) -> Dict[str, Any]:
             "display_name": None,
             "error": None,
         },
-        "event_registrations": [],
-        "temporary_info": None,
         "profile_complete": False,
     }
 
@@ -68,57 +64,6 @@ def get_user_dashboard_data(user_email: str) -> Dict[str, Any]:
             event_info = events_data[event_id].copy()
             event_info["id"] = event_id
             dashboard_data["enrolled_events"].append(event_info)
-
-    # Get event registrations (temporary info)
-    if user.get("id"):
-        conn = get_db_connection()
-        registrations = conn.execute(
-            """
-            SELECT t.event_id, t.created_at, t.expires_at
-            FROM temporary_info t
-            WHERE t.user_id = ?
-            ORDER BY t.created_at DESC
-            """,
-            (user["id"],),
-        ).fetchall()
-
-        for reg in registrations:
-            event_id = reg["event_id"]
-            if event_id in events_data:
-                reg_info = {
-                    "event_id": event_id,
-                    "event_name": events_data[event_id].get("name", event_id),
-                    "registered_at": reg["created_at"],
-                    "expires_at": reg["expires_at"],
-                }
-                dashboard_data["event_registrations"].append(reg_info)
-
-        conn.close()
-
-    # Get temporary info for current event
-    current_event = get_current_event()
-    if current_event and user.get("id"):
-        temp_info = get_temporary_info(user["id"], current_event["id"])
-        if temp_info:
-            # Format emergency contact for display
-            emergency_contact = f"{temp_info['emergency_contact_name']}, {temp_info['emergency_contact_email']}, {temp_info['emergency_contact_phone']}"
-
-            # Format dietary restrictions
-            dietary_restrictions = temp_info.get("dietary_restrictions", [])
-            if isinstance(dietary_restrictions, list):
-                dietary_display = (
-                    ", ".join(dietary_restrictions) if dietary_restrictions else "None"
-                )
-            else:
-                dietary_display = dietary_restrictions or "None"
-
-            dashboard_data["temporary_info"] = {
-                "phone_number": temp_info["phone_number"],
-                "address": temp_info["address"],
-                "emergency_contact": emergency_contact,
-                "dietary_restrictions": dietary_display,
-                "tshirt_size": temp_info.get("tshirt_size", "Not specified"),
-            }
 
     # Get Discord information
     if user.get("discord_id"):
@@ -231,18 +176,7 @@ def get_event_participation_summary(user_email: str) -> Dict[str, Any]:
     else:
         user_events = []
 
-    # Count registered events (with temporary info)
-    registered_count = 0
-    if user.get("id"):
-        conn = get_db_connection()
-        registered_count = conn.execute(
-            "SELECT COUNT(*) as count FROM temporary_info WHERE user_id = ?",
-            (user["id"],),
-        ).fetchone()["count"]
-        conn.close()
-
     return {
         "total_events": len(user_events),
-        "registered_events": registered_count,
         "enrolled_events": len(user_events),
     }

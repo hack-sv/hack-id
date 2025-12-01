@@ -1,16 +1,15 @@
 """Event-specific admin routes for viewing registrations and managing temporary data."""
 
 from flask import (
-    Blueprint,
-    render_template,
-    request,
-    session,
-    jsonify,
+	Blueprint,
+	render_template,
+	request,
+	session,
+	jsonify,
 )
-from models.admin import is_admin
-from services.event_service import get_event_registrations, purge_event_temporary_data
+from models.admin import is_admin, has_event_permission
+from services.event_service import get_event_registrations, get_event_registration_stats
 from utils.events import get_all_events, get_event_info, is_valid_event
-from utils.database import get_event_registration_stats
 from config import DEBUG_MODE
 
 event_admin_bp = Blueprint("event_admin", __name__)
@@ -26,6 +25,23 @@ def require_admin(f):
 
     wrapper.__name__ = f.__name__
     return wrapper
+
+
+def _user_can_access_event(event_id: str, access_level: str = "read") -> bool:
+    """Return True if the current admin has permission for the given event.
+
+    Uses the same event-level permission model as the new admin JSON
+    endpoints so that legacy event views/exports cannot bypass fine-grained
+    access control.
+    """
+    if "user_email" not in session:
+        return False
+
+    admin_email = session["user_email"]
+    if not is_admin(admin_email):
+        return False
+
+    return has_event_permission(admin_email, event_id, access_level)
 
 
 @event_admin_bp.route("/admin/events")
@@ -67,6 +83,17 @@ def admin_event_detail(event_id):
         return (
             render_template("admin/error.html", error=f"Event '{event_id}' not found"),
             404,
+        )
+
+    # Enforce event-level permissions so only authorized admins can view
+    # detailed registrations (which include PII) for this event.
+    if not _user_can_access_event(event_id, "read"):
+        return (
+            render_template(
+                "admin/error.html",
+                error="You don't have permission to view this event.",
+            ),
+            403,
         )
 
     # Get event registrations
@@ -172,26 +199,21 @@ def admin_purge_data_execute():
                 400,
             )
 
-        # Execute the purge
-        result = purge_event_temporary_data(event_id, session["user_email"])
-
-        if result["success"]:
-            if DEBUG_MODE:
-                print(
-                    f"ADMIN ACTION: {session['user_email']} purged {result['deleted_count']} temporary info records for event {event_id}"
-                )
-
-            return jsonify(
-                {
-                    "success": True,
-                    "message": f"Successfully purged {result['deleted_count']} temporary info records for {event_name}",
-                    "deleted_count": result["deleted_count"],
-                    "event_id": event_id,
-                    "event_name": event_name,
-                }
+        # NOTE: This feature is obsolete - temporary_info table was removed
+        # There is no longer any temporary event data to purge
+        if DEBUG_MODE:
+            print(
+                f"ADMIN ACTION: {session['user_email']} attempted to purge temporary data for event {event_id} (feature obsolete)"
             )
-        else:
-            return jsonify(result), 500
+
+        return jsonify(
+            {
+                "success": False,
+                "error": "This feature is no longer available. The temporary_info system has been removed from the application.",
+                "event_id": event_id,
+                "event_name": event_name,
+            }
+        ), 410  # 410 Gone - resource no longer available
 
     except Exception as e:
         if DEBUG_MODE:
@@ -207,6 +229,11 @@ def admin_export_event_data(event_id):
     # Validate event exists
     if not is_valid_event(event_id):
         return jsonify({"success": False, "error": f"Invalid event: {event_id}"}), 400
+
+    # Enforce event-level permissions so only authorized admins can export
+    # detailed registration data (which includes PII) for this event.
+    if not _user_can_access_event(event_id, "read"):
+        return jsonify({"success": False, "error": "Forbidden"}), 403
 
     # Get event registrations
     result = get_event_registrations(event_id)

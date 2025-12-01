@@ -23,7 +23,6 @@ def get_user_data_summary(user_email: str) -> Dict[str, Any]:
         "tables_with_data": [],
         "discord_linked": False,
         "event_registrations": 0,
-        "temporary_info_records": 0,
         "api_usage_logs": 0,
         "opt_out_tokens": 0,
     }
@@ -40,15 +39,6 @@ def get_user_data_summary(user_email: str) -> Dict[str, Any]:
 
     # Check users table
     summary["tables_with_data"].append("users")
-
-    # Check temporary info (event-specific data)
-    temp_info = conn.execute(
-        "SELECT COUNT(*) as count FROM temporary_info WHERE user_id = (SELECT id FROM users WHERE email = ?)",
-        (user_email,),
-    ).fetchone()
-    if temp_info and temp_info["count"] > 0:
-        summary["temporary_info_records"] = temp_info["count"]
-        summary["tables_with_data"].append("temporary_info")
 
     # Skip API key logs for now (no direct user_email field)
 
@@ -175,23 +165,16 @@ def delete_user_data(user_email: str, include_discord: bool = True, include_list
             elif listmonk_result["success"]:
                 logger.info(f"Successfully deleted {user_email} from Listmonk mailing list")
 
+        # Delete from SQLite (ephemeral data only)
         conn = get_db_connection()
         total_deleted = 0
 
-        # Delete from each table in reverse dependency order
-        # Note: temporary_info uses user_id, not user_email
-        user_id = summary.get("user_id")
-
-        tables_to_clean = [
+        # Delete from ephemeral tables in SQLite
+        ephemeral_tables = [
             ("opt_out_tokens", "user_email", user_email),
-            ("users", "email", user_email),
         ]
 
-        # Handle temporary_info separately since it uses user_id
-        if user_id:
-            tables_to_clean.insert(0, ("temporary_info", "user_id", user_id))
-
-        for table_name, column_name, value in tables_to_clean:
+        for table_name, column_name, value in ephemeral_tables:
             try:
                 cursor = conn.execute(
                     f"DELETE FROM {table_name} WHERE {column_name} = ?", (value,)
@@ -216,6 +199,22 @@ def delete_user_data(user_email: str, include_discord: bool = True, include_list
 
         conn.commit()
         conn.close()
+
+        # Delete from Teable (persistent data)
+        try:
+            from models.user import delete_user
+
+            user = get_user_by_email(user_email)
+            if user:
+                delete_user(user['id'])
+                result["deleted_from_tables"].append("users")
+                result["deletion_counts"]["users"] = 1
+                total_deleted += 1
+                logger.info(f"Deleted user from Teable for {user_email}")
+        except Exception as e:
+            error_msg = f"Error deleting from Teable users: {str(e)}"
+            result["errors"].append(error_msg)
+            logger.error(f"Data deletion error for {user_email} in Teable: {e}")
 
         result["total_records_deleted"] = total_deleted
 
@@ -248,36 +247,18 @@ def verify_user_deletion(user_email: str) -> Dict[str, Any]:
         "tables_checked": [],
     }
 
+    # Check SQLite (ephemeral data)
     conn = get_db_connection()
 
-    # Check all tables for remaining data
-    tables_to_check = [
-        ("users", "email"),
+    sqlite_tables = [
         ("opt_out_tokens", "user_email"),
     ]
 
-    # Get user ID for temporary_info check
-    user_result = conn.execute(
-        "SELECT id FROM users WHERE email = ?", (user_email,)
-    ).fetchone()
-    if user_result:
-        tables_to_check.append(("temporary_info", "user_id", user_result["id"]))
-    else:
-        tables_to_check.append(
-            ("temporary_info", "user_id", -1)
-        )  # Will return 0 results
-
-    for table_info in tables_to_check:
-        if len(table_info) == 2:
-            table_name, column_name = table_info
-            value = user_email
-        else:
-            table_name, column_name, value = table_info
-
+    for table_name, column_name in sqlite_tables:
         try:
             count = conn.execute(
                 f"SELECT COUNT(*) as count FROM {table_name} WHERE {column_name} = ?",
-                (value,),
+                (user_email,),
             ).fetchone()["count"]
 
             verification["tables_checked"].append(table_name)
@@ -290,6 +271,19 @@ def verify_user_deletion(user_email: str) -> Dict[str, Any]:
             logger.error(f"Error checking {table_name} during verification: {e}")
 
     conn.close()
+
+    # Check Teable (persistent data)
+    try:
+        user = get_user_by_email(user_email)
+        verification["tables_checked"].append("users")
+
+        if user:
+            verification["completely_deleted"] = False
+            verification["remaining_data"]["users"] = 1
+
+    except Exception as e:
+        logger.error(f"Error checking Teable users during verification: {e}")
+
     return verification
 
 
@@ -314,12 +308,6 @@ def get_deletion_preview(user_email: str) -> Dict[str, Any]:
     }
 
     # Build list of items that will be deleted
-    if summary.get("temporary_info_records", 0) > 0:
-        preview["items_to_delete"].append(
-            f"Temporary event information ({summary['temporary_info_records']} records)"
-        )
-
-    # Always include these
     preview["items_to_delete"].extend(
         [
             "Account information (name, email, date of birth, etc.)",

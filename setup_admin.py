@@ -11,7 +11,7 @@ Usage:
 
 import sys
 import os
-from utils.database import get_db_connection
+from models.admin import add_admin, is_admin, get_all_admins
 
 
 def setup_first_admin(email):
@@ -19,56 +19,59 @@ def setup_first_admin(email):
     if not email:
         print("❌ Error: Email address is required")
         return False
-    
+
     # Basic email validation
     if "@" not in email or "." not in email:
         print("❌ Error: Please provide a valid email address")
         return False
-    
+
     try:
-        conn = get_db_connection()
-        
         # Check if any admins already exist
-        existing_admins = conn.execute(
-            "SELECT COUNT(*) as count FROM admins WHERE is_active = TRUE"
-        ).fetchone()
-        
-        if existing_admins["count"] > 0:
+        all_admins = get_all_admins()
+        active_admins = [a for a in all_admins if a.get('is_active')]
+
+        if len(active_admins) > 0:
             print("⚠️  Warning: Admin users already exist in the system")
             response = input("Do you want to add another admin? (y/N): ")
             if response.lower() not in ['y', 'yes']:
                 print("❌ Setup cancelled")
-                conn.close()
                 return False
-        
+
         # Check if this email is already an admin
-        existing = conn.execute(
-            "SELECT id FROM admins WHERE email = ?", (email,)
-        ).fetchone()
-        
-        if existing:
+        if is_admin(email):
             print(f"⚠️  {email} is already an admin")
-            conn.close()
             return True
-        
-        # Add the admin
-        conn.execute(
-            "INSERT INTO admins (email, added_by) VALUES (?, ?)",
-            (email, "setup_script")
-        )
-        conn.commit()
-        conn.close()
-        
+
+        # Add the admin using Teable model
+        result = add_admin(email, "setup_script")
+
+        if not result["success"]:
+            print(f"❌ Error: {result.get('error', 'Unknown error')}")
+            return False
+
+        # Grant wildcard permissions to the admin (all permissions)
+        from models.admin import grant_permission
+
         print(f"✅ Successfully added {email} as an admin!")
-        print(f"🔐 {email} can now access the admin panel at /admin")
+        print("🔑 Granting all permissions...")
+
+        # Grant wildcard permissions for read and write
+        for access_level in ["read", "write"]:
+            perm_result = grant_permission(email, "*", "*", access_level, "setup_script")
+            if perm_result["success"]:
+                print(f"  ✓ Granted wildcard permission ({access_level})")
+            else:
+                print(f"  ⚠️  Failed to grant wildcard permission ({access_level}): {perm_result.get('error', 'Unknown error')}")
+
+        print(f"\n🔐 {email} can now access the admin panel at /admin with full permissions")
         print()
         print("Next steps:")
         print("1. Start your application: python app.py")
         print("2. Log in with your admin email via Google OAuth")
         print("3. Access the admin panel to manage users and settings")
-        
+
         return True
-        
+
     except Exception as e:
         print(f"❌ Error setting up admin: {e}")
         return False
@@ -87,22 +90,27 @@ def main():
         sys.exit(1)
     
     admin_email = sys.argv[1].strip()
-    
+
     print(f"Setting up admin user: {admin_email}")
     print()
-    
-    # Check if database exists
-    if not os.path.exists("users.db"):
-        print("⚠️  Database not found. Initializing database...")
-        try:
-            from utils.db_init import init_database
-            init_database()
-            print("✅ Database initialized successfully!")
-        except Exception as e:
-            print(f"❌ Failed to initialize database: {e}")
-            print("Please run: python utils/db_init.py")
+
+    # Verify Teable configuration
+    print("🔍 Checking Teable configuration...")
+    try:
+        from utils.teable import check_teable_config
+        config = check_teable_config()
+        if not config['configured']:
+            print("❌ Teable is not properly configured!")
+            print("Missing environment variables:")
+            for var in config['missing']:
+                print(f"  - {var}")
+            print("\nPlease run teable_setup.py first and add the table IDs to your .env file")
             sys.exit(1)
-    
+        print("✅ Teable configuration verified")
+    except Exception as e:
+        print(f"❌ Failed to verify Teable configuration: {e}")
+        sys.exit(1)
+
     success = setup_first_admin(admin_email)
     
     if success:

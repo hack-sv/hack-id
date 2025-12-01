@@ -8,7 +8,6 @@ Also supports generating fake test data with: python import_users.py temp <count
 
 import csv
 import json
-import sqlite3
 import os
 import re
 import sys
@@ -16,8 +15,14 @@ import random
 from datetime import datetime, timedelta
 from typing import Dict, List, Set, Optional, Any
 import ollama
-
-DATABASE = "users.db"
+from utils.teable import (
+    create_record,
+    create_records_batch,
+    get_records,
+    update_record,
+    update_records_batch,
+    check_teable_config
+)
 
 
 def convert_date_to_standard_format(date_str: str) -> Optional[str]:
@@ -77,50 +82,16 @@ def convert_date_to_standard_format(date_str: str) -> Optional[str]:
 
 
 def init_db():
-    """Initialize the database with all required tables."""
-    conn = sqlite3.connect(DATABASE)
-    cursor = conn.cursor()
-
-    # Users table
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            email TEXT UNIQUE NOT NULL,
-            legal_name TEXT,
-            preferred_name TEXT,
-            pronouns TEXT,
-            dob TEXT,
-            discord_id TEXT,
-            events TEXT DEFAULT '[]'
-        )
-    """
-    )
-
-    # Temporary info table for event-specific sensitive data
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS temporary_info (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            event_id TEXT NOT NULL,
-            phone_number TEXT NOT NULL,
-            address TEXT NOT NULL,
-            emergency_contact_name TEXT NOT NULL,
-            emergency_contact_email TEXT NOT NULL,
-            emergency_contact_phone TEXT NOT NULL,
-            dietary_restrictions TEXT DEFAULT '[]',
-            tshirt_size TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            expires_at TIMESTAMP NOT NULL,
-            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
-            UNIQUE(user_id, event_id)
-        )
-    """
-    )
-
-    conn.commit()
-    conn.close()
+    """Check Teable configuration."""
+    config = check_teable_config()
+    if not config['configured']:
+        print("❌ Teable is not properly configured!")
+        print("Missing environment variables:")
+        for var in config['missing']:
+            print(f"  - {var}")
+        print("\nPlease run teable_setup.py first and add the table IDs to your .env file")
+        sys.exit(1)
+    print("✅ Teable configuration verified")
 
 
 def generate_fake_users(count: int) -> List[Dict]:
@@ -297,25 +268,6 @@ def generate_fake_users(count: int) -> List[Dict]:
     # Common pronouns
     pronouns_list = ["he/him", "she/her", "they/them"]
 
-    # Dietary restrictions with test values
-    dietary_options = [
-        [],  # No restrictions
-        [],  # Still no restrictions
-        ["Vegetarian"],
-        ["Vegan"],
-        ["Gluten-free"],
-        ["Nut-allergy"],
-        ["Dairy-free"],
-        ["Water"],
-        ["Vegetarian", "Gluten-free"],
-        ["Test restriction", "Water"],
-        ["Test restriction 2", "Oxygen"],
-        ["EVERYTHING. YES, EVERYTHING."],
-    ]
-
-    # T-shirt sizes
-    tshirt_sizes = ["XS", "S", "M", "L", "XL", "XXL"]
-
     # Available events from the events.json
     available_events = ["counterspell", "scrapyard"]
 
@@ -378,8 +330,6 @@ def generate_fake_users(count: int) -> List[Dict]:
                 else ""
             ),  # 40% have Discord
             "events": user_events,
-            "dietary_restrictions": random.choice(dietary_options),
-            "tshirt_size": random.choice(tshirt_sizes),
         }
 
         users.append(user)
@@ -558,114 +508,90 @@ def merge_users(
 
 
 def insert_users_to_db(users: Dict[str, Dict], is_fake_data=False):
-    """Insert users into the database."""
-    conn = sqlite3.connect(DATABASE)
-    cursor = conn.cursor()
+    """Insert users into Teable using batch operations for speed."""
+    print("Fetching existing users from Teable...")
 
-    inserted = 0
-    updated = 0
-    temp_info_created = 0
+    # Fetch all existing users once (more efficient than individual lookups)
+    existing_records = get_records('users', limit=1000)  # Use 1000 to be safe
+    existing_users_map = {
+        record['fields']['email']: record
+        for record in existing_records
+        if record.get('fields', {}).get('email')
+    }
+
+    print(f"Found {len(existing_users_map)} existing users in Teable")
+
+    # Separate new users from updates
+    new_users = []
+    updates = []
 
     for user in users.values():
         events_json = json.dumps(user["events"])
-
         dob_field = convert_date_to_standard_format(user.get("dob"))
 
-        try:
-            # Try to insert new user
-            cursor.execute(
-                """
-                INSERT INTO users (
-                    email, legal_name, preferred_name, pronouns,
-                    dob, discord_id, events
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-                (
-                    user["email"],
-                    user.get("legal_name") or None,
-                    user.get("preferred_name") or None,
-                    user.get("pronouns") or None,
-                    dob_field or None,
-                    user.get("discord_id") or None,
-                    events_json,
-                ),
-            )
-            user_id = cursor.lastrowid
-            inserted += 1
-        except sqlite3.IntegrityError:
-            # User exists, update their data
-            cursor.execute(
-                """
-                UPDATE users
-                SET legal_name = COALESCE(?, legal_name),
-                    preferred_name = COALESCE(?, preferred_name),
-                    pronouns = COALESCE(?, pronouns),
-                    dob = COALESCE(?, dob),
-                    discord_id = COALESCE(?, discord_id),
-                    events = ?
-                WHERE email = ?
-            """,
-                (
-                    user.get("legal_name") or None,
-                    user.get("preferred_name") or None,
-                    user.get("pronouns") or None,
-                    dob_field or None,
-                    user.get("discord_id") or None,
-                    events_json,
-                    user["email"],
-                ),
-            )
-            # Get the user_id for existing user
-            cursor.execute("SELECT id FROM users WHERE email = ?", (user["email"],))
-            user_id = cursor.fetchone()[0]
-            updated += 1
+        # Prepare record data
+        record_data = {
+            "email": user["email"],
+            "legal_name": user.get("legal_name") or "",
+            "preferred_name": user.get("preferred_name") or "",
+            "pronouns": user.get("pronouns") or "",
+            "dob": dob_field or "",
+            "discord_id": user.get("discord_id") or "",
+            "events": events_json,
+        }
 
-        # If this is fake data and has dietary restrictions or tshirt size, create temporary_info records
-        if is_fake_data and (
-            user.get("dietary_restrictions") or user.get("tshirt_size")
-        ):
-            dietary_json = json.dumps(user.get("dietary_restrictions", []))
+        if user["email"] in existing_users_map:
+            # Prepare update
+            existing_record = existing_users_map[user["email"]]
+            update_data = {}
 
-            # Calculate expiration date (1 week from now)
-            expires_at = datetime.now() + timedelta(weeks=1)
+            # Only update fields that have values (don't overwrite with empty)
+            if record_data.get("legal_name"):
+                update_data["legal_name"] = record_data["legal_name"]
+            if record_data.get("preferred_name"):
+                update_data["preferred_name"] = record_data["preferred_name"]
+            if record_data.get("pronouns"):
+                update_data["pronouns"] = record_data["pronouns"]
+            if record_data.get("dob"):
+                update_data["dob"] = record_data["dob"]
+            if record_data.get("discord_id"):
+                update_data["discord_id"] = record_data["discord_id"]
+            # Always update events
+            update_data["events"] = record_data["events"]
 
-            # Create temporary_info records for each event the user is in
-            for event_id in user["events"]:
-                try:
-                    cursor.execute(
-                        """
-                        INSERT OR REPLACE INTO temporary_info (
-                            user_id, event_id, phone_number, address,
-                            emergency_contact_name, emergency_contact_email, emergency_contact_phone,
-                            dietary_restrictions, tshirt_size, expires_at
-                        )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """,
-                        (
-                            user_id,
-                            event_id,
-                            f"555-{random.randint(100, 999)}-{random.randint(1000, 9999)}",  # Fake phone
-                            f"{random.randint(100, 9999)} Test St, Test City, CA {random.randint(90000, 99999)}",  # Fake address
-                            f"Emergency Contact {random.randint(1, 100)}",  # Fake emergency contact name
-                            f"emergency{random.randint(1, 1000)}@example.com",  # Fake emergency email
-                            f"555-{random.randint(100, 999)}-{random.randint(1000, 9999)}",  # Fake emergency phone
-                            dietary_json,
-                            user.get("tshirt_size"),
-                            expires_at,
-                        ),
-                    )
-                    temp_info_created += 1
-                except sqlite3.IntegrityError:
-                    # Temporary info already exists for this user/event combination
-                    pass
+            updates.append({
+                "id": existing_record['id'],
+                "fields": update_data
+            })
+        else:
+            # New user
+            new_users.append(record_data)
 
-    conn.commit()
-    conn.close()
+    # Batch insert new users (100 at a time to avoid API limits)
+    inserted = 0
+    BATCH_SIZE = 100
 
-    print(f"Database updated: {inserted} new users, {updated} existing users updated")
-    if is_fake_data and temp_info_created > 0:
-        print(f"Created {temp_info_created} temporary info records")
+    if new_users:
+        print(f"Inserting {len(new_users)} new users in batches of {BATCH_SIZE}...")
+        for i in range(0, len(new_users), BATCH_SIZE):
+            batch = new_users[i:i + BATCH_SIZE]
+            result = create_records_batch('users', batch)
+            if result:
+                inserted += len(batch)
+                print(f"  Inserted batch {i//BATCH_SIZE + 1}: {len(batch)} users")
+
+    # Batch update existing users
+    updated = 0
+    if updates:
+        print(f"Updating {len(updates)} existing users in batches of {BATCH_SIZE}...")
+        for i in range(0, len(updates), BATCH_SIZE):
+            batch = updates[i:i + BATCH_SIZE]
+            result = update_records_batch('users', batch)
+            if result:
+                updated += len(batch)
+                print(f"  Updated batch {i//BATCH_SIZE + 1}: {len(batch)} users")
+
+    print(f"\n✅ Teable sync complete: {inserted} new users, {updated} existing users updated")
 
 
 def main():

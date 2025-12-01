@@ -20,9 +20,9 @@ from utils.db_init import init_db, check_table_exists, list_all_tables
 from utils.database import get_db_connection
 from utils.rate_limiter import rate_limit_api_key, start_cleanup_thread
 from utils.censoring import register_censoring_filters
-from routes.auth import auth_bp
+from routes.auth import auth_bp, oauth_bp
 from routes.admin import admin_bp
-from routes.admin_database import admin_database_bp
+# from routes.admin_database import admin_database_bp  # DEPRECATED: Database swap feature obsolete with Teable migration
 from routes.opt_out import opt_out_bp
 from models.api_key import get_key_permissions, log_api_key_usage
 
@@ -96,7 +96,7 @@ else:
 # Register blueprints
 app.register_blueprint(auth_bp)
 app.register_blueprint(admin_bp)
-app.register_blueprint(admin_database_bp)
+# app.register_blueprint(admin_database_bp)  # DEPRECATED: Database swap feature obsolete with Teable
 app.register_blueprint(opt_out_bp)
 
 # Admin routes keep CSRF protection for security
@@ -108,6 +108,10 @@ app.register_blueprint(api_bp)
 
 # Exempt API endpoints from CSRF protection (they use API key auth)
 csrf.exempt(api_bp)
+
+# Register OAuth 2.0 blueprint and exempt from CSRF (uses client_secret auth)
+app.register_blueprint(oauth_bp)
+csrf.exempt(oauth_bp)
 
 # Import and register event admin blueprint
 from routes.event_admin import event_admin_bp
@@ -123,10 +127,10 @@ def add_security_headers(response):
     nonce = g.get("csp_nonce", "")
     csp = (
         "default-src 'self'; "
-        f"script-src 'self' https://cdn.jsdelivr.net https://us-assets.i.posthog.com 'nonce-{nonce}'; "
-        f"style-src 'self' https://cdn.jsdelivr.net 'nonce-{nonce}'; "
+        f"script-src 'self' https://cdn.jsdelivr.net https://us-assets.i.posthog.com https://code.jquery.com https://cdn.datatables.net 'nonce-{nonce}'; "
+        f"style-src 'self' https://cdn.jsdelivr.net https://fonts.googleapis.com https://cdn.datatables.net 'nonce-{nonce}'; "
         "img-src 'self' data: https:; "
-        "font-src 'self'; "
+        "font-src 'self' https://fonts.gstatic.com; "
         "connect-src 'self' https://us.i.posthog.com; "
         "frame-ancestors 'none';"
     )
@@ -232,6 +236,41 @@ def api_test():
     )
 
 
+def verify_teable_tables():
+    """Verify Teable tables are accessible and print record counts."""
+    from utils.teable import count_records, TEABLE_TABLE_IDS
+
+    print("\n" + "="*60)
+    print("🔍 VERIFYING TEABLE TABLES")
+    print("="*60)
+
+    all_accessible = True
+    for table_name, table_id in TEABLE_TABLE_IDS.items():
+        if not table_id:
+            print(f"  ❌ {table_name}: Not configured")
+            all_accessible = False
+            continue
+
+        try:
+            count = count_records(table_name)
+            print(f"  ✅ {table_name}: {count} records")
+        except Exception as e:
+            print(f"  ❌ {table_name}: Error - {str(e)}")
+            all_accessible = False
+
+    print("="*60 + "\n")
+
+    if not all_accessible:
+        print("⚠️  Some Teable tables are not accessible!")
+        print("Please ensure:")
+        print("  1. You've run: python teable_setup.py")
+        print("  2. All table IDs are in your .env file")
+        print("  3. Your TEABLE_ACCESS_TOKEN has access to these tables\n")
+        exit(1)
+
+    print("✅ All Teable tables are accessible!\n")
+
+
 if __name__ == "__main__":
     # Print debug information
     print_debug_info()
@@ -239,7 +278,10 @@ if __name__ == "__main__":
     # Validate configuration
     validate_config()
 
-    # Initialize database
+    # Verify Teable tables
+    verify_teable_tables()
+
+    # Initialize database (SQLite for ephemeral tables)
     init_db()
 
     # Verify critical tables exist

@@ -70,27 +70,26 @@ Verification{% elif state == 'email_sent' %}Check Your Email{% elif state ==
             id="email-sent-section"
             class="auth-section {% if state == 'email_sent' %}active{% endif %}"
         >
-            <div class="subtitle" style="margin-bottom: 20px">
+            <div class="subtitle subtitle-spaced">
                 We've sent a magic link to
                 <strong>{{ email }}</strong>. <br />
                 Please check your inbox and click the link to sign in.
             </div>
 
             {% if message %}
-            <div class="success" style="margin-bottom: 20px; padding: 15px; background: #d4edda; color: #155724; border-radius: 8px;">
+            <div class="success-message">
                 <p>{{ message }}</p>
             </div>
             {% endif %}
 
-            <div style="margin-top: 30px; text-align: center; color: #666;">
+            <div class="info-text">
                 <p>The link will expire in 10 minutes.</p>
-                <p style="margin-top: 10px;">Didn't receive the email? Check your spam folder.</p>
+                <p>Didn't receive the email? Check your spam folder.</p>
             </div>
 
             <a
                 href="{{ url_for('auth.index') }}"
-                class="privacy-policy"
-                style="bottom: 60px"
+                class="use-different-email-link"
                 >Use a different email</a
             >
         </div>
@@ -100,30 +99,23 @@ Verification{% elif state == 'email_sent' %}Check Your Email{% elif state ==
             id="discord-verify-section"
             class="auth-section {% if state == 'discord' %}active{% endif %}"
         >
-            <div class="subtitle" style="margin-bottom: 20px">
+            <div class="subtitle subtitle-spaced">
                 Hello <strong>{{ discord_username }}</strong>! <br />To complete
                 your Discord verification and get access to event channels, please
                 sign in:
             </div>
-    
+
             <a href="{{ url_for('auth.auth_google') }}" class="google-btn"
                 >Sign in with Google</a
             >
-    
+
             <div class="divider">or</div>
-    
+
             <a href="{{ url_for('auth.index') }}" class="google-btn"
                 >Sign in with Email</a
             >
-    
-            <div
-                style="
-                    margin-top: 20px;
-                    font-size: 14px;
-                    color: #666;
-                    text-align: center;
-                "
-            >
+
+            <div class="discord-note">
                 <p>
                     <strong>Note:</strong> You must have registered for one of our
                     events to complete verification.

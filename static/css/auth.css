@@ -187,6 +187,43 @@ body {
     text-decoration: underline;
 }
 
+.subtitle-spaced {
+    margin-bottom: 20px;
+}
+
+.success-message {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #d4edda;
+    color: #155724;
+    border-radius: 8px;
+}
+
+.info-text {
+    margin-top: 30px;
+    text-align: center;
+    color: #666;
+}
+
+.info-text p {
+    margin-top: 10px;
+}
+
+.discord-note {
+    margin-top: 20px;
+    font-size: 14px;
+    color: #666;
+    text-align: center;
+}
+
+/* Fix for link overlap - different email link should be above privacy policy */
+.use-different-email-link {
+    position: absolute;
+    bottom: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
 @media (max-width: 768px) {
     .auth-container {
         width: 90vw;

@@ -19,7 +19,6 @@ from models.api_key import (
     delete_api_key,
     get_api_key_logs,
 )
-from utils.database import get_db_connection
 from utils.events import get_all_events, get_current_event
 from models.admin import (
     is_admin,
@@ -27,6 +26,19 @@ from models.admin import (
     add_admin,
     remove_admin,
     get_admin_stats,
+    get_admin_permissions,
+    grant_permission,
+    revoke_permission,
+    is_system_admin,
+    has_page_permission,
+)
+from models.app import (
+    get_all_apps,
+    create_app,
+    update_app,
+    delete_app,
+    get_app_by_id,
+    regenerate_client_secret,
 )
 
 admin_bp = Blueprint("admin", __name__)
@@ -48,6 +60,48 @@ def require_admin(f):
     return wrapper
 
 
+def get_admin_page_permissions():
+    """Get page permissions for current admin user."""
+    if "user_email" not in session:
+        return {}
+
+    email = session["user_email"]
+    pages = ["attendees", "events", "keys", "admins", "apps"]
+    permissions = {}
+
+    for page in pages:
+        permissions[page] = {
+            "read": has_page_permission(email, page, "read"),
+            "write": has_page_permission(email, page, "write")
+        }
+
+    return permissions
+
+
+def require_page_permission(page_name, access_level="read"):
+    """Decorator to require specific page permission."""
+    def decorator(f):
+        def wrapper(*args, **kwargs):
+            if "user_email" not in session:
+                return jsonify({"success": False, "error": "Not authenticated"}), 401
+
+            if not is_admin(session["user_email"]):
+                return jsonify({"success": False, "error": "Unauthorized"}), 403
+
+            # Check if user has permission for this page
+            if not has_page_permission(session["user_email"], page_name, access_level):
+                return jsonify({
+                    "success": False,
+                    "error": f"You don't have permission to access this page. Required: {page_name} ({access_level})"
+                }), 403
+
+            return f(*args, **kwargs)
+
+        wrapper.__name__ = f.__name__
+        return wrapper
+    return decorator
+
+
 @admin_bp.route("/admin/")
 @require_admin
 def admin_redirect():
@@ -57,141 +111,145 @@ def admin_redirect():
 @admin_bp.route("/admin")
 @require_admin
 def admin_dashboard():
-    """Admin dashboard - accessible to all admins."""
-
-    # Get basic statistics
-    conn = get_db_connection()
-
-    # User stats
-    user_count = conn.execute("SELECT COUNT(*) as count FROM users").fetchone()["count"]
-
-    # API key stats
-    api_key_count = conn.execute("SELECT COUNT(*) as count FROM api_keys").fetchone()[
-        "count"
-    ]
-
-    # Recent API key usage
-    recent_logs = conn.execute(
-        """
-        SELECT COUNT(*) as count
-        FROM api_key_logs
-        WHERE timestamp > datetime('now', '-24 hours')
-        """
-    ).fetchone()["count"]
-
-    # Current event stats
-    current_event = get_current_event()
-    current_event_attendees = 0
-    if current_event:
-        current_event_attendees = conn.execute(
-            """
-            SELECT COUNT(*) as count
-            FROM temporary_info
-            WHERE event_id = ?
-            """,
-            (current_event["id"],),
-        ).fetchone()["count"]
-
-    conn.close()
-
-    # Get admin stats
-    admin_stats = get_admin_stats()
-
-    stats = {
-        "total_users": user_count,
-        "total_api_keys": api_key_count,
-        "api_calls_24h": recent_logs,
-        "current_event_attendees": current_event_attendees,
-        "total_admins": admin_stats["total_admins"],
-    }
-
-    return render_template("admin/index.html", stats=stats, current_event=current_event)
+    """Admin dashboard - new layout."""
+    permissions = get_admin_page_permissions()
+    return render_template("admin_layout.html", admin_name=session.get("user_name", "Admin"), permissions=permissions)
 
 
-@admin_bp.route("/admin/users")
+@admin_bp.route("/admin/attendees")
 @require_admin
-def admin_users():
-    """Admin users page - accessible to all admins."""
+def admin_attendees():
+    """Admin attendees page - new layout."""
+    permissions = get_admin_page_permissions()
+    return render_template("admin_layout.html", admin_name=session.get("user_name", "Admin"), permissions=permissions)
 
-    # Get all users from database
-    users_data = get_all_users()
 
-    # Get all events for dynamic display
-    all_events = get_all_events()
+@admin_bp.route("/admin/users/data", methods=["GET"])
+@require_page_permission("attendees", "read")
+def get_users_data():
+    """Get all users data for DataTables."""
+    try:
+        # Get all users from Teable
+        users = get_all_users()
 
-    # Calculate dynamic statistics for all events
-    stats = {"total_users": len(users_data)}
+        # Get all admins to create admin lookup
+        admins = get_all_admins()
+        admin_lookup = {admin['email']: admin for admin in admins}
 
-    # Add stats for each event
-    for event_id, event_info in all_events.items():
-        event_name = event_info.get("name", event_id)
-        attendee_count = len([u for u in users_data if event_id in u["events"]])
-        stats[f"{event_id}_attendees"] = attendee_count
-        stats[f"{event_id}_name"] = event_name
+        # Merge user and admin data
+        users_data = []
+        for user in users:
+            # Check if user is an admin
+            admin_info = admin_lookup.get(user['email'])
+            user['is_admin'] = admin_info is not None
+            if admin_info:
+                user['added_by'] = admin_info.get('added_by')
+                user['added_at'] = admin_info.get('added_at')
+                user['is_active'] = admin_info.get('is_active')
 
-    return render_template(
-        "admin/users.html", users=users_data, stats=stats, events=all_events
-    )
+            users_data.append(user)
+
+        # Sort by most recent first (by id)
+        users_data.sort(key=lambda x: x.get('id', ''), reverse=True)
+
+        return jsonify({"success": True, "data": users_data})
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@admin_bp.route("/admin/events")
+@require_admin
+def admin_events():
+    """Admin events page - new layout."""
+    permissions = get_admin_page_permissions()
+    return render_template("admin_layout.html", admin_name=session.get("user_name", "Admin"), permissions=permissions)
+
+
+@admin_bp.route("/admin/events/data", methods=["GET"])
+@require_page_permission("events", "read")
+def get_events_data():
+    """Get events data for DataTables - requires events read permission."""
+    try:
+        from utils.events import get_all_events
+        from models.user import get_users_by_event
+
+        events = get_all_events()
+        events_list = []
+
+        for event_id, event_data in events.items():
+            # Skip config
+            if event_id.startswith('_'):
+                continue
+
+            # Get user count for this event
+            users = get_users_by_event(event_id)
+            user_count = len(users)
+
+            events_list.append({
+                "id": event_id,
+                "name": event_data.get("name", event_id),
+                "description": event_data.get("description", ""),
+                "color": event_data.get("color", "00CCFF"),
+                "discord_role_id": event_data.get("discord-role-id", ""),
+                "discord_name": event_data.get("discord-name", ""),
+                "legacy": event_data.get("legacy", False),
+                "user_count": user_count
+            })
+
+        # Sort by user count descending
+        events_list.sort(key=lambda x: x["user_count"], reverse=True)
+
+        return jsonify({"data": events_list})
+
+    except Exception as e:
+        if DEBUG_MODE:
+            print(f"Error in get_events_data: {e}")
+        return jsonify({"data": [], "error": str(e)})
 
 
 @admin_bp.route("/admin/keys")
 @require_admin
 def admin_keys():
-    """Admin API keys page - accessible to all admins."""
-    return render_template("admin/keys.html")
+    """Admin API keys page - new layout."""
+    permissions = get_admin_page_permissions()
+    return render_template("admin_layout.html", admin_name=session.get("user_name", "Admin"), permissions=permissions)
 
 
 @admin_bp.route("/admin/update-user", methods=["POST"])
-@require_admin
+@require_page_permission("attendees", "write")
 def update_user_route():
-    """Update user data - accessible to all admins."""
+    """Update user data - requires attendees write permission."""
     try:
-        email = request.form.get("email")
+        from models.user import get_user_by_email, update_user
+
+        data = request.get_json()
+        email = data.get("email")
+        field = data.get("field")
+        value = data.get("value")
+
         if not email:
             return jsonify({"success": False, "error": "Email is required"})
 
-        conn = get_db_connection()
+        if not field:
+            return jsonify({"success": False, "error": "Field is required"})
 
-        # Build update query dynamically based on provided fields
-        update_fields = []
-        update_values = []
+        # Get user by email to get the ID
+        user = get_user_by_email(email)
+        if not user:
+            return jsonify({"success": False, "error": "User not found"})
 
-        # Handle text fields
-        text_fields = [
-            "legal_name",
-            "preferred_name",
-            "pronouns",
-            "dob",
-            "discord_id",
-        ]
+        # Handle events field specially (it's an array)
+        if field == "events":
+            if not isinstance(value, list):
+                return jsonify({"success": False, "error": "Events must be an array"})
+            update_value = value
+        else:
+            # Handle text fields (empty strings should remain as empty strings for Teable)
+            update_value = value if value and value.strip() else ""
 
-        for field in text_fields:
-            value = request.form.get(field)
-
-            if value is not None:  # Allow empty strings
-                update_fields.append(f"{field} = ?")
-                update_values.append(value if value.strip() else None)
-
-        # Handle events
-        events = request.form.get("events")
-        if events is not None:
-            try:
-                events_list = json.loads(events) if events else []
-                update_fields.append("events = ?")
-                update_values.append(json.dumps(events_list))
-            except json.JSONDecodeError:
-                return jsonify({"success": False, "error": "Invalid events format"})
-
-        if not update_fields:
-            return jsonify({"success": False, "error": "No fields to update"})
-
-        # Execute update
-        update_values.append(email)  # Add email for WHERE clause
-        query = f"UPDATE users SET {', '.join(update_fields)} WHERE email = ?"
-
-        conn.execute(query, update_values)
-        conn.commit()
-        conn.close()
+        # Execute update using model
+        update_user(user['id'], **{field: update_value})
 
         return jsonify({"success": True})
 
@@ -201,7 +259,7 @@ def update_user_route():
 
 # Admin API Key Routes
 @admin_bp.route("/admin/api_keys", methods=["GET"])
-@require_admin
+@require_page_permission("keys", "read")
 def admin_api_keys():
     """Get all API keys for admin interface."""
     keys_data = get_all_api_keys()
@@ -209,12 +267,13 @@ def admin_api_keys():
     # Don't include the actual key in the response for security
     for key in keys_data:
         key.pop("key", None)
+        key.pop("key_hash", None)
 
     return jsonify({"success": True, "keys": keys_data})
 
 
 @admin_bp.route("/admin/api_keys", methods=["POST"])
-@require_admin
+@require_page_permission("keys", "write")
 def create_api_key_route():
     """Create a new API key."""
     try:
@@ -253,20 +312,25 @@ def create_api_key_route():
         return jsonify({"success": False, "error": str(e)})
 
 
-@admin_bp.route("/admin/api_keys/<int:key_id>", methods=["PATCH"])
-@require_admin
+@admin_bp.route("/admin/api_keys/<key_id>", methods=["PATCH"])
+@require_page_permission("keys", "write")
 def update_api_key_route(key_id):
     """Update an API key's name and permissions."""
     try:
         data = request.get_json()
         name = data.get("name")
         permissions = data.get("permissions")
+        rate_limit_rpm = data.get("rate_limit_rpm")
 
         update_data = {}
         if name is not None:
             update_data["name"] = name
         if permissions is not None:
             update_data["permissions"] = permissions
+        if rate_limit_rpm is not None:
+            if not isinstance(rate_limit_rpm, int) or rate_limit_rpm < 0:
+                return jsonify({"success": False, "error": "Invalid rate limit"})
+            update_data["rate_limit_rpm"] = rate_limit_rpm
 
         if not update_data:
             return jsonify({"success": False, "error": "No fields to update"})
@@ -278,8 +342,8 @@ def update_api_key_route(key_id):
         return jsonify({"success": False, "error": str(e)})
 
 
-@admin_bp.route("/admin/api_keys/<int:key_id>", methods=["DELETE"])
-@require_admin
+@admin_bp.route("/admin/api_keys/<key_id>", methods=["DELETE"])
+@require_page_permission("keys", "write")
 def delete_api_key_route(key_id):
     """Delete an API key."""
     try:
@@ -289,22 +353,21 @@ def delete_api_key_route(key_id):
         return jsonify({"success": False, "error": str(e)})
 
 
-@admin_bp.route("/admin/api_keys/<int:key_id>/logs", methods=["GET"])
-@require_admin
+@admin_bp.route("/admin/api_keys/<key_id>/logs", methods=["GET"])
+@require_page_permission("keys", "read")
 def get_api_key_logs_route(key_id):
     """Get usage logs for an API key."""
     try:
+        from models.api_key import get_all_api_keys
+
         limit = request.args.get("limit", "10")
         limit = int(limit) if limit != "0" else None
 
         logs_data = get_api_key_logs(key_id, limit)
 
-        # Get key name for display
-        conn = get_db_connection()
-        key_check = conn.execute(
-            "SELECT name FROM api_keys WHERE id = ?", (key_id,)
-        ).fetchone()
-        conn.close()
+        # Get key name for display from Teable
+        all_keys = get_all_api_keys()
+        key_check = next((k for k in all_keys if k['id'] == key_id), None)
 
         if not key_check:
             return jsonify({"success": False, "error": "API key not found"})
@@ -316,17 +379,15 @@ def get_api_key_logs_route(key_id):
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
-
-# Admin Management Routes
-@admin_bp.route("/admin/admins")
+@admin_bp.route("/admin/admins", methods=["GET"])
 @require_admin
 def admin_admins():
-    """Admin management page - accessible to all admins."""
-    return render_template("admin/admins.html")
-
+    """Admin admins page - new layout."""
+    permissions = get_admin_page_permissions()
+    return render_template("admin_layout.html", admin_name=session.get("user_name", "Admin"), permissions=permissions)
 
 @admin_bp.route("/admin/admins/data", methods=["GET"])
-@require_admin
+@require_page_permission("admins", "read")
 def get_admins_route():
     """Get all admin users."""
     try:
@@ -337,7 +398,7 @@ def get_admins_route():
 
 
 @admin_bp.route("/admin/admins/data", methods=["POST"])
-@require_admin
+@require_page_permission("admins", "write")
 def add_admin_route():
     """Add a new admin user."""
     try:
@@ -354,11 +415,194 @@ def add_admin_route():
 
 
 @admin_bp.route("/admin/admins/data/<email>", methods=["DELETE"])
-@require_admin
+@require_page_permission("admins", "write")
 def remove_admin_route(email):
     """Remove admin privileges."""
     try:
+        # Prevent self-removal: admins cannot remove their own admin privileges
+        if session["user_email"] == email:
+            return jsonify({
+                "success": False,
+                "error": "You cannot remove your own admin privileges. Please ask another admin."
+            }), 403
+
         result = remove_admin(email, session["user_email"])
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@admin_bp.route("/admin/admins/<email>/permissions", methods=["GET"])
+@require_page_permission("admins", "read")
+def get_admin_permissions_route(email):
+    """Get permissions for a specific admin."""
+    try:
+        permissions = get_admin_permissions(email)
+        return jsonify({"success": True, "permissions": permissions})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@admin_bp.route("/admin/admins/<email>/permissions", methods=["POST"])
+@require_page_permission("admins", "write")
+def grant_permission_route(email):
+    """Update all permissions for an admin (replaces existing permissions)."""
+    try:
+        from utils.teable import get_records, delete_record
+
+        # Prevent self-escalation: admins cannot modify their own permissions
+        if session["user_email"] == email:
+            return jsonify({
+                "success": False,
+                "error": "You cannot modify your own permissions. Please ask another admin."
+            }), 403
+
+        data = request.get_json()
+        permissions = data.get("permissions", [])
+
+        # First, remove all existing permissions for this admin
+        all_permissions = get_records('admin_permissions', limit=1000)
+        for perm in all_permissions:
+            if perm['fields'].get('admin_email') == email:
+                delete_record('admin_permissions', perm['id'])
+
+        # Then add all the new permissions
+        for perm in permissions:
+            permission_type = perm.get("permission_type")
+            permission_value = perm.get("permission_value")
+            access_level = perm.get("access_level", "read")
+
+            if not permission_type or not permission_value:
+                continue
+
+            if access_level not in ["read", "write"]:
+                continue
+
+            grant_permission(
+                email,
+                permission_type,
+                permission_value,
+                access_level,
+                session["user_email"]
+            )
+
+        return jsonify({"success": True, "message": "Permissions updated successfully"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@admin_bp.route("/admin/admins/<email>/permissions", methods=["DELETE"])
+@require_page_permission("admins", "write")
+def revoke_permission_route(email):
+    """Revoke a permission from an admin."""
+    try:
+        # Prevent self-escalation: admins cannot modify their own permissions
+        if session["user_email"] == email:
+            return jsonify({
+                "success": False,
+                "error": "You cannot modify your own permissions. Please ask another admin."
+            }), 403
+
+        data = request.get_json()
+        permission_type = data.get("permission_type")
+        permission_value = data.get("permission_value")
+        access_level = data.get("access_level", "read")
+
+        if not permission_type or not permission_value:
+            return jsonify({"success": False, "error": "Missing required fields"})
+
+        result = revoke_permission(email, permission_type, permission_value, access_level)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+# Apps Routes
+@admin_bp.route("/admin/apps/data", methods=["GET"])
+@require_page_permission("apps", "read")
+def get_apps_route():
+    """Get all apps."""
+    try:
+        apps = get_all_apps()
+        return jsonify({"success": True, "data": apps})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@admin_bp.route("/admin/apps")
+@require_admin
+def admin_apps():
+    """Admin apps page - new layout."""
+    permissions = get_admin_page_permissions()
+    return render_template("admin_layout.html", admin_name=session.get("user_name", "Admin"), permissions=permissions)
+
+@admin_bp.route("/admin/apps", methods=["POST"])
+@require_page_permission("apps", "write")
+def create_app_route():
+    """Create a new OAuth 2.0 app."""
+    try:
+        data = request.get_json()
+        name = data.get("name")
+        redirect_uris = data.get("redirect_uris", [])
+        icon = data.get("icon")
+        allowed_scopes = data.get("allowed_scopes", ["profile", "email"])
+        allow_anyone = data.get("allow_anyone", False)
+
+        if not name:
+            return jsonify({"success": False, "error": "Name is required"})
+
+        if not redirect_uris or len(redirect_uris) == 0:
+            return jsonify({"success": False, "error": "At least one redirect URI is required"})
+
+        result = create_app(
+            name=name,
+            redirect_uris=redirect_uris,
+            created_by=session["user_email"],
+            icon=icon,
+            allowed_scopes=allowed_scopes,
+            allow_anyone=allow_anyone
+        )
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@admin_bp.route("/admin/apps/<app_id>", methods=["PUT"])
+@require_page_permission("apps", "write")
+def update_app_route(app_id):
+    """Update an OAuth 2.0 app."""
+    try:
+        data = request.get_json()
+        result = update_app(
+            app_id,
+            name=data.get("name"),
+            icon=data.get("icon"),
+            redirect_uris=data.get("redirect_uris"),
+            allowed_scopes=data.get("allowed_scopes"),
+            allow_anyone=data.get("allow_anyone")
+        )
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@admin_bp.route("/admin/apps/<app_id>/regenerate-secret", methods=["POST"])
+@require_page_permission("apps", "write")
+def regenerate_app_secret_route(app_id):
+    """Regenerate client_secret for an app."""
+    try:
+        result = regenerate_client_secret(app_id)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@admin_bp.route("/admin/apps/<app_id>", methods=["DELETE"])
+@require_page_permission("apps", "write")
+def delete_app_route(app_id):
+    """Delete (deactivate) an app."""
+    try:
+        result = delete_app(app_id)
         return jsonify(result)
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
@@ -366,9 +610,9 @@ def remove_admin_route(email):
 
 # Current Event Data Routes
 @admin_bp.route("/admin/current-event")
-@require_admin
+@require_page_permission("events", "read")
 def admin_current_event():
-    """Current event data page - accessible to all admins."""
+    """Current event data page - requires events read permission."""
     current_event = get_current_event()
     if not current_event:
         return (
@@ -380,44 +624,29 @@ def admin_current_event():
 
 
 @admin_bp.route("/admin/current-event/data", methods=["GET"])
-@require_admin
+@require_page_permission("events", "read")
 def get_current_event_data():
-    """Get current event attendee data."""
+    """Get current event attendee data - requires events read permission."""
     try:
+        from models.user import get_users_by_event
+
         current_event = get_current_event()
         if not current_event:
             return jsonify({"success": False, "error": "No current event configured"})
 
-        conn = get_db_connection()
+        # Get users registered for current event using model function
+        attendees = get_users_by_event(current_event["id"])
 
-        # Get users with temporary info for current event
-        attendees = conn.execute(
-            """
-            SELECT
-                u.id, u.email, u.legal_name, u.preferred_name, u.pronouns,
-                t.phone_number, t.address, t.emergency_contact_name,
-                t.emergency_contact_email, t.emergency_contact_phone,
-                t.dietary_restrictions, t.tshirt_size, t.created_at
-            FROM users u
-            JOIN temporary_info t ON u.id = t.user_id
-            WHERE t.event_id = ?
-            ORDER BY t.created_at DESC
-            """,
-            (current_event["id"],),
-        ).fetchall()
-
-        conn.close()
-
-        # Convert to list of dicts and parse JSON fields
+        # Format attendee data (remove events field from output)
         attendees_data = []
         for attendee in attendees:
-            attendee_dict = dict(attendee)
-            # Parse dietary restrictions JSON
-            import json
-
-            attendee_dict["dietary_restrictions"] = json.loads(
-                attendee_dict["dietary_restrictions"] or "[]"
-            )
+            attendee_dict = {
+                "id": attendee["id"],
+                "email": attendee["email"],
+                "legal_name": attendee.get("legal_name"),
+                "preferred_name": attendee.get("preferred_name"),
+                "pronouns": attendee.get("pronouns")
+            }
             attendees_data.append(attendee_dict)
 
         return jsonify(

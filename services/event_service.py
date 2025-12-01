@@ -1,14 +1,6 @@
 """Event service with business logic for event registration and management."""
 
-import json
 from models.user import get_user_by_email, add_user_to_event, get_user_by_id
-from models.temporary_info import (
-    create_temporary_info,
-    get_temporary_info,
-    update_temporary_info,
-    purge_event_data,
-    get_temporary_info_by_event,
-)
 from utils.events import (
     get_current_event,
     get_event_info,
@@ -16,27 +8,16 @@ from utils.events import (
     get_event_discord_role_id,
     calculate_data_expiration,
     is_legacy_event,
+    get_all_events,
 )
 from utils.discord import assign_discord_role
-from utils.database import get_db_connection
 from config import DEBUG_MODE
 
 
-def register_user_for_event(
-    user_email,
-    event_id=None,
-    phone_number=None,
-    address=None,
-    emergency_contact_name=None,
-    emergency_contact_email=None,
-    emergency_contact_phone=None,
-    dietary_restrictions=None,
-    tshirt_size=None,
-):
+def register_user_for_event(user_email, event_id=None):
     """
-    Register a user for an event and optionally submit temporary info.
+    Register a user for an event.
     If event_id is not provided, uses the current event.
-    If temporary info fields are provided, saves them as well.
     """
     # Use current event if not specified
     if not event_id:
@@ -83,300 +64,28 @@ def register_user_for_event(
                     f"Skipping Discord role assignment for non-legacy event {event_id} - user should already have Hacker role for basic access"
                 )
 
-    # Handle temporary info submission if provided
-    temp_info_action = None
-    temp_info_success = True
-    temp_info_error = None
-
-    # Check if any temporary info fields are provided
-    temp_info_provided = any(
-        [
-            phone_number,
-            address,
-            emergency_contact_name,
-            emergency_contact_email,
-            emergency_contact_phone,
-            dietary_restrictions,
-            tshirt_size,
-        ]
+    # Build response message
+    message = (
+        f"Already registered for {event_id}"
+        if already_registered
+        else f"Successfully registered for {event_id}"
     )
 
-    if temp_info_provided:
-        # Validate required temporary info fields
-        required_temp_fields = {
-            "phone_number": phone_number,
-            "address": address,
-            "emergency_contact_name": emergency_contact_name,
-            "emergency_contact_email": emergency_contact_email,
-            "emergency_contact_phone": emergency_contact_phone,
-        }
-
-        for field_name, value in required_temp_fields.items():
-            if not value or not value.strip():
-                return {
-                    "success": False,
-                    "error": f"{field_name.replace('_', ' ').title()} is required when submitting temporary info",
-                }
-
-        # Validate t-shirt size if provided
-        valid_sizes = ["XS", "S", "M", "L", "XL", "XXL", "XXXL"]
-        if tshirt_size and tshirt_size not in valid_sizes:
-            return {
-                "success": False,
-                "error": f"Invalid t-shirt size. Must be one of: {', '.join(valid_sizes)}",
-            }
-
-        # Check if temporary info already exists
-        existing_info = get_temporary_info(user["id"], event_id)
-
-        if existing_info:
-            # Update existing record
-            update_data = {
-                "phone_number": phone_number.strip(),
-                "address": address.strip(),
-                "emergency_contact_name": emergency_contact_name.strip(),
-                "emergency_contact_email": emergency_contact_email.strip(),
-                "emergency_contact_phone": emergency_contact_phone.strip(),
-                "dietary_restrictions": dietary_restrictions or [],
-                "tshirt_size": tshirt_size,
-            }
-
-            update_temporary_info(user["id"], event_id, **update_data)
-            temp_info_action = "updated"
-        else:
-            # Create new record
-            temp_info_id = create_temporary_info(
-                user_id=user["id"],
-                event_id=event_id,
-                phone_number=phone_number.strip(),
-                address=address.strip(),
-                emergency_contact_name=emergency_contact_name.strip(),
-                emergency_contact_email=emergency_contact_email.strip(),
-                emergency_contact_phone=emergency_contact_phone.strip(),
-                dietary_restrictions=dietary_restrictions or [],
-                tshirt_size=tshirt_size,
-            )
-
-            if not temp_info_id:
-                temp_info_success = False
-                temp_info_error = "Failed to save temporary info"
-            else:
-                temp_info_action = "created"
-
-    # Build response message
-    if already_registered and temp_info_provided:
-        if temp_info_success:
-            message = f"Already registered for {event_id}. Temporary info {temp_info_action} successfully."
-        else:
-            message = (
-                f"Already registered for {event_id}, but failed to save temporary info."
-            )
-    elif already_registered:
-        message = f"Already registered for {event_id}"
-    elif temp_info_provided and temp_info_success:
-        message = f"Successfully registered for {event_id} and {temp_info_action} temporary info"
-    elif temp_info_provided and not temp_info_success:
-        message = (
-            f"Successfully registered for {event_id}, but failed to save temporary info"
-        )
-    else:
-        message = f"Successfully registered for {event_id}"
-
     return {
-        "success": temp_info_success,
+        "success": True,
         "event_id": event_id,
         "user_email": user_email,
         "already_registered": already_registered,
         "discord_role_assigned": discord_role_assigned,
-        "temporary_info_provided": temp_info_provided,
-        "temporary_info_action": temp_info_action,
         "message": message,
-        "error": temp_info_error if not temp_info_success else None,
-    }
-
-
-def submit_temporary_info(
-    user_email,
-    event_id,
-    phone_number,
-    address,
-    emergency_contact_name,
-    emergency_contact_email,
-    emergency_contact_phone,
-    dietary_restrictions=None,
-    tshirt_size=None,
-):
-    """Submit temporary info for a user and event."""
-    # Validate event exists
-    if not is_valid_event(event_id):
-        return {"success": False, "error": f"Invalid event: {event_id}"}
-
-    # Get user
-    user = get_user_by_email(user_email)
-    if not user:
-        return {"success": False, "error": "User not found"}
-
-    # Check if user is registered for event
-    if event_id not in user["events"]:
-        return {"success": False, "error": f"User not registered for {event_id}"}
-
-    # Validate required fields
-    required_fields = {
-        "phone_number": phone_number,
-        "address": address,
-        "emergency_contact_name": emergency_contact_name,
-        "emergency_contact_email": emergency_contact_email,
-        "emergency_contact_phone": emergency_contact_phone,
-    }
-
-    for field_name, value in required_fields.items():
-        if not value or not value.strip():
-            return {
-                "success": False,
-                "error": f"{field_name.replace('_', ' ').title()} is required",
-            }
-
-    # Validate t-shirt size if provided
-    valid_sizes = ["XS", "S", "M", "L", "XL", "XXL", "XXXL"]
-    if tshirt_size and tshirt_size not in valid_sizes:
-        return {
-            "success": False,
-            "error": f"Invalid t-shirt size. Must be one of: {', '.join(valid_sizes)}",
-        }
-
-    # Check if temporary info already exists
-    existing_info = get_temporary_info(user["id"], event_id)
-
-    if existing_info:
-        # Update existing record
-        update_data = {
-            "phone_number": phone_number.strip(),
-            "address": address.strip(),
-            "emergency_contact_name": emergency_contact_name.strip(),
-            "emergency_contact_email": emergency_contact_email.strip(),
-            "emergency_contact_phone": emergency_contact_phone.strip(),
-            "dietary_restrictions": dietary_restrictions or [],
-            "tshirt_size": tshirt_size,
-        }
-
-        update_temporary_info(user["id"], event_id, **update_data)
-        action = "updated"
-    else:
-        # Create new record
-        temp_info_id = create_temporary_info(
-            user_id=user["id"],
-            event_id=event_id,
-            phone_number=phone_number.strip(),
-            address=address.strip(),
-            emergency_contact_name=emergency_contact_name.strip(),
-            emergency_contact_email=emergency_contact_email.strip(),
-            emergency_contact_phone=emergency_contact_phone.strip(),
-            dietary_restrictions=dietary_restrictions or [],
-            tshirt_size=tshirt_size,
-        )
-
-        if not temp_info_id:
-            return {"success": False, "error": "Failed to save temporary info"}
-
-        action = "created"
-
-    return {
-        "success": True,
-        "event_id": event_id,
-        "user_email": user_email,
-        "action": action,
-        "message": f"Temporary info {action} successfully",
-    }
-
-
-def get_event_registrations(event_id):
-    """Get all registrations for an event with temporary info status."""
-    if not is_valid_event(event_id):
-        return {"success": False, "error": f"Invalid event: {event_id}"}
-
-    # Get all temporary info for the event (includes user data via JOIN)
-    temp_infos = get_temporary_info_by_event(event_id)
-
-    # Get event info
-    event_info = get_event_info(event_id)
-
-    return {
-        "success": True,
-        "event_id": event_id,
-        "event_info": event_info,
-        "registrations": temp_infos,
-        "total_registrations": len(temp_infos),
-    }
-
-
-def purge_event_temporary_data(event_id, admin_email):
-    """Purge all temporary data for an event (admin only)."""
-    if not is_valid_event(event_id):
-        return {"success": False, "error": f"Invalid event: {event_id}"}
-
-    # Additional security check - only allow specific admin
-    from models.admin import is_admin
-
-    if not is_admin(admin_email):
-        return {"success": False, "error": "Unauthorized"}
-
-    # Get count before deletion for logging
-    temp_infos = get_temporary_info_by_event(event_id)
-    count_before = len(temp_infos)
-
-    # Purge the data
-    deleted_count = purge_event_data(event_id)
-
-    if DEBUG_MODE:
-        print(
-            f"Purged {deleted_count} temporary info records for event {event_id} by {admin_email}"
-        )
-
-    return {
-        "success": True,
-        "event_id": event_id,
-        "deleted_count": deleted_count,
-        "message": f"Successfully purged {deleted_count} temporary info records for {event_id}",
-    }
-
-
-def get_user_event_status(user_email, event_id=None):
-    """Get a user's registration and temporary info status for an event."""
-    # Use current event if not specified
-    if not event_id:
-        event_id = get_current_event()
-
-    if not event_id:
-        return {"success": False, "error": "No current event available"}
-
-    # Get user
-    user = get_user_by_email(user_email)
-    if not user:
-        return {"success": False, "error": "User not found"}
-
-    # Check registration status
-    is_registered = event_id in user["events"]
-
-    # Check temporary info status
-    temp_info = None
-    has_temp_info = False
-    if is_registered:
-        temp_info = get_temporary_info(user["id"], event_id)
-        has_temp_info = temp_info is not None
-
-    return {
-        "success": True,
-        "user_email": user_email,
-        "event_id": event_id,
-        "is_registered": is_registered,
-        "has_temporary_info": has_temp_info,
-        "temporary_info": temp_info,
     }
 
 
 def get_event_registrations(event_id):
     """Get all registrations for a specific event."""
     try:
+        from models.user import get_users_by_event
+
         # Validate event exists
         if not is_valid_event(event_id):
             return {"success": False, "error": f"Invalid event: {event_id}"}
@@ -384,60 +93,16 @@ def get_event_registrations(event_id):
         # Get event info
         event_info = get_event_info(event_id)
 
-        # Get all users registered for this event
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        # Get users registered for the event (events stored as JSON in users table)
-        cursor.execute(
-            """
-            SELECT * FROM users
-            WHERE events LIKE ?
-            ORDER BY id DESC
-        """,
-            (f'%"{event_id}"%',),
-        )
-
-        registered_users = cursor.fetchall()
+        # Get all users registered for this event using model function
+        registered_users = get_users_by_event(event_id)
 
         registrations = []
         for user in registered_users:
-            user_dict = dict(user)
-
-            # Parse events JSON to check if user is registered for this event
-            user_events = json.loads(user_dict.get("events", "[]"))
-            if event_id not in user_events:
-                continue  # Skip if not actually registered for this event
-
-            # Get temporary info if exists
-            cursor.execute(
-                """
-                SELECT * FROM temporary_info
-                WHERE user_id = ? AND event_id = ?
-                ORDER BY created_at DESC
-                LIMIT 1
-            """,
-                (user["id"], event_id),
-            )
-
-            temp_info = cursor.fetchone()
-            temp_info_dict = None
-            if temp_info:
-                temp_info_dict = dict(temp_info)
-                if temp_info_dict.get("dietary_restrictions"):
-                    temp_info_dict["dietary_restrictions"] = json.loads(
-                        temp_info_dict["dietary_restrictions"]
-                    )
-
             registrations.append(
                 {
-                    "user": user_dict,
-                    "registration_date": "N/A",  # We don't track registration dates in current schema
-                    "temporary_info": temp_info_dict,
+                    "user": user,
                 }
             )
-
-        conn.close()
 
         return {
             "success": True,
@@ -452,42 +117,83 @@ def get_event_registrations(event_id):
         return {"success": False, "error": "Failed to get event registrations"}
 
 
-def purge_event_temporary_data(event_id, admin_email):
-    """Purge all temporary data for a specific event."""
+def get_user_event_status(user_email, event_id=None):
+    """
+    Get user's event registration status.
+    If event_id is provided, returns status for that event.
+    Otherwise, returns status for all events.
+    """
     try:
-        # Validate event exists
-        if not is_valid_event(event_id):
-            return {"success": False, "error": f"Invalid event: {event_id}"}
+        user = get_user_by_email(user_email)
+        if not user:
+            return {"success": False, "error": "User not found"}
 
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        # Get user's registered events
+        user_events = user.get("events", [])
 
-        # Count records to be deleted
-        cursor.execute(
-            "SELECT COUNT(*) as count FROM temporary_info WHERE event_id = ?",
-            (event_id,),
-        )
-        count_result = cursor.fetchone()
-        deleted_count = count_result["count"]
+        if event_id:
+            # Check status for specific event
+            if not is_valid_event(event_id):
+                return {"success": False, "error": f"Invalid event: {event_id}"}
 
-        # Delete all temporary info for this event
-        cursor.execute("DELETE FROM temporary_info WHERE event_id = ?", (event_id,))
-        conn.commit()
-        conn.close()
+            is_registered = event_id in user_events
+            event_info = get_event_info(event_id)
 
+            return {
+                "success": True,
+                "user_email": user_email,
+                "event_id": event_id,
+                "event_info": event_info,
+                "is_registered": is_registered,
+            }
+        else:
+            # Return all event statuses
+            all_events = get_all_events()
+            event_statuses = []
+
+            for evt_id, evt_info in all_events.items():
+                event_statuses.append({
+                    "event_id": evt_id,
+                    "event_info": evt_info,
+                    "is_registered": evt_id in user_events,
+                })
+
+            return {
+                "success": True,
+                "user_email": user_email,
+                "events": event_statuses,
+                "total_registered": len(user_events),
+            }
+
+    except Exception as e:
         if DEBUG_MODE:
-            print(
-                f"PURGE: Admin {admin_email} deleted {deleted_count} temporary info records for event {event_id}"
-            )
+            print(f"Error in get_user_event_status: {e}")
+        return {"success": False, "error": "Failed to get event status"}
+
+
+def get_event_registration_stats(event_id):
+    """
+    Get registration statistics for an event.
+
+    Note: Since temporary_info table was removed, this only returns
+    registered user count. No temp_info_submitted data.
+    """
+    try:
+        from models.user import get_users_by_event
+
+        # Count users registered for event
+        registered_users = get_users_by_event(event_id)
 
         return {
-            "success": True,
-            "event_id": event_id,
-            "deleted_count": deleted_count,
-            "admin_email": admin_email,
+            "registered_users": len(registered_users),
+            "temp_info_submitted": 0,  # Obsolete - temporary_info table removed
         }
 
     except Exception as e:
         if DEBUG_MODE:
-            print(f"Error in purge_event_temporary_data: {e}")
-        return {"success": False, "error": "Failed to purge temporary data"}
+            print(f"Error in get_event_registration_stats: {e}")
+        return {
+            "registered_users": 0,
+            "temp_info_submitted": 0,
+        }
+

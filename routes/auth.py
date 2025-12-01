@@ -22,12 +22,20 @@ from services.auth_service import (
 )
 from models.user import get_user_by_email, create_user, update_user
 from models.oauth_token import create_oauth_token
-from models.app import validate_app_redirect, has_app_permission
+from models.app import validate_app_redirect, has_app_permission, get_app_by_client_id, validate_redirect_uri
+from models.oauth import (
+    create_authorization_code,
+    exchange_code_for_token,
+    verify_access_token,
+    revoke_access_token
+)
 from models.admin import is_admin
 from config import DEBUG_MODE
 from urllib.parse import unquote
+import json
 
 auth_bp = Blueprint("auth", __name__)
+oauth_bp = Blueprint("oauth", __name__)  # Separate blueprint for OAuth 2.0 endpoints (CSRF exempt)
 
 
 @auth_bp.route("/")
@@ -149,9 +157,276 @@ def auth_google_callback():
     return redirect("/")
 
 
+@auth_bp.route("/oauth/authorize")
+def oauth_authorize():
+    """
+    OAuth 2.0 authorization endpoint.
+    Implements the authorization code flow.
+    """
+    # Get OAuth 2.0 parameters
+    client_id = request.args.get("client_id")
+    redirect_uri = request.args.get("redirect_uri")
+    scope = request.args.get("scope", "profile email")
+    state = request.args.get("state", "")
+    response_type = request.args.get("response_type", "code")
+
+    # Validate required parameters
+    if not client_id or not redirect_uri:
+        return render_template(
+            "auth.html",
+            state="error",
+            error="Missing required OAuth parameters (client_id or redirect_uri)"
+        )
+
+    # Validate response_type
+    if response_type != "code":
+        return render_template(
+            "auth.html",
+            state="error",
+            error="Unsupported response_type. Only 'code' is supported."
+        )
+
+    # Get app by client_id
+    app = get_app_by_client_id(client_id)
+    if not app:
+        return render_template(
+            "auth.html",
+            state="error",
+            error="Invalid client_id. This app is not registered."
+        )
+
+    if not app.get('is_active'):
+        return render_template(
+            "auth.html",
+            state="error",
+            error="This app is currently disabled."
+        )
+
+    # Validate redirect_uri
+    allowed_uris = json.loads(app.get('redirect_uris', '[]'))
+    if not validate_redirect_uri(redirect_uri, allowed_uris):
+        return render_template(
+            "auth.html",
+            state="error",
+            error="Invalid redirect_uri. This URI is not registered for this app."
+        )
+
+    # Validate scopes
+    allowed_scopes = json.loads(app.get('allowed_scopes', '["profile", "email"]'))
+    requested_scopes = scope.split()
+    for requested_scope in requested_scopes:
+        if requested_scope not in allowed_scopes:
+            return render_template(
+                "auth.html",
+                state="error",
+                error=f"Invalid scope: {requested_scope}"
+            )
+
+    # Store OAuth parameters in session
+    session["oauth_client_id"] = client_id
+    session["oauth_redirect_uri"] = redirect_uri
+    session["oauth_scope"] = scope
+    session["oauth_state"] = state
+
+    # If user is already logged in, show consent screen
+    if "user_email" in session:
+        user = get_user_by_email(session["user_email"])
+        if user and user.get("legal_name"):  # User has completed registration
+            # Check if app allows anyone or if user has permission
+            if not app.get('allow_anyone'):
+                user_email = session["user_email"]
+
+                # Restricted apps require: admin + explicit app permission
+                if not is_admin(user_email) or not has_app_permission(
+                    user_email, app["id"], "read"
+                ):
+                    return render_template(
+                        "auth.html",
+                        state="error",
+                        error="You don't have permission to access this app."
+                    )
+
+            # Show consent screen
+            return render_template(
+                "oauth_consent.html",
+                app=app,
+                scopes=requested_scopes,
+                redirect_uri=redirect_uri,
+                state=state
+            )
+
+    # User is not logged in, show login screen
+    return render_template("auth.html", state="email_login")
+
+
+@auth_bp.route("/oauth/authorize", methods=["POST"])
+def oauth_authorize_consent():
+    """Handle user consent for OAuth 2.0 authorization."""
+    # Verify user is logged in
+    if "user_email" not in session:
+        return render_template(
+            "auth.html",
+            state="error",
+            error="Session expired. Please log in again."
+        )
+
+    # Verify OAuth session data exists
+    client_id = session.get("oauth_client_id")
+    redirect_uri = session.get("oauth_redirect_uri")
+    oauth_scope = session.get("oauth_scope")
+    state = session.get("oauth_state", "")
+
+    if not client_id or not redirect_uri or not oauth_scope:
+        return render_template(
+            "auth.html",
+            state="error",
+            error="Invalid OAuth session. Please try again."
+        )
+
+    # Get app by client_id and verify it's still active
+    app = get_app_by_client_id(client_id)
+    if not app or not app.get('is_active'):
+        # Clear OAuth session
+        session.pop("oauth_client_id", None)
+        session.pop("oauth_redirect_uri", None)
+        session.pop("oauth_scope", None)
+        session.pop("oauth_state", None)
+
+        # Redirect with error
+        separator = "&" if "?" in redirect_uri else "?"
+        return redirect(f"{redirect_uri}{separator}error=invalid_client&state={state}")
+
+    # For restricted apps, re-validate permissions before issuing code
+    if not app.get('allow_anyone'):
+        user_email = session["user_email"]
+
+        # Restricted apps require: admin + explicit app permission
+        if not is_admin(user_email) or not has_app_permission(
+            user_email, app["id"], "read"
+        ):
+            # Clear OAuth session
+            session.pop("oauth_client_id", None)
+            session.pop("oauth_redirect_uri", None)
+            session.pop("oauth_scope", None)
+            session.pop("oauth_state", None)
+
+            # Redirect with error
+            separator = "&" if "?" in redirect_uri else "?"
+            return redirect(f"{redirect_uri}{separator}error=access_denied&error_description=insufficient_permissions&state={state}")
+
+    # Check if user approved
+    if request.form.get("action") != "approve":
+        # User denied
+        # Clear session
+        session.pop("oauth_client_id", None)
+        session.pop("oauth_redirect_uri", None)
+        session.pop("oauth_scope", None)
+        session.pop("oauth_state", None)
+
+        # Redirect with error
+        separator = "&" if "?" in redirect_uri else "?"
+        return redirect(f"{redirect_uri}{separator}error=access_denied&state={state}")
+
+    # User approved and permissions verified - generate authorization code
+    code = create_authorization_code(
+        client_id=client_id,
+        user_email=session["user_email"],
+        redirect_uri=redirect_uri,
+        scope=oauth_scope
+    )
+
+    redirect_uri = session["oauth_redirect_uri"]
+    state = session.get("oauth_state", "")
+
+    # Clear OAuth session data
+    session.pop("oauth_client_id", None)
+    session.pop("oauth_redirect_uri", None)
+    session.pop("oauth_scope", None)
+    session.pop("oauth_state", None)
+
+    # Redirect with authorization code
+    separator = "&" if "?" in redirect_uri else "?"
+    return redirect(f"{redirect_uri}{separator}code={code}&state={state}")
+
+
+@oauth_bp.route("/oauth/token", methods=["POST"])
+def oauth_token():
+    """
+    OAuth 2.0 token endpoint.
+    Exchange authorization code for access token.
+
+    Note: This blueprint (oauth_bp) is exempt from CSRF in app.py
+    because OAuth 2.0 uses client_secret for authentication.
+    """
+    # Get parameters from POST body
+    grant_type = request.form.get("grant_type")
+    code = request.form.get("code")
+    redirect_uri = request.form.get("redirect_uri")
+    client_id = request.form.get("client_id")
+    client_secret = request.form.get("client_secret")
+
+    if DEBUG_MODE:
+        print(f"OAuth token request: grant_type={grant_type}, code={code[:20]}..., client_id={client_id}, redirect_uri={redirect_uri}")
+
+    # Validate grant_type
+    if grant_type != "authorization_code":
+        return jsonify({
+            "error": "unsupported_grant_type",
+            "error_description": "Only authorization_code grant type is supported"
+        }), 400
+
+    # Validate required parameters
+    if not all([code, redirect_uri, client_id, client_secret]):
+        return jsonify({
+            "error": "invalid_request",
+            "error_description": "Missing required parameters"
+        }), 400
+
+    # Exchange code for token
+    result = exchange_code_for_token(code, client_id, client_secret, redirect_uri)
+
+    if DEBUG_MODE:
+        print(f"Token exchange result: {result}")
+
+    if result["success"]:
+        return jsonify({
+            "access_token": result["access_token"],
+            "token_type": result["token_type"],
+            "expires_in": result["expires_in"],
+            "scope": result["scope"]
+        })
+    else:
+        error_descriptions = {
+            "invalid_client": "Invalid client_id or client_secret",
+            "invalid_grant": "Invalid, expired, or already used authorization code"
+        }
+        return jsonify({
+            "error": result["error"],
+            "error_description": error_descriptions.get(result["error"], "Invalid authorization code or client credentials")
+        }), 400
+
+
+@oauth_bp.route("/oauth/revoke", methods=["POST"])
+def oauth_revoke():
+    """OAuth 2.0 token revocation endpoint."""
+    token = request.form.get("token")
+
+    if not token:
+        return jsonify({"error": "invalid_request"}), 400
+
+    # Revoke the token
+    revoked = revoke_access_token(token)
+
+    # OAuth 2.0 spec says to return 200 even if token was already invalid
+    return jsonify({"success": True}), 200
+
+
 @auth_bp.route("/oauth")
-def oauth():
-    """OAuth endpoint for external applications."""
+def oauth_legacy():
+    """
+    LEGACY OAuth endpoint for backward compatibility.
+    Redirects to new OAuth 2.0 flow or handles old token-based flow.
+    """
     redirect_url = request.args.get("redirect")
 
     if not redirect_url:
@@ -539,13 +814,102 @@ def register():
     if "verification_token" in session:
         return redirect(url_for("auth.verify_complete"))
 
-    # Check if this is part of OAuth flow
-    if "oauth_redirect" in session:
+    # Check if this is part of NEW OAuth 2.0 flow (authorization code flow)
+    if "oauth_client_id" in session:
+        user_email = session["user_email"]
+
+        # Get app info to check permissions
+        app = get_app_by_client_id(session["oauth_client_id"])
+
+        if not app or not app.get('is_active'):
+            # Clear OAuth session
+            session.pop("oauth_client_id", None)
+            session.pop("oauth_redirect_uri", None)
+            session.pop("oauth_scope", None)
+            session.pop("oauth_state", None)
+            return render_template(
+                "auth.html",
+                state="error",
+                error="This app is no longer available."
+            )
+
+        # Check if app allows anyone or if user has permission
+        if not app.get('allow_anyone'):
+            # Restricted apps require: admin + explicit app permission
+            if not is_admin(user_email) or not has_app_permission(
+                user_email, app["id"], "read"
+            ):
+                # Clear OAuth session
+                session.pop("oauth_client_id", None)
+                session.pop("oauth_redirect_uri", None)
+                session.pop("oauth_scope", None)
+                session.pop("oauth_state", None)
+                return render_template(
+                    "auth.html",
+                    state="error",
+                    error="You don't have permission to access this app."
+                )
+
+        # Show consent screen
+        requested_scopes = session.get("oauth_scope", "").split()
+        return render_template(
+            "oauth_consent.html",
+            app=app,
+            scopes=requested_scopes,
+            redirect_uri=session.get("oauth_redirect_uri"),
+            state=session.get("oauth_state", "")
+        )
+
+    # Check if this is part of LEGACY OAuth flow (token-based)
+    if "oauth_redirect" in session and "oauth_app_id" in session:
+        user_email = session["user_email"]
+        app_id = session.get("oauth_app_id")
+        redirect_url = session.get("oauth_redirect")
+
+        # Get app info to check permissions
+        from models.app import get_app_by_id
+
+        app = get_app_by_id(app_id)
+
+        if not app or not app["is_active"]:
+            session.pop("oauth_redirect", None)
+            session.pop("oauth_app_id", None)
+            return render_template(
+                "auth.html",
+                state="error",
+                error="This app is no longer available."
+            )
+
+        # Check if app allows anyone or if user has permission
+        if not app["allow_anyone"]:
+            if not is_admin(user_email):
+                session.pop("oauth_redirect", None)
+                session.pop("oauth_app_id", None)
+                return render_template(
+                    "auth.html",
+                    state="error",
+                    error="You don't have permission to access this app."
+                )
+
+            if not has_app_permission(user_email, app_id, "read"):
+                session.pop("oauth_redirect", None)
+                session.pop("oauth_app_id", None)
+                return render_template(
+                    "auth.html",
+                    state="error",
+                    error="You don't have permission to access this app."
+                )
+
         # Generate OAuth token and redirect to external app
-        token = create_oauth_token(session["user_email"], expires_in_seconds=120)
-        redirect_url = session.pop("oauth_redirect")
+        token = create_oauth_token(user_email, expires_in_seconds=120)
+        session.pop("oauth_redirect", None)
+        session.pop("oauth_app_id", None)
         separator = "&" if "?" in redirect_url else "?"
         return redirect(f"{redirect_url}{separator}token={token}")
+
+    # If we had an incomplete OAuth session (redirect without app id), clear it
+    if "oauth_redirect" in session and "oauth_app_id" not in session:
+        session.pop("oauth_redirect", None)
 
     return redirect("/")
 

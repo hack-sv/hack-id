@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{% block title %}Admin{% endblock %} - hack.sv</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-top">
+                <!-- Toggle button -->
+                <div class="toggle-btn" id="toggleBtn">
+                    <div class="toggle-btn-icon">
+                        <span class="material-icons">menu</span>
+                    </div>
+                </div>
+
+                <!-- Navigation items -->
+                <a href="#" class="nav-item" data-page="home">
+                    <div class="nav-item-label">Home</div>
+                    <div class="nav-item-icon">
+                        <span class="material-icons">home</span>
+                    </div>
+                </a>
+
+                {% if permissions and permissions.attendees and permissions.attendees.read %}
+                <a href="#" class="nav-item" data-page="attendees">
+                    <div class="nav-item-label">Attendees</div>
+                    <div class="nav-item-icon">
+                        <span class="material-icons">people</span>
+                    </div>
+                </a>
+                {% endif %}
+
+                {% if permissions and permissions.events and permissions.events.read %}
+                <a href="#" class="nav-item" data-page="events">
+                    <div class="nav-item-label">Events</div>
+                    <div class="nav-item-icon">
+                        <span class="material-icons">event</span>
+                    </div>
+                </a>
+                {% endif %}
+
+                {% if permissions and permissions['keys'] and permissions['keys'].read %}
+                <a href="#" class="nav-item" data-page="keys">
+                    <div class="nav-item-label">API Keys</div>
+                    <div class="nav-item-icon">
+                        <span class="material-icons">key</span>
+                    </div>
+                </a>
+                {% endif %}
+
+                {% if permissions and permissions.admins and permissions.admins.read %}
+                <a href="#" class="nav-item" data-page="admins">
+                    <div class="nav-item-label">Admins</div>
+                    <div class="nav-item-icon">
+                        <span class="material-icons">admin_panel_settings</span>
+                    </div>
+                </a>
+                {% endif %}
+
+                {% if permissions and permissions.apps and permissions.apps.read %}
+                <a href="#" class="nav-item" data-page="apps">
+                    <div class="nav-item-label">Apps</div>
+                    <div class="nav-item-icon">
+                        <span class="material-icons">apps</span>
+                    </div>
+                </a>
+                {% endif %}
+            </div>
+
+            <div class="sidebar-bottom">
+                <!-- User info -->
+                <a href="/" class="user-info" id="userInfo">
+                    <div class="user-name">{{ admin_name or 'Admin' }}</div>
+                    <div class="user-icon">
+                        <span class="material-icons">account_circle</span>
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <!-- Home Page -->
+            <div class="page-content active" id="page-home">
+                <h1>Admin Dashboard</h1>
+                <p>Welcome to the hack.sv admin panel.</p>
+            </div>
+
+            <!-- Attendees Page -->
+            <div class="page-content" id="page-attendees">
+                <h1>Attendees</h1>
+                <table id="attendees-table" class="display" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>Email</th>
+                            <th>Legal Name</th>
+                            <th>Preferred Name</th>
+                            <th>Pronouns</th>
+                            <th>DOB</th>
+                            <th>Discord</th>
+                            <th>Events</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- DataTables will populate this -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Events Page -->
+            <div class="page-content" id="page-events">
+                <div class="loading">Loading events...</div>
+            </div>
+
+            <!-- API Keys Page -->
+            <div class="page-content" id="page-keys">
+                <div class="loading">Loading API keys...</div>
+            </div>
+
+            <!-- Admins Page -->
+            <div class="page-content" id="page-admins">
+                <div class="loading">Loading admins...</div>
+            </div>
+
+            <!-- Apps Page -->
+            <div class="page-content" id="page-apps">
+                <div class="loading">Loading apps...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="modal-overlay" class="modal-overlay">
+        <!-- Permissions Modal -->
+        <div id="permissions-modal" class="modal">
+            <div class="modal-header">
+                <h2>Manage Permissions</h2>
+                <button class="modal-close" data-modal="permissions-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="permissions-content"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary modal-cancel" data-modal="permissions-modal">Cancel</button>
+                <button class="btn-primary" id="save-permissions-btn">Save</button>
+            </div>
+        </div>
+
+        <!-- Add Admin Modal -->
+        <div id="add-admin-modal" class="modal">
+            <div class="modal-header">
+                <h2>Add Admin</h2>
+                <button class="modal-close" data-modal="add-admin-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <label>Email:</label>
+                <input type="email" id="new-admin-email" placeholder="admin@example.com" />
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary modal-cancel" data-modal="add-admin-modal">Cancel</button>
+                <button class="btn-primary" id="confirm-add-admin-btn">Add Admin</button>
+            </div>
+        </div>
+
+        <!-- Add/Edit App Modal -->
+        <div id="app-modal" class="modal">
+            <div class="modal-header">
+                <h2 id="app-modal-title">Add App</h2>
+                <button class="modal-close" data-modal="app-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="app-id" />
+
+                <label>Name:</label>
+                <input type="text" id="app-name" placeholder="My Application" />
+
+                <label>Icon (emoji):</label>
+                <input type="text" id="app-icon" placeholder="🔗" />
+
+                <!-- OAuth 2.0 Credentials (shown only when editing) -->
+                <div id="app-credentials" class="oauth-credentials-box hidden">
+                    <h3>OAuth 2.0 Credentials</h3>
+
+                    <label>Client ID:</label>
+                    <div class="credential-field-row">
+                        <input type="text" id="app-client-id" readonly />
+                        <button type="button" class="btn-secondary" onclick="copyToClipboard('app-client-id')">Copy</button>
+                    </div>
+
+                    <label>Client Secret:</label>
+                    <div class="credential-field-row">
+                        <input type="password" id="app-client-secret" readonly />
+                        <button type="button" class="btn-secondary" onclick="toggleSecretVisibility(event)">Show</button>
+                        <button type="button" class="btn-secondary" onclick="copyToClipboard('app-client-secret')">Copy</button>
+                        <button type="button" class="btn-primary" onclick="regenerateSecret()">Regenerate</button>
+                    </div>
+                </div>
+
+                <label>Redirect URIs (one per line):</label>
+                <textarea id="app-redirect-uris" rows="4" placeholder="https://example.com/callback&#10;https://example.com/auth/callback"></textarea>
+                <small>OAuth 2.0 requires exact URI matching for security</small>
+
+                <div class="permission-section">
+                    <div class="permission-section-header">
+                        <h3>Allowed Scopes</h3>
+                        <small>What data can this app access?</small>
+                    </div>
+                    <div id="app-scopes" class="permission-grid">
+                        <p class="muted">Loading scopes...</p>
+                    </div>
+                </div>
+
+                <label class="checkbox-label">
+                    <input type="checkbox" id="app-allow-anyone" />
+                    Allow anyone to access this app (not just admins)
+                </label>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary modal-cancel" data-modal="app-modal">Cancel</button>
+                <button class="btn-primary" id="save-app-btn">Save</button>
+            </div>
+        </div>
+
+        <!-- Add/Edit API Key Modal -->
+        <div id="api-key-modal" class="modal">
+            <div class="modal-header">
+                <h2 id="api-key-modal-title">Add API Key</h2>
+                <button class="modal-close" data-modal="api-key-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="api-key-id" />
+                <label>Name:</label>
+                <input type="text" id="api-key-name" placeholder="Internal service" />
+
+                <label>Rate Limit (requests per minute, 0 = unlimited):</label>
+                <input type="number" id="api-key-rate-limit" min="0" value="60" />
+
+                <div class="permission-section">
+                    <div class="permission-section-header">
+                        <h3>Permissions</h3>
+                        <small>Pick only what this key needs</small>
+                    </div>
+                    <div id="api-key-permissions" class="permission-grid">
+                        <p class="muted">Loading permissions...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary modal-cancel" data-modal="api-key-modal">Cancel</button>
+                <button class="btn-primary" id="save-api-key-btn">Save</button>
+            </div>
+        </div>
+
+        <!-- API Key Created Modal -->
+        <div id="api-key-created-modal" class="modal">
+            <div class="modal-header">
+                <h2>⚠️ API Key Created</h2>
+                <button class="modal-close" data-modal="api-key-created-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="warning-box">
+                    <div class="warning-box-content">
+                        <span class="material-icons warning-box-icon">warning</span>
+                        <div>
+                            <strong class="warning-box-title">This is your only chance to copy this key!</strong>
+                            <p class="warning-box-text">
+                                For security reasons, we cannot show you this API key again.
+                                <strong>Save it now</strong> in a secure location like a password manager or environment file.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="copy-row">
+                    <input type="text" id="created-api-key" readonly class="api-key-input" />
+                    <button class="btn-secondary" id="copy-api-key-btn">📋 Copy</button>
+                </div>
+                <div class="confirmation-box">
+                    <label class="confirmation-label">
+                        <input type="checkbox" id="confirm-key-saved" class="confirmation-checkbox" />
+                        <span class="confirmation-text">I have saved this API key in a secure location</span>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary btn-disabled" id="close-api-key-modal-btn" disabled>I've Saved the Key</button>
+            </div>
+        </div>
+
+        <!-- API Key Logs Modal -->
+        <div id="api-key-logs-modal" class="modal">
+            <div class="modal-header">
+                <h2 id="api-key-logs-title">API Key Usage</h2>
+                <button class="modal-close" data-modal="api-key-logs-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="api-key-logs" class="log-list">
+                    <p class="muted">No recent usage.</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary modal-cancel" data-modal="api-key-logs-modal">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- jQuery (required for DataTables) -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+    <!-- DataTables JS -->
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+
+    <!-- CSRF & Session Helpers -->
+    <script src="{{ url_for('static', filename='js/admin_helpers.js') }}"></script>
+
+    <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+</body>
+</html>

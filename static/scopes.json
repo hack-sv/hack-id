@@ -1,0 +1,35 @@
+{
+  "scopes": [
+    {
+      "name": "profile",
+      "description": "Access to basic profile information (name, pronouns)",
+      "icon": "person",
+      "required": true
+    },
+    {
+      "name": "email",
+      "description": "Access to email address",
+      "icon": "envelope",
+      "required": true
+    },
+    {
+      "name": "events",
+      "description": "Access to event enrollment information",
+      "icon": "calendar",
+      "required": false
+    },
+    {
+      "name": "discord",
+      "description": "Access to Discord account information",
+      "icon": "discord",
+      "required": false
+    },
+    {
+      "name": "dob",
+      "description": "Access to date of birth",
+      "icon": "cake",
+      "required": false
+    }
+  ]
+}
+

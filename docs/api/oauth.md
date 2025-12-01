@@ -1,66 +1,112 @@
-# OAuth Integration API
+# OAuth 2.0 Integration API
 
-The hack.sv ID system provides OAuth integration for external applications to authenticate users and retrieve their basic information.
+The hack.sv ID system provides **OAuth 2.0 authorization code flow** for external applications to authenticate users and access their information with granular permissions.
 
 ## Overview
 
-The OAuth flow allows external applications to:
+The OAuth 2.0 flow allows external applications to:
 
-1. Redirect users to the hack.sv ID system for authentication
-2. Receive a temporary token after successful authentication
-3. Exchange the token for user information via API
+1. Register an OAuth 2.0 app with client credentials
+2. Redirect users to the hack.sv ID system for authentication and consent
+3. Receive an authorization code
+4. Exchange the code for an access token (server-to-server)
+5. Use the access token to retrieve user information based on granted scopes
 
 ## Flow Diagram
 
 ```
-External App → /oauth?redirect=... → User Login → External App (with token) → /api/oauth/user-info → User Data
+External App → /oauth/authorize → User Login & Consent → External App (with code)
+→ /oauth/token (server-to-server) → Access Token → /api/oauth/user-info → User Data
 ```
 
-## Step 1: Redirect to OAuth Endpoint
+## Prerequisites
 
-`
-Redirect users to the OAuth endpoint with your callback URL:
+### 1. Register Your Application
+
+1. Log in to the admin panel at `/admin/apps`
+2. Click "Add App"
+3. Fill in:
+   - **Name**: Your application name
+   - **Icon**: Emoji or icon for your app
+   - **Redirect URIs**: Exact callback URLs (one per line)
+   - **Allowed Scopes**: Select what data your app needs
+4. Save and copy your **Client ID** and **Client Secret**
+
+### Available Scopes
+
+| Scope | Description | Data Included |
+|-------|-------------|---------------|
+| `profile` | Basic profile information | legal_name, preferred_name, pronouns |
+| `email` | Email address | email |
+| `dob` | Date of birth | dob |
+| `events` | Event enrollment | events array |
+| `discord` | Discord account | discord_id, discord_username |
+
+## Step 1: Authorization Request
+
+Redirect users to the authorization endpoint:
 
 ```
-GET https://id.hack.sv/oauth?redirect={ENCODED_CALLBACK_URL}
+GET https://id.hack.sv/oauth/authorize?
+    response_type=code&
+    client_id=YOUR_CLIENT_ID&
+    redirect_uri=https://yourapp.com/callback&
+    scope=profile+email&
+    state=RANDOM_STATE_STRING
 ```
 
 ### Parameters
 
--   `redirect` (required): URL-encoded callback URL where the user will be redirected after authentication
+- `response_type` (required): Must be `code`
+- `client_id` (required): Your app's client ID
+- `redirect_uri` (required): Must exactly match one of your registered URIs
+- `scope` (required): Space-separated list of scopes (e.g., `profile email events`)
+- `state` (recommended): Random string to prevent CSRF attacks
 
 ### Example
 
 ```
-https://id.hack.sv/oauth?redirect=https%3A%2F%2Fhack.sv%2Fcallback
+https://id.hack.sv/oauth/authorize?response_type=code&client_id=app_abc123&redirect_uri=https%3A%2F%2Fyourapp.com%2Fcallback&scope=profile+email&state=xyz789
 ```
 
-## Step 2: Handle Callback
+## Step 2: User Consent
 
-After successful authentication, the user will be redirected to your callback URL with a temporary token:
+The user will see a consent screen showing:
+- Your app name and icon
+- What data your app is requesting
+- Where they'll be redirected
+
+If they approve, they'll be redirected to your callback URL.
+
+## Step 3: Handle Authorization Code
+
+After user approval, they'll be redirected to your callback URL with an authorization code:
 
 ```
-https://hack.sv/callback?token=pAK2Sl2NBWnLIEzcYfaGjDgb1Sqy5FKkQvsjBEv5ICQ
+https://yourapp.com/callback?code=AUTH_CODE&state=xyz789
 ```
 
-### Token Properties
+### Code Properties
 
--   **Expiration**: 120 seconds (2 minutes)
--   **Single-use**: Token is consumed after one successful API call
--   **Secure**: Generated using cryptographically secure random methods
+- **Expiration**: 10 minutes
+- **Single-use**: Code is consumed after one successful exchange
+- **Secure**: Cryptographically random
 
-## Step 3: Exchange Token for User Information
+⚠️ **Verify the `state` parameter matches what you sent to prevent CSRF attacks!**
 
-Use your API key with `oauth` permission to exchange the token for user data:
+## Step 4: Exchange Code for Access Token
+
+**This must be done server-to-server** (never expose your client_secret in frontend code):
 
 ```http
-POST https://id.hack.sv/api/oauth/user-info
-Authorization: Bearer hack.sv.{YOUR_API_KEY}
-Content-Type: application/json
+POST https://id.hack.sv/oauth/token
+Content-Type: application/x-www-form-urlencoded
 
-{
-  "token": "pAK2Sl2NBWnLIEzcYfaGjDgb1Sqy5FKkQvsjBEv5ICQ"
-}
+grant_type=authorization_code&
+code=AUTH_CODE&
+redirect_uri=https://yourapp.com/callback&
+client_id=YOUR_CLIENT_ID&
+client_secret=YOUR_CLIENT_SECRET
 ```
 
 ### Response
@@ -69,119 +115,279 @@ Content-Type: application/json
 
 ```json
 {
-    "success": true,
-    "user": {
-        "email": "user@example.com",
-        "legal_name": "John Doe",
-        "preferred_name": "John",
-        "pronouns": "he/him/his",
-        "dob": "01/01/1990",
-        "is_admin": false
-    }
+    "access_token": "abc123xyz...",
+    "token_type": "Bearer",
+    "expires_in": 3600,
+    "scope": "profile email"
 }
 ```
 
-**Error (401 Unauthorized):**
+**Error (400 Bad Request):**
 
 ```json
 {
-    "success": false,
-    "error": "Invalid or expired token"
+    "error": "invalid_grant",
+    "error_description": "Invalid authorization code or client credentials"
 }
 ```
 
-## API Key Requirements
+## Step 5: Access User Information
 
-To use the OAuth API, you need an API key with the `oauth` permission:
+Use the access token to get user data:
 
-1. Log in to the admin panel at `/admin`
-2. Navigate to "API Key Management"
-3. Create a new API key
-4. Select the "OAuth Integration" permission
-5. Use the generated key in the `Authorization` header
+```http
+GET https://id.hack.sv/api/oauth/user-info
+Authorization: Bearer ACCESS_TOKEN
+```
+
+### Response
+
+The response includes only data allowed by the granted scopes:
+
+```json
+{
+    "legal_name": "John Doe",
+    "preferred_name": "John",
+    "pronouns": "he/him/his",
+    "email": "user@example.com"
+}
+```
+
+If the token is invalid:
+
+```json
+{
+    "error": "invalid_token",
+    "error_description": "Token is invalid, expired, or revoked"
+}
+```
+
+## Token Revocation
+
+To revoke an access token:
+
+```http
+POST https://id.hack.sv/oauth/revoke
+Content-Type: application/x-www-form-urlencoded
+
+token=ACCESS_TOKEN
+```
+
+Response: `200 OK` (always returns success per OAuth 2.0 spec)
 
 ## Error Handling
 
 ### Common Errors
 
-| Error                        | Description                                | Solution                                           |
-| ---------------------------- | ------------------------------------------ | -------------------------------------------------- |
-| `Missing redirect parameter` | No redirect URL provided                   | Include `redirect` parameter in OAuth URL          |
-| `Invalid or expired token`   | Token is invalid, expired, or already used | Get a new token through OAuth flow                 |
-| `Invalid API key`            | API key is invalid or missing              | Check API key and ensure it has `oauth` permission |
-| `Token is required`          | No token provided in request body          | Include `token` in JSON request body               |
+| Error | Description | Solution |
+|-------|-------------|----------|
+| `invalid_request` | Missing required parameters | Check all required parameters are included |
+| `invalid_client` | Invalid client_id or client_secret | Verify your credentials |
+| `invalid_grant` | Authorization code is invalid/expired/used | Get a new code through authorization flow |
+| `unsupported_grant_type` | Wrong grant_type parameter | Use `grant_type=authorization_code` |
+| `invalid_scope` | Requested scope not allowed for your app | Check your app's allowed scopes in admin panel |
+| `invalid_token` | Access token is invalid/expired/revoked | Get a new access token |
 
-### Token Expiration
+### Authorization Code Expiration
 
-Tokens expire after 120 seconds. If you receive an "Invalid or expired token" error:
+Authorization codes expire after **10 minutes**. Exchange them for access tokens immediately.
 
-1. Redirect the user through the OAuth flow again
-2. Use the new token immediately
-3. Implement proper error handling in your application
+### Access Token Expiration
+
+Access tokens expire after **1 hour**. When you receive an `invalid_token` error, redirect the user through the OAuth flow again to get a new token.
 
 ## Security Considerations
 
--   **HTTPS Only**: Always use HTTPS in production
--   **Token Storage**: Never store tokens - use them immediately
--   **API Key Security**: Keep your API key secure and rotate regularly
--   **Redirect URL Validation**: Ensure your callback URLs are secure
+- **HTTPS Only**: Always use HTTPS in production
+- **Client Secret**: Never expose your client_secret in frontend code or version control
+- **State Parameter**: Always use and verify the state parameter to prevent CSRF attacks
+- **Redirect URI Validation**: OAuth 2.0 requires exact URI matching for security
+- **Token Storage**: Store access tokens securely (encrypted database, secure session storage)
+- **Scope Minimization**: Only request scopes your app actually needs
 
 ## Example Implementation
 
 ### JavaScript (Frontend)
 
 ```javascript
-// Redirect to OAuth
+// Step 1: Initiate OAuth 2.0 flow
 function initiateOAuth() {
-    const callbackUrl = encodeURIComponent("https://yourapp.com/callback");
-    window.location.href = `https://id.hack.sv/oauth?redirect=${callbackUrl}`;
+    const clientId = 'app_abc123';
+    const redirectUri = encodeURIComponent('https://yourapp.com/callback');
+    const scope = encodeURIComponent('profile email');
+    const state = generateRandomState(); // Store this in session/localStorage
+
+    const authUrl = `https://id.hack.sv/oauth/authorize?` +
+        `response_type=code&` +
+        `client_id=${clientId}&` +
+        `redirect_uri=${redirectUri}&` +
+        `scope=${scope}&` +
+        `state=${state}`;
+
+    window.location.href = authUrl;
 }
 
-// Handle callback
+// Step 2: Handle callback
 function handleCallback() {
     const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get("token");
+    const code = urlParams.get('code');
+    const state = urlParams.get('state');
 
-    if (token) {
-        // Send token to your backend
-        fetch("/api/exchange-token", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token }),
-        });
+    // Verify state matches what you sent
+    if (state !== getStoredState()) {
+        console.error('State mismatch - possible CSRF attack');
+        return;
     }
+
+    // Send code to your backend for token exchange
+    fetch('/api/exchange-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code })
+    });
+}
+
+function generateRandomState() {
+    return Math.random().toString(36).substring(2, 15);
 }
 ```
 
 ### Node.js (Backend)
 
 ```javascript
-// Exchange token for user info
-async function exchangeToken(token) {
-    const response = await fetch("https://id.hack.sv/api/oauth/user-info", {
-        method: "POST",
+const express = require('express');
+const fetch = require('node-fetch');
+
+const CLIENT_ID = process.env.HACKID_CLIENT_ID;
+const CLIENT_SECRET = process.env.HACKID_CLIENT_SECRET;
+const REDIRECT_URI = 'https://yourapp.com/callback';
+
+// Step 3: Exchange authorization code for access token
+app.post('/api/exchange-code', async (req, res) => {
+    const { code } = req.body;
+
+    const tokenResponse = await fetch('https://id.hack.sv/oauth/token', {
+        method: 'POST',
         headers: {
-            Authorization: `Bearer hack.sv.${process.env.HACKID_API_KEY}`,
-            "Content-Type": "application/json",
+            'Content-Type': 'application/x-www-form-urlencoded'
         },
-        body: JSON.stringify({ token }),
+        body: new URLSearchParams({
+            grant_type: 'authorization_code',
+            code: code,
+            redirect_uri: REDIRECT_URI,
+            client_id: CLIENT_ID,
+            client_secret: CLIENT_SECRET
+        })
     });
 
-    return await response.json();
-}
+    const tokenData = await tokenResponse.json();
+
+    if (tokenData.access_token) {
+        // Step 4: Use access token to get user info
+        const userResponse = await fetch('https://id.hack.sv/api/oauth/user-info', {
+            headers: {
+                'Authorization': `Bearer ${tokenData.access_token}`
+            }
+        });
+
+        const userData = await userResponse.json();
+
+        // Store user data in session, create account, etc.
+        req.session.user = userData;
+        res.json({ success: true, user: userData });
+    } else {
+        res.status(400).json({ error: tokenData.error });
+    }
+});
 ```
 
-## Rate Limits
+### Python (Flask)
 
-OAuth API endpoints are subject to the rate limits configured for your API key:
+```python
+import requests
+from flask import Flask, redirect, request, session
+from urllib.parse import urlencode
 
--   Default: 60 requests per minute
--   Configurable up to 1200 requests per minute for high-volume applications
+app = Flask(__name__)
+CLIENT_ID = 'app_abc123'
+CLIENT_SECRET = 'your_client_secret'
+REDIRECT_URI = 'https://yourapp.com/callback'
+
+@app.route('/login')
+def login():
+    # Step 1: Redirect to authorization endpoint
+    params = {
+        'response_type': 'code',
+        'client_id': CLIENT_ID,
+        'redirect_uri': REDIRECT_URI,
+        'scope': 'profile email',
+        'state': generate_random_state()
+    }
+    auth_url = f'https://id.hack.sv/oauth/authorize?{urlencode(params)}'
+    return redirect(auth_url)
+
+@app.route('/callback')
+def callback():
+    # Step 2: Handle callback
+    code = request.args.get('code')
+    state = request.args.get('state')
+
+    # Verify state
+    if state != session.get('oauth_state'):
+        return 'Invalid state', 400
+
+    # Step 3: Exchange code for token
+    token_response = requests.post('https://id.hack.sv/oauth/token', data={
+        'grant_type': 'authorization_code',
+        'code': code,
+        'redirect_uri': REDIRECT_URI,
+        'client_id': CLIENT_ID,
+        'client_secret': CLIENT_SECRET
+    })
+
+    token_data = token_response.json()
+    access_token = token_data.get('access_token')
+
+    # Step 4: Get user info
+    user_response = requests.get('https://id.hack.sv/api/oauth/user-info',
+        headers={'Authorization': f'Bearer {access_token}'}
+    )
+
+    user_data = user_response.json()
+    session['user'] = user_data
+
+    return redirect('/dashboard')
+```
+
+## Migration from Legacy OAuth
+
+If you're using the old token-based OAuth flow, it's still supported for backward compatibility but **deprecated**. Please migrate to OAuth 2.0:
+
+### Old Flow (Deprecated)
+```
+GET /oauth?redirect=URL → token in URL → POST /api/oauth/user-info with token
+```
+
+### New Flow (OAuth 2.0)
+```
+GET /oauth/authorize → authorization code → POST /oauth/token → access token → GET /api/oauth/user-info
+```
+
+### Key Differences
+
+| Feature | Legacy | OAuth 2.0 |
+|---------|--------|-----------|
+| Token in URL | ✅ Yes (insecure) | ❌ No (code in URL, token server-to-server) |
+| Client Authentication | ❌ No | ✅ Yes (client_secret) |
+| Token Expiry | 2 minutes | 1 hour |
+| Scopes | ❌ No | ✅ Yes (granular permissions) |
+| Consent Screen | ❌ No | ✅ Yes |
+| Standard Compliant | ❌ No | ✅ Yes (OAuth 2.0 RFC 6749) |
 
 ## Support
 
 For technical support or questions about OAuth integration:
 
--   Email: team@hack.sv
--   Documentation: https://docs.hack.sv
--   Status Page: https://status.hack.sv
+- Email: team@hack.sv
+- Documentation: https://docs.hack.sv
+- Status Page: https://status.hack.sv

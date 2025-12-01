@@ -2,7 +2,7 @@
     "permissions": {
         "events.register": {
             "name": "Register Users for Events",
-            "description": "Allow registering users for events and submitting temporary event information (address, emergency contacts, etc.) via API",
+            "description": "Allow registering users for events via API",
             "category": "Events",
             "endpoints": ["/api/register-event"],
             "risk_level": "high"

@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}Authorize {{ app.name }} - hack.sv{% endblock %}
+{% block body %}
+<div>
+    <div class="auth-container">
+        <img
+            src="{{ url_for('static', filename='logo-big.svg') }}"
+            alt="HACK.SV"
+            class="hack-logo"
+        />
+        <div class="title">Authorize Application</div>
+        
+        <div class="oauth-app-info">
+            {% if app.icon %}
+            <div class="app-icon">{{ app.icon }}</div>
+            {% endif %}
+            <h2>{{ app.name }}</h2>
+            <p class="app-description">wants to access your hack.sv account</p>
+        </div>
+
+        <div class="oauth-scopes">
+            <h3>This app will be able to:</h3>
+            <ul>
+                {% for scope in scopes %}
+                <li>
+                    {% if scope == 'profile' %}
+                    📝 Access your profile information (name, pronouns)
+                    {% elif scope == 'email' %}
+                    ✉️ Access your email address
+                    {% elif scope == 'events' %}
+                    📅 Access your event enrollment information
+                    {% elif scope == 'discord' %}
+                    💬 Access your Discord account information
+                    {% elif scope == 'dob' %}
+                    🎂 Access your date of birth
+                    {% else %}
+                    {{ scope }}
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <div class="oauth-redirect-info">
+            <p class="small-text">You will be redirected to:</p>
+            <code>{{ redirect_uri }}</code>
+        </div>
+
+        <form method="post" action="{{ url_for('auth.oauth_authorize_consent') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" name="action" value="approve" class="google-btn">
+                Authorize {{ app.name }}
+            </button>
+            <button type="submit" name="action" value="deny" class="cancel-btn">
+                Cancel
+            </button>
+        </form>
+
+        <div class="oauth-warning">
+            <p class="small-text">
+                ⚠️ Only authorize apps you trust. This app will have access to the information listed above.
+            </p>
+        </div>
+    </div>
+</div>
+
+<style>
+.oauth-app-info {
+    text-align: center;
+    margin: 2rem 0;
+    padding: 1.5rem;
+    background: rgba(0, 255, 255, 0.05);
+    border: 1px solid rgba(0, 255, 255, 0.2);
+    border-radius: 8px;
+}
+
+.app-icon {
+    font-size: 3rem;
+    margin-bottom: 0.5rem;
+}
+
+.oauth-app-info h2 {
+    margin: 0.5rem 0;
+    color: #00ffff;
+}
+
+.app-description {
+    color: #888;
+    margin: 0;
+}
+
+.oauth-scopes {
+    margin: 2rem 0;
+    text-align: left;
+}
+
+.oauth-scopes h3 {
+    color: #00ffff;
+    font-size: 1rem;
+    margin-bottom: 1rem;
+}
+
+.oauth-scopes ul {
+    list-style: none;
+    padding: 0;
+}
+
+.oauth-scopes li {
+    padding: 0.75rem;
+    margin: 0.5rem 0;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    border-left: 3px solid #00ffff;
+}
+
+.oauth-redirect-info {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+}
+
+.oauth-redirect-info code {
+    display: block;
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    font-size: 0.85rem;
+    word-break: break-all;
+    color: #00ffff;
+}
+
+.small-text {
+    font-size: 0.85rem;
+    color: #888;
+    margin: 0;
+}
+
+.cancel-btn {
+    margin-top: 1rem;
+    background: transparent;
+    border: 1px solid #666;
+    color: #888;
+}
+
+.cancel-btn:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: #888;
+}
+
+.oauth-warning {
+    margin-top: 2rem;
+    padding: 1rem;
+    background: rgba(255, 165, 0, 0.1);
+    border: 1px solid rgba(255, 165, 0, 0.3);
+    border-radius: 4px;
+}
+</style>
+{% endblock %}
+

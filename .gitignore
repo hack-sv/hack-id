@@ -9,3 +9,6 @@ test_opt_out.csv
 counterspell-checkin.txt
 scrapyard-checkin.tsv
 .crush/
+.metabob/
+.claude/
+flask_session/
