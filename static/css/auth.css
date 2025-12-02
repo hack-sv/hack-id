@@ -224,6 +224,71 @@ body {
     transform: translateX(-50%);
 }
 
+.oauth-app-info {
+    text-align: center;
+    margin-bottom: 30px;
+    display: flex;
+    flex-direction: column;
+}
+
+.oauth-consent-form {
+    text-align: center;
+    margin-top: 1.5rem;
+}
+
+.approve-btn {
+    background: #fff;
+    border: 2px solid #00ccff;
+    border-radius: 4px;
+    padding: 12px 24px;
+    font-family: "Nunito Sans", sans-serif;
+    font-size: 18px;
+    font-weight: 500;
+    color: #00ccff;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: 300px;
+    box-sizing: border-box;
+    margin-bottom: 10px;
+}
+
+.approve-btn:hover {
+    background: #00ccff;
+    color: #fff;
+    transform: translateY(-4px);
+}
+
+.cancel-btn {
+    background: white;
+    border: 2px solid black;
+    border-radius: 4px;
+    padding: 12px 24px;
+    font-family: "Nunito Sans", sans-serif;
+    font-size: 18px;
+    font-weight: 500;
+    color: black;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: 300px;
+    box-sizing: border-box;
+}
+
+.cancel-btn:hover {
+    background: #000;
+    color: white;
+    transform: translateY(-4px);
+}
+
+.scope-list {
+    text-align: left;
+    max-width: 400px;
+    margin: 0 auto 20px auto;
+}
+
+.scope-item {
+    list-style-type: disc;
+}
+
 @media (max-width: 768px) {
     .auth-container {
         width: 90vw;

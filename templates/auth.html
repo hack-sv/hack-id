@@ -60,7 +60,7 @@ Verification{% elif state == 'email_sent' %}Check Your Email{% elif state ==
                     class="email-input"
                 />
                 <button type="submit" class="verify-btn">
-                    Get verification code
+                    Get magic link
                 </button>
             </form>
         </div>
@@ -73,18 +73,12 @@ Verification{% elif state == 'email_sent' %}Check Your Email{% elif state ==
             <div class="subtitle subtitle-spaced">
                 We've sent a magic link to
                 <strong>{{ email }}</strong>. <br />
-                Please check your inbox and click the link to sign in.
+                Please check your inbox and click the link to sign in. You can close this tab when you're done.
             </div>
-
-            {% if message %}
-            <div class="success-message">
-                <p>{{ message }}</p>
-            </div>
-            {% endif %}
 
             <div class="info-text">
                 <p>The link will expire in 10 minutes.</p>
-                <p>Didn't receive the email? Check your spam folder.</p>
+                <p>Didn't receive the email? Check your spam folder or <a href="{{ url_for('auth.send_code') }}">try again</a>.</p>
             </div>
 
             <a

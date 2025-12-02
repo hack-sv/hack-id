@@ -273,6 +273,11 @@ TABLES = [
                 "options": {}
             },
             {
+                "name": "skip_consent_screen",
+                "type": "checkbox",
+                "options": {}
+            },
+            {
                 "name": "is_active",
                 "type": "checkbox",
                 "options": {}

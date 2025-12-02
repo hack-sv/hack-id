@@ -108,7 +108,13 @@ def auth_google_callback():
     if "verification_token" in session:
         return redirect(url_for("auth.verify_complete"))
 
-    # Check if this is part of OAuth flow
+    # Check if this is part of OAuth 2.0 authorization code flow
+    if "oauth2_client_id" in session:
+        # Redirect back to /oauth/authorize to continue the flow
+        # The OAuth parameters are already in the session
+        return redirect("/oauth/authorize")
+
+    # Check if this is part of legacy OAuth token flow
     if "oauth_redirect" in session and "oauth_app_id" in session:
         user_email = result["user"]["email"]
         app_id = session.get("oauth_app_id")
@@ -163,12 +169,21 @@ def oauth_authorize():
     OAuth 2.0 authorization endpoint.
     Implements the authorization code flow.
     """
-    # Get OAuth 2.0 parameters
-    client_id = request.args.get("client_id")
-    redirect_uri = request.args.get("redirect_uri")
-    scope = request.args.get("scope", "profile email")
-    state = request.args.get("state", "")
-    response_type = request.args.get("response_type", "code")
+    # Check if OAuth parameters are already in session (from previous redirect)
+    # This happens when user wasn't logged in and had to authenticate first
+    if "oauth2_client_id" in session and "oauth2_redirect_uri" in session:
+        client_id = session.get("oauth2_client_id")
+        redirect_uri = session.get("oauth2_redirect_uri")
+        scope = session.get("oauth2_scope", "profile email")
+        state = session.get("oauth2_state", "")
+        response_type = "code"  # Always code for OAuth 2.0
+    else:
+        # Get OAuth 2.0 parameters from request (first time visiting this endpoint)
+        client_id = request.args.get("client_id")
+        redirect_uri = request.args.get("redirect_uri")
+        scope = request.args.get("scope", "profile email")
+        state = request.args.get("state", "")
+        response_type = request.args.get("response_type", "code")
 
     # Validate required parameters
     if not client_id or not redirect_uri:
@@ -222,13 +237,15 @@ def oauth_authorize():
                 error=f"Invalid scope: {requested_scope}"
             )
 
-    # Store OAuth parameters in session
-    session["oauth_client_id"] = client_id
-    session["oauth_redirect_uri"] = redirect_uri
-    session["oauth_scope"] = scope
-    session["oauth_state"] = state
+    # Store OAuth 2.0 authorization parameters in session
+    # Use "oauth2_" prefix to avoid conflicts with Google OAuth session vars
+    session["oauth2_client_id"] = client_id
+    session["oauth2_redirect_uri"] = redirect_uri
+    session["oauth2_scope"] = scope
+    session["oauth2_state"] = state
+    session.permanent = True  # Ensure session persists
 
-    # If user is already logged in, show consent screen
+    # If user is already logged in, show consent screen or auto-approve
     if "user_email" in session:
         user = get_user_by_email(session["user_email"])
         if user and user.get("legal_name"):  # User has completed registration
@@ -245,6 +262,26 @@ def oauth_authorize():
                         state="error",
                         error="You don't have permission to access this app."
                     )
+
+            # Check if consent screen should be skipped
+            if app.get('skip_consent_screen'):
+                # Auto-approve: generate authorization code and redirect
+                code = create_authorization_code(
+                    client_id=client_id,
+                    user_email=session["user_email"],
+                    redirect_uri=redirect_uri,
+                    scope=scope
+                )
+
+                # Clear OAuth session data
+                session.pop("oauth2_client_id", None)
+                session.pop("oauth2_redirect_uri", None)
+                session.pop("oauth2_scope", None)
+                session.pop("oauth2_state", None)
+
+                # Redirect to app with authorization code
+                separator = "&" if "?" in redirect_uri else "?"
+                return redirect(f"{redirect_uri}{separator}code={code}&state={state}")
 
             # Show consent screen
             return render_template(
@@ -271,10 +308,10 @@ def oauth_authorize_consent():
         )
 
     # Verify OAuth session data exists
-    client_id = session.get("oauth_client_id")
-    redirect_uri = session.get("oauth_redirect_uri")
-    oauth_scope = session.get("oauth_scope")
-    state = session.get("oauth_state", "")
+    client_id = session.get("oauth2_client_id")
+    redirect_uri = session.get("oauth2_redirect_uri")
+    oauth_scope = session.get("oauth2_scope")
+    state = session.get("oauth2_state", "")
 
     if not client_id or not redirect_uri or not oauth_scope:
         return render_template(
@@ -287,10 +324,10 @@ def oauth_authorize_consent():
     app = get_app_by_client_id(client_id)
     if not app or not app.get('is_active'):
         # Clear OAuth session
-        session.pop("oauth_client_id", None)
-        session.pop("oauth_redirect_uri", None)
-        session.pop("oauth_scope", None)
-        session.pop("oauth_state", None)
+        session.pop("oauth2_client_id", None)
+        session.pop("oauth2_redirect_uri", None)
+        session.pop("oauth2_scope", None)
+        session.pop("oauth2_state", None)
 
         # Redirect with error
         separator = "&" if "?" in redirect_uri else "?"
@@ -305,10 +342,10 @@ def oauth_authorize_consent():
             user_email, app["id"], "read"
         ):
             # Clear OAuth session
-            session.pop("oauth_client_id", None)
-            session.pop("oauth_redirect_uri", None)
-            session.pop("oauth_scope", None)
-            session.pop("oauth_state", None)
+            session.pop("oauth2_client_id", None)
+            session.pop("oauth2_redirect_uri", None)
+            session.pop("oauth2_scope", None)
+            session.pop("oauth2_state", None)
 
             # Redirect with error
             separator = "&" if "?" in redirect_uri else "?"
@@ -318,10 +355,10 @@ def oauth_authorize_consent():
     if request.form.get("action") != "approve":
         # User denied
         # Clear session
-        session.pop("oauth_client_id", None)
-        session.pop("oauth_redirect_uri", None)
-        session.pop("oauth_scope", None)
-        session.pop("oauth_state", None)
+        session.pop("oauth2_client_id", None)
+        session.pop("oauth2_redirect_uri", None)
+        session.pop("oauth2_scope", None)
+        session.pop("oauth2_state", None)
 
         # Redirect with error
         separator = "&" if "?" in redirect_uri else "?"
@@ -335,14 +372,14 @@ def oauth_authorize_consent():
         scope=oauth_scope
     )
 
-    redirect_uri = session["oauth_redirect_uri"]
-    state = session.get("oauth_state", "")
+    redirect_uri = session["oauth2_redirect_uri"]
+    state = session.get("oauth2_state", "")
 
     # Clear OAuth session data
-    session.pop("oauth_client_id", None)
-    session.pop("oauth_redirect_uri", None)
-    session.pop("oauth_scope", None)
-    session.pop("oauth_state", None)
+    session.pop("oauth2_client_id", None)
+    session.pop("oauth2_redirect_uri", None)
+    session.pop("oauth2_scope", None)
+    session.pop("oauth2_state", None)
 
     # Redirect with authorization code
     separator = "&" if "?" in redirect_uri else "?"
@@ -570,7 +607,13 @@ def email_callback():
         session["user_email"] = email
         session["user_name"] = user.get("preferred_name") or user.get("legal_name") or name
 
-        # Check if this is part of OAuth flow
+        # Check if this is part of OAuth 2.0 authorization code flow
+        if "oauth2_client_id" in session and user.get("legal_name"):
+            # Redirect back to /oauth/authorize to continue the flow
+            # The OAuth parameters are already in the session
+            return redirect("/oauth/authorize")
+
+        # Check if this is part of legacy OAuth token flow
         if "oauth_redirect" in session and "oauth_app_id" in session and user.get("legal_name"):
             user_email = session["user_email"]
             app_id = session.get("oauth_app_id")
@@ -815,50 +858,10 @@ def register():
         return redirect(url_for("auth.verify_complete"))
 
     # Check if this is part of NEW OAuth 2.0 flow (authorization code flow)
-    if "oauth_client_id" in session:
-        user_email = session["user_email"]
-
-        # Get app info to check permissions
-        app = get_app_by_client_id(session["oauth_client_id"])
-
-        if not app or not app.get('is_active'):
-            # Clear OAuth session
-            session.pop("oauth_client_id", None)
-            session.pop("oauth_redirect_uri", None)
-            session.pop("oauth_scope", None)
-            session.pop("oauth_state", None)
-            return render_template(
-                "auth.html",
-                state="error",
-                error="This app is no longer available."
-            )
-
-        # Check if app allows anyone or if user has permission
-        if not app.get('allow_anyone'):
-            # Restricted apps require: admin + explicit app permission
-            if not is_admin(user_email) or not has_app_permission(
-                user_email, app["id"], "read"
-            ):
-                # Clear OAuth session
-                session.pop("oauth_client_id", None)
-                session.pop("oauth_redirect_uri", None)
-                session.pop("oauth_scope", None)
-                session.pop("oauth_state", None)
-                return render_template(
-                    "auth.html",
-                    state="error",
-                    error="You don't have permission to access this app."
-                )
-
-        # Show consent screen
-        requested_scopes = session.get("oauth_scope", "").split()
-        return render_template(
-            "oauth_consent.html",
-            app=app,
-            scopes=requested_scopes,
-            redirect_uri=session.get("oauth_redirect_uri"),
-            state=session.get("oauth_state", "")
-        )
+    if "oauth2_client_id" in session:
+        # Redirect back to /oauth/authorize to continue the flow
+        # This will handle skip_consent_screen and all permission checks
+        return redirect("/oauth/authorize")
 
     # Check if this is part of LEGACY OAuth flow (token-based)
     if "oauth_redirect" in session and "oauth_app_id" in session:

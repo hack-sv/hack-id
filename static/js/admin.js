@@ -1296,6 +1296,7 @@ function showAddAppModal() {
     document.getElementById('app-icon').value = '';
     document.getElementById('app-redirect-uris').value = '';
     document.getElementById('app-allow-anyone').checked = false;
+    document.getElementById('app-skip-consent').checked = false;
 
     // Hide credentials section for new apps
     const credentials = document.getElementById('app-credentials');
@@ -1342,6 +1343,7 @@ function editApp(appId) {
             }
 
             document.getElementById('app-allow-anyone').checked = app.allow_anyone;
+            document.getElementById('app-skip-consent').checked = app.skip_consent_screen || false;
 
             // Show credentials if they exist
             const credentials = document.getElementById('app-credentials');
@@ -1376,6 +1378,7 @@ function saveApp() {
     const icon = document.getElementById('app-icon').value.trim();
     const redirectUrisText = document.getElementById('app-redirect-uris').value.trim();
     const allowAnyone = document.getElementById('app-allow-anyone').checked;
+    const skipConsent = document.getElementById('app-skip-consent').checked;
 
     if (!name) {
         showToast('Name is required', true);
@@ -1413,7 +1416,8 @@ function saveApp() {
             icon,
             redirect_uris: redirectUris,
             allowed_scopes: selectedScopes,
-            allow_anyone: allowAnyone
+            allow_anyone: allowAnyone,
+            skip_consent_screen: skipConsent
         })
     })
     .then(r => {

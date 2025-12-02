@@ -2,37 +2,29 @@
 {% block title %}Authorize {{ app.name }} - hack.sv{% endblock %}
 {% block body %}
 <div>
-    <div class="auth-container">
-        <img
-            src="{{ url_for('static', filename='logo-big.svg') }}"
-            alt="HACK.SV"
-            class="hack-logo"
-        />
-        <div class="title">Authorize Application</div>
-        
+    <div class="auth-container">        
         <div class="oauth-app-info">
-            {% if app.icon %}
-            <div class="app-icon">{{ app.icon }}</div>
-            {% endif %}
-            <h2>{{ app.name }}</h2>
-            <p class="app-description">wants to access your hack.sv account</p>
+            <p>Login to</p>
+            <div>
+                <h2>{{ app.name }}</h2>
+            </div>
         </div>
 
         <div class="oauth-scopes">
-            <h3>This app will be able to:</h3>
-            <ul>
+            <h3>This app will be able to access:</h3>
+            <ul class="scope-list">
                 {% for scope in scopes %}
-                <li>
+                <li class="scope-item">
                     {% if scope == 'profile' %}
-                    📝 Access your profile information (name, pronouns)
+                    Basic profile information (name, pronouns)
                     {% elif scope == 'email' %}
-                    ✉️ Access your email address
+                    Your email address
                     {% elif scope == 'events' %}
-                    📅 Access your event enrollment information
+                    Your event enrollment
                     {% elif scope == 'discord' %}
-                    💬 Access your Discord account information
+                    Your Discord profile information
                     {% elif scope == 'dob' %}
-                    🎂 Access your date of birth
+                    Your date of birth
                     {% else %}
                     {{ scope }}
                     {% endif %}
@@ -46,9 +38,9 @@
             <code>{{ redirect_uri }}</code>
         </div>
 
-        <form method="post" action="{{ url_for('auth.oauth_authorize_consent') }}">
+        <form method="post" action="{{ url_for('auth.oauth_authorize_consent') }}" class="oauth-consent-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" name="action" value="approve" class="google-btn">
+            <button type="submit" name="action" value="approve" class="approve-btn">
                 Authorize {{ app.name }}
             </button>
             <button type="submit" name="action" value="deny" class="cancel-btn">

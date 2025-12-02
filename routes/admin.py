@@ -547,6 +547,7 @@ def create_app_route():
         icon = data.get("icon")
         allowed_scopes = data.get("allowed_scopes", ["profile", "email"])
         allow_anyone = data.get("allow_anyone", False)
+        skip_consent_screen = data.get("skip_consent_screen", False)
 
         if not name:
             return jsonify({"success": False, "error": "Name is required"})
@@ -560,7 +561,8 @@ def create_app_route():
             created_by=session["user_email"],
             icon=icon,
             allowed_scopes=allowed_scopes,
-            allow_anyone=allow_anyone
+            allow_anyone=allow_anyone,
+            skip_consent_screen=skip_consent_screen
         )
         return jsonify(result)
     except Exception as e:
@@ -579,7 +581,8 @@ def update_app_route(app_id):
             icon=data.get("icon"),
             redirect_uris=data.get("redirect_uris"),
             allowed_scopes=data.get("allowed_scopes"),
-            allow_anyone=data.get("allow_anyone")
+            allow_anyone=data.get("allow_anyone"),
+            skip_consent_screen=data.get("skip_consent_screen")
         )
         return jsonify(result)
     except Exception as e:

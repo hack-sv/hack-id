@@ -103,7 +103,8 @@ def create_app(
     created_by: str,
     icon: Optional[str] = None,
     allowed_scopes: Optional[List[str]] = None,
-    allow_anyone: bool = False
+    allow_anyone: bool = False,
+    skip_consent_screen: bool = False
 ) -> Dict[str, Any]:
     """Create a new OAuth 2.0 app with client credentials."""
     if not redirect_uris or len(redirect_uris) == 0:
@@ -129,6 +130,7 @@ def create_app(
             "allowed_scopes": json.dumps(allowed_scopes),
             "created_by": created_by,
             "allow_anyone": allow_anyone,
+            "skip_consent_screen": skip_consent_screen,
             "is_active": True
         }
 
@@ -151,7 +153,8 @@ def update_app(
     icon: Optional[str] = None,
     redirect_uris: Optional[List[str]] = None,
     allowed_scopes: Optional[List[str]] = None,
-    allow_anyone: Optional[bool] = None
+    allow_anyone: Optional[bool] = None,
+    skip_consent_screen: Optional[bool] = None
 ) -> Dict[str, Any]:
     """Update an existing OAuth 2.0 app."""
     # Build update data
@@ -176,6 +179,9 @@ def update_app(
 
     if allow_anyone is not None:
         update_data["allow_anyone"] = allow_anyone
+
+    if skip_consent_screen is not None:
+        update_data["skip_consent_screen"] = skip_consent_screen
 
     if not update_data:
         return {"success": False, "error": "No fields to update"}
