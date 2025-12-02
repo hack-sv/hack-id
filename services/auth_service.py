@@ -16,6 +16,7 @@ from models.user import (
 )
 from utils.discord import assign_discord_role, remove_all_event_roles
 from utils.events import get_event_discord_role_id, get_hacker_role_id, is_legacy_event
+from utils.email import send_magic_link_email
 from config import (
     WORKOS_API_KEY,
     WORKOS_CLIENT_ID,
@@ -41,17 +42,22 @@ def send_email_verification(email):
             redirect_uri=EMAIL_REDIRECT_URI,
         )
 
-        # In debug mode, print the magic link
-        if DEBUG_MODE:
-            print(f"\n==== DEBUG EMAIL (WorkOS Magic Link) ====")
-            print(f"To: {email}")
-            print(f"Magic Link: {passwordless_session.link}")
-            print(f"Session ID: {passwordless_session.id}")
-            print(f"This link will expire in 10 minutes.")
-            print(f"=========================================\n")
+        # Get the magic link from WorkOS
+        magic_link = passwordless_session.link
 
-        # WorkOS automatically sends the email
-        return True
+        # Manually send the email with the magic link
+        email_sent = send_magic_link_email(email, magic_link)
+
+        if DEBUG_MODE:
+            print(f"\n==== DEBUG: WorkOS Magic Link Created ====")
+            print(f"To: {email}")
+            print(f"Magic Link: {magic_link}")
+            print(f"Session ID: {passwordless_session.id}")
+            print(f"Email sent: {email_sent}")
+            print(f"This link will expire in 10 minutes.")
+            print(f"==========================================\n")
+
+        return email_sent
 
     except Exception as e:
         if DEBUG_MODE:
